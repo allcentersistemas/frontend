@@ -67,7 +67,7 @@ export async function updateCarga(id, body) {
 /**
  * POST /api/transport/cargas/{id}/detalles
  * Body: paleEnvioId, paleCodigo?, cantidad (req), observacion?
- * Valida pale cerrado vía module-order.
+ * Valida pale cerrado vía module-system (pale).
  */
 export async function addCargaDetalle(cargaId, body) {
   return transportJson(`/api/transport/cargas/${cargaId}/detalles`, {

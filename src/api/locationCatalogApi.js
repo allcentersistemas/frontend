@@ -1,7 +1,7 @@
 import { locationCatalogJson } from './http'
 
 /**
- * Catálogo de sucursales y ubicaciones servido por **module-location**
+ * Catálogo de sucursales y ubicaciones servido por **module-system**
  * (`/api/location/…`).
  */
 

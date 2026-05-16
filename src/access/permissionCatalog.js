@@ -43,7 +43,7 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-employee',
+    module: 'module-system',
     feature: FEATURE.EMPLOYEE_ADMIN,
     endpoints: [
       ['GET', '/api/auth/first-setup/status'],
@@ -74,7 +74,8 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-pale',
+    module: 'module-system',
+    domain: 'pales',
     feature: FEATURE.PALES_LIST,
     endpoints: [
       ['GET', '/api/pallets/catalogs'],
@@ -89,7 +90,8 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-transport',
+    module: 'module-system',
+    domain: 'transport',
     feature: FEATURE.TRANSPORT_LOADS,
     endpoints: [
       ['GET', '/api/transport/vehiculos'],
@@ -106,7 +108,8 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-location',
+    module: 'module-system',
+    domain: 'location',
     feature: FEATURE.LOCATION_CATALOG,
     endpoints: [
       ['GET', '/api/location/branches'],
@@ -116,7 +119,8 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-rm',
+    module: 'module-system',
+    domain: 'rm',
     feature: FEATURE.INVENTORY,
     endpoints: [
       ['POST', '/api/rm/registros-entrada'],
@@ -135,7 +139,8 @@ export const ENDPOINT_CATALOG = [
     ],
   },
   {
-    module: 'module-inventory',
+    module: 'module-system',
+    domain: 'inventory',
     feature: FEATURE.INVENTORY,
     endpoints: [
       ['GET', '/api/inventory/items'],

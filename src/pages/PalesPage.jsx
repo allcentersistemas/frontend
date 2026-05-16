@@ -367,7 +367,7 @@ export function PalesPage() {
     <PageShell>
       <PageHeader title="Pales de envío">
         <p>
-          Consulta de pales desde <InlineCode>module-pale</InlineCode> (<InlineCode>VITE_PALES_SERVICE_API_BASE</InlineCode>
+          Consulta de pales desde <InlineCode>module-system</InlineCode> (<InlineCode>VITE_SYSTEM_API_BASE</InlineCode>
           ). Para asignar pales cerrados a un vehículo, abre{' '}
           <Link to={transportHref} className="font-medium text-amber-300 underline decoration-amber-500/30 underline-offset-2 hover:text-amber-200">
             Transporte

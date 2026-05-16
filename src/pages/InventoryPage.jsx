@@ -290,7 +290,7 @@ export function InventoryPage() {
           <div className="card pad" style={{ marginBottom: '1rem' }}>
             <h1 className="card__title">Inventario · almacén</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              API <code>module-inventory</code>:{' '}
+              API <code>module-system</code>:{' '}
               <code className="small">{inventoryApiBase}</code> (<code>VITE_INVENTORY_API_BASE</code>).
             </p>
           </div>
@@ -299,7 +299,7 @@ export function InventoryPage() {
       ) : (
         <>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h1 className="card__title">Inventario / recepción (module-rm)</h1>
+        <h1 className="card__title">Inventario / recepción (module-system)</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
           Consulta de registros enviados desde la app móvil. RM:{' '}
           <code className="small">{rmApiBase}</code>

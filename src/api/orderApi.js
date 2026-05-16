@@ -1,10 +1,6 @@
 import { orderJson } from './http'
 
-/**
- * module-order (`VITE_ORDER_API_BASE`, típico 8083): palés `/api/order/pallets/**`, proyectos `/api/order/projects/**`.
- * Para el mismo ERP con microservicios: transporte (`transportApi.js`), catálogo geográfico (`locationCatalogApi.js`),
- * pale alternativo (`paleModuleApi.js`).
- */
+/** module-system: proyectos y órdenes bajo `/api/order/**`. */
 
 
 

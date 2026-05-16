@@ -1,19 +1,29 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const SECURITY_HEADERS = {
+const BASE_SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-  'Content-Security-Policy':
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; frame-ancestors 'none'; base-uri 'self'",
 }
 
-function securityHeadersPlugin() {
+/** Producción / preview: sin inline scripts. */
+const CSP_PRODUCTION =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+
+/**
+ * Desarrollo: Vite y @vitejs/plugin-react inyectan scripts inline (HMR / preamble).
+ * Sin 'unsafe-inline' el navegador bloquea esos scripts y React falla al arrancar.
+ */
+const CSP_DEVELOPMENT =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*; frame-ancestors 'none'; base-uri 'self'"
+
+function securityHeadersPlugin(csp) {
+  const headers = { ...BASE_SECURITY_HEADERS, 'Content-Security-Policy': csp }
   const apply = (server) => {
     server.middlewares.use((_req, res, next) => {
-      for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
+      for (const [k, v] of Object.entries(headers)) {
         res.setHeader(k, v)
       }
       next()
@@ -26,62 +36,32 @@ function securityHeadersPlugin() {
   }
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const isDevServer = command === 'serve'
   const useProxy = env.VITE_USE_DEV_PROXY === 'true'
 
+  const systemTarget = env.VITE_PROXY_SYSTEM_TARGET || 'http://localhost:8080'
   const proxy = useProxy
     ? {
-        '/api-employee': {
-          target: env.VITE_PROXY_EMPLOYEE_TARGET || 'http://localhost:8080',
+        '/api-system': {
+          target: systemTarget,
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-employee/, ''),
-        },
-        '/api-order': {
-          target: env.VITE_PROXY_ORDER_TARGET || 'http://localhost:8083',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-order/, ''),
-        },
-        '/api-transport': {
-          target: env.VITE_PROXY_TRANSPORT_TARGET || 'http://localhost:8085',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-transport/, ''),
-        },
-        '/api-pale': {
-          target: env.VITE_PROXY_PALE_TARGET || 'http://localhost:8087',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-pale/, ''),
-        },
-        '/api-location': {
-          target: env.VITE_PROXY_LOCATION_TARGET || 'http://localhost:8088',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-location/, ''),
-        },
-        '/api-inventory': {
-          target: env.VITE_PROXY_INVENTORY_TARGET || 'http://localhost:8089',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-inventory/, ''),
-        },
-        '/api-rm': {
-          target: env.VITE_PROXY_RM_TARGET || 'http://localhost:8090',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-rm/, ''),
+          rewrite: (p) => p.replace(/^\/api-system/, ''),
         },
         '/api-biesse': {
           target: env.VITE_PROXY_BIESSE_TARGET || 'http://localhost:8086',
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api-biesse/, ''),
         },
-        '/api-client': {
-          target: env.VITE_PROXY_CLIENT_TARGET || 'http://localhost:8084',
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api-client/, ''),
-        },
       }
     : undefined
 
   return {
-    plugins: [react(), securityHeadersPlugin()],
+    plugins: [
+      react(),
+      securityHeadersPlugin(isDevServer ? CSP_DEVELOPMENT : CSP_PRODUCTION),
+    ],
     server: {
       port: Number(env.VITE_DEV_PORT) || 5173,
       proxy,

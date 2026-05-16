@@ -467,7 +467,7 @@ export function TransportPage() {
         <h1>Transporte</h1>
         <p className="page__lead">
           Vehículos, cargas y <strong>auditoría</strong> desde{' '}
-          <code className="code-inline">module-transport</code>. Cada cambio queda registrado con actor
+          <code className="code-inline">module-system</code>. Cada cambio queda registrado con actor
           (empleado en sesión), instante y detalle. Los pales deben estar cerrados según validación del
           backend.
         </p>

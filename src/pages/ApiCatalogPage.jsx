@@ -57,7 +57,9 @@ export function ApiCatalogPage() {
         {visibleModules.map((group) => (
           <section className="card endpoint-card" key={group.module}>
             <div className="endpoint-card__head">
-              <h2 className="card__title">{group.module}</h2>
+              <h2 className="card__title">
+                {group.domain ? `${group.module} · ${group.domain}` : group.module}
+              </h2>
               <span className="tag">{group.endpoints.length} endpoints</span>
             </div>
             <ul className="endpoint-list">
@@ -82,7 +84,7 @@ export function ApiCatalogPage() {
         <section className="card pad" style={{ marginTop: '1rem' }}>
           <h2 className="card__title">Respuesta del backend `/api`</h2>
           {loading ? (
-            <p className="muted">Cargando catálogo declarado por module-employee…</p>
+            <p className="muted">Cargando catálogo declarado por module-system…</p>
           ) : err ? (
             <p className="text-warn">{err}</p>
           ) : backendCatalog ? (

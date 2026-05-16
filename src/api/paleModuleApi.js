@@ -1,8 +1,8 @@
 import { paleModuleJson } from './http'
 
 /**
- * Palés expuestos por **module-pale** (`/api/pallets/…`).
- * No confundir con `orderApi` (`/api/order/pallets/…`) si usas module-order.
+ * Palés expuestos por **module-system** (`/api/pallets/…`).
+ * Pales en module-system: `/api/pallets/…` (distinto de proyectos en `/api/order/…`).
  */
 
 /** GET /api/pallets/catalogs */

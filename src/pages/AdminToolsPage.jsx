@@ -843,7 +843,7 @@ export function AdminToolsPage() {
               <div className="card pad form-section">
                 <h2>Nueva sucursal</h2>
                 <p className="muted small form-hint">
-                  <code className="code-inline">POST /api/location/branch</code> en module-location.
+                  <code className="code-inline">POST /api/location/branch</code> en module-system.
                 </p>
                 <form onSubmit={(e) => void submitCreateBranch(e)}>
                   <label className="field">

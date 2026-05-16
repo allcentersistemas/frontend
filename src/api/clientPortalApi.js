@@ -1,6 +1,6 @@
 import { clientPortalJson } from './http'
 
-/** module-client (`/api/auth/…`, `/api/clients/…`) */
+/** module-system (`/api/auth/…`, `/api/clients/…`) */
 
 export async function login(body) {
   return clientPortalJson('/api/auth/login', {

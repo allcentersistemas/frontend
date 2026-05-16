@@ -156,14 +156,14 @@ export async function orderJson(path, init) {
 let transportExtraHeadersFn = () => ({})
 
 /**
- * Cabeceras extra en todas las llamadas a module-transport (p. ej. actor para auditoría).
+ * Cabeceras extra en todas las llamadas a module-system (p. ej. actor para auditoría).
  * El AuthContext suele registrar aquí X-Actor-Employee-Id y X-Actor-Email.
  */
 export function configureTransportExtraHeaders(getter) {
   transportExtraHeadersFn = typeof getter === 'function' ? getter : () => ({})
 }
 
-/** module-transport */
+/** module-system */
 export async function transportJson(path, init) {
   const extra = transportExtraHeadersFn()
   const headers = new Headers(init?.headers)
@@ -175,12 +175,12 @@ export async function transportJson(path, init) {
   return backendJson(transportApiBase, path, { ...init, headers })
 }
 
-/** module-location: sucursales y ubicaciones bajo `/api/location/…` */
+/** module-system: sucursales y ubicaciones bajo `/api/location/…` */
 export async function locationCatalogJson(path, init) {
   return backendJson(locationCatalogApiBase, path, init)
 }
 
-/** module-pale: `/api/pallets/…` */
+/** module-system: `/api/pallets/…` */
 export async function paleModuleJson(path, init) {
   return backendJson(paleServiceApiBase, path, init)
 }
@@ -188,13 +188,13 @@ export async function paleModuleJson(path, init) {
 let rmExtraHeadersFn = () => ({})
 
 /**
- * Cabeceras extra en module-rm (p. ej. X-User-Email para auditoría en servidor).
+ * Cabeceras extra en module-system (p. ej. X-User-Email para auditoría en servidor).
  */
 export function configureRmExtraHeaders(getter) {
   rmExtraHeadersFn = typeof getter === 'function' ? getter : () => ({})
 }
 
-/** module-rm: `/api/rm/…` */
+/** module-system: `/api/rm/…` */
 export async function rmJson(path, init) {
   const extra = rmExtraHeadersFn()
   const headers = new Headers(init?.headers)
@@ -212,7 +212,7 @@ export function configureInventoryExtraHeaders(getter) {
   inventoryExtraHeadersFn = typeof getter === 'function' ? getter : () => ({})
 }
 
-/** module-inventory: `/api/inventory/…` */
+/** module-system: `/api/inventory/…` */
 export async function inventoryJson(path, init) {
   const extra = inventoryExtraHeadersFn()
   const headers = new Headers(init?.headers)
@@ -224,7 +224,7 @@ export async function inventoryJson(path, init) {
   return backendJson(inventoryApiBase, path, { ...init, headers })
 }
 
-/** module-client portal */
+/** module-system portal */
 export async function clientPortalJson(path, init) {
   return backendJson(clientPortalApiBase, path, init)
 }

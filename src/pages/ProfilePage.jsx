@@ -333,7 +333,7 @@ export function ProfilePage() {
         <h2 className="card__title">Seguridad</h2>
         <p className="muted small form-hint">
           <code className="code-inline">POST /api/auth/change-password</code> y{' '}
-          <code className="code-inline">POST /api/auth/logout-all</code> (module-employee).
+          <code className="code-inline">POST /api/auth/logout-all</code> (module-system).
         </p>
         <form className="form-section" onSubmit={(e) => void onChangePassword(e)}>
           <div className="form-row-2">
