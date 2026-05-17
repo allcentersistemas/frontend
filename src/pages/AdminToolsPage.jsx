@@ -117,6 +117,7 @@ export function AdminToolsPage() {
   const [crErr, setCrErr] = useState(null)
   const [crOk, setCrOk] = useState(null)
 
+  const [ceUsername, setCeUsername] = useState('')
   const [ceEmail, setCeEmail] = useState('')
   const [cePassword, setCePassword] = useState('')
   const [ceFirstName, setCeFirstName] = useState('')
@@ -254,6 +255,10 @@ export function AdminToolsPage() {
     e.preventDefault()
     setCeErr(null)
     setCeOk(null)
+    if (ceUsername.trim().length < 2) {
+      setCeErr('El usuario de login debe tener al menos 2 caracteres.')
+      return
+    }
     if (cePassword.length < 8) {
       setCeErr('La contraseña debe tener al menos 8 caracteres.')
       return
@@ -261,6 +266,7 @@ export function AdminToolsPage() {
     setCeBusy(true)
     try {
       const body = {
+        username: ceUsername.trim(),
         email: ceEmail.trim(),
         password: cePassword,
         firstName: ceFirstName.trim(),
@@ -285,9 +291,10 @@ export function AdminToolsPage() {
 
       const created = await employeeApi.createEmployee(body)
       setCeOk(
-        `Usuario creado: ${created.email} (${created.employeeCode}). Puede iniciar sesión con esa contraseña.`,
+        `Usuario creado: login «${created.samAccountName || ceUsername.trim()}» (${created.employeeCode}). Correo: ${created.email}.`,
       )
       setCePassword('')
+      setCeUsername('')
       setCeEmail('')
       setCeFirstName('')
       setCeSecondLastName('')
@@ -541,6 +548,17 @@ export function AdminToolsPage() {
               <form onSubmit={(e) => void submitCreateEmployee(e)}>
                 <div className="form-row-2">
                   <label className="field">
+                    <span>Usuario (login)</span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={ceUsername}
+                      onChange={(e) => setCeUsername(e.target.value)}
+                      required
+                      placeholder="jperez"
+                    />
+                  </label>
+                  <label className="field">
                     <span>Email</span>
                     <input
                       type="email"
@@ -550,6 +568,8 @@ export function AdminToolsPage() {
                       required
                     />
                   </label>
+                </div>
+                <div className="form-row-2">
                   <label className="field">
                     <span>Contraseña inicial (mín. 8)</span>
                     <input

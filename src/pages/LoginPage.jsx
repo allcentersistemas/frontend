@@ -15,7 +15,7 @@ export function LoginPage() {
 
   const from = location.state?.from?.pathname
 
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -38,7 +38,7 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const dash = await login(email.trim(), password)
+      const dash = await login(username.trim(), password)
 
       navigate(dashboardPath(dash), {
         replace: true
@@ -148,7 +148,7 @@ export function LoginPage() {
                 text-yellow-100
                 mb-2
               ">
-                  Correo electrónico
+                  Usuario
                 </label>
 
                 <div className="relative">
@@ -164,12 +164,12 @@ export function LoginPage() {
                 " />
 
                   <input
-                      type="email"
+                      type="text"
                       autoComplete="username"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
-                      placeholder="correo@empresa.com"
+                      placeholder="jperez"
                       className="
                     w-full
                     bg-black/20

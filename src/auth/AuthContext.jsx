@@ -113,8 +113,8 @@ export function AuthProvider({ children }) {
     [employee],
   )
 
-  const login = useCallback(async (email, password) => {
-    const session = await employeeApi.login({ email, password })
+  const login = useCallback(async (username, password) => {
+    const session = await employeeApi.login({ username, password })
     setStoredTokens({
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
