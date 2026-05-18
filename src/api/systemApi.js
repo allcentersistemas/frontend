@@ -83,8 +83,25 @@ export async function fetchMeAsEmployee() {
   return systemJson('/api/employees/me')
 }
 
-export async function listEmployees() {
-  return systemJson('/api/employees')
+export async function listEmployees(params = {}) {
+  const q = new URLSearchParams()
+  if (params.activeOnly === false) {
+    q.set('activeOnly', 'false')
+  } else {
+    q.set('activeOnly', 'true')
+  }
+  if (params.q != null && String(params.q).trim() !== '') {
+    q.set('q', String(params.q).trim())
+  }
+  const suffix = q.toString() ? `?${q}` : ''
+  return systemJson(`/api/employees${suffix}`)
+}
+
+export async function resetEmployeePassword(employeeId, body) {
+  await systemJson(`/api/employees/${employeeId}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function getEmployeeById(employeeId) {
@@ -114,6 +131,22 @@ export async function replaceEmployeeRoles(employeeId, roleIds) {
 
 export async function deleteEmployee(employeeId) {
   await systemJson(`/api/employees/${employeeId}`, { method: 'DELETE' })
+}
+
+export async function recordStickerPrint(body) {
+  return systemJson('/api/impresion/sticker', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function listStickerPrints(params = {}) {
+  const q = new URLSearchParams()
+  if (params.orderId != null) q.set('orderId', String(params.orderId))
+  if (params.fromDate) q.set('fromDate', String(params.fromDate))
+  if (params.toDate) q.set('toDate', String(params.toDate))
+  q.set('limit', String(params.limit ?? 100))
+  return systemJson(`/api/impresion/sticker?${q}`)
 }
 
 export async function listRoles() {

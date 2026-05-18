@@ -220,22 +220,6 @@ export async function getPieceById(pieceId) {
   return biesseJson(`/api/biesse/scan/pieces/${pieceId}`)
 }
 
-export async function recordStickerPrint(body) {
-  return biesseJson('/api/biesse/impresion/sticker', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export async function listStickerPrints(params = {}) {
-  const q = new URLSearchParams()
-  if (params.orderId != null) q.set('orderId', String(params.orderId))
-  if (params.fromDate) q.set('fromDate', String(params.fromDate))
-  if (params.toDate) q.set('toDate', String(params.toDate))
-  q.set('limit', String(params.limit ?? 100))
-  return biesseJson(`/api/biesse/impresion/sticker?${q}`)
-}
-
 export async function listBiesseAudit(params = {}) {
   const q = new URLSearchParams()
   if (params.orderId != null && String(params.orderId).trim() !== '') q.set('orderId', String(params.orderId).trim())

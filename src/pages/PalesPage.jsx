@@ -365,16 +365,7 @@ export function PalesPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Pales de envío">
-        <p>
-          Consulta de pales desde <InlineCode>module-system</InlineCode> (<InlineCode>VITE_SYSTEM_API_BASE</InlineCode>
-          ). Para asignar pales cerrados a un vehículo, abre{' '}
-          <Link to={transportHref} className="font-medium text-amber-300 underline decoration-amber-500/30 underline-offset-2 hover:text-amber-200">
-            Transporte
-          </Link>{' '}
-          (usa el mismo ID de pale que ves al seleccionar una fila).
-        </p>
-      </PageHeader>
+
 
       <TabBar aria-label="Vista pales">
         <TabButton selected={pageTab === 'listado'} onClick={() => selectTab('listado')}>

@@ -140,6 +140,10 @@ export function AdminToolsPage() {
   const [eeBranchId, setEeBranchId] = useState('')
   const [eeRoleIds, setEeRoleIds] = useState(() => new Set())
   const [eeActive, setEeActive] = useState(true)
+  const [eeResetPassword, setEeResetPassword] = useState('')
+  const [eeNotifyEmail, setEeNotifyEmail] = useState(false)
+  const [eeResetBusy, setEeResetBusy] = useState(false)
+  const [empSearch, setEmpSearch] = useState('')
   const [eeBusy, setEeBusy] = useState(false)
   const [eeErr, setEeErr] = useState(null)
   const [eeOk, setEeOk] = useState(null)
@@ -172,7 +176,7 @@ export function AdminToolsPage() {
       try {
         if (panel === 'employees') {
           const [list, ro, branches] = await Promise.all([
-            systemApi.listEmployees(),
+            systemApi.listEmployees({ activeOnly: true, q: empSearch }),
             systemApi.listRoles(),
             systemApi.listBranches(),
           ])
@@ -226,7 +230,7 @@ export function AdminToolsPage() {
     return () => {
       cancelled = true
     }
-  }, [panel, refreshKey, auditPage, auditSource, auditText])
+  }, [panel, refreshKey, auditPage, auditSource, auditText, empSearch])
 
   async function submitCreateRole(e) {
     e.preventDefault()
@@ -259,6 +263,10 @@ export function AdminToolsPage() {
     }
     if (cePassword.length < 8) {
       setCeErr('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    if (ceRoleIds.size === 0) {
+      setCeErr('Selecciona al menos un rol para el usuario.')
       return
     }
     setCeBusy(true)
@@ -320,14 +328,54 @@ export function AdminToolsPage() {
     setEeBranchId(row.branchId != null ? String(row.branchId) : '')
     setEeRoleIds(new Set((row.roles ?? []).map((r) => r.id)))
     setEeActive(Boolean(row.active))
+    setEeResetPassword('')
+    setEeNotifyEmail(false)
     setEeErr(null)
     setEeOk(null)
   }
 
   function cancelEditEmployee() {
     setEditingEmployeeId(null)
+    setEeResetPassword('')
+    setEeNotifyEmail(false)
     setEeErr(null)
     setEeOk(null)
+  }
+
+  async function submitResetPassword() {
+    if (!editingEmployeeId) return
+    if (eeResetPassword.length < 8) {
+      setEeErr('La nueva contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    const row = emp?.find((e) => e.id === editingEmployeeId)
+    const label = row?.email ?? `empleado #${editingEmployeeId}`
+    if (
+      !window.confirm(
+        `¿Restablecer la contraseña de ${label}? El usuario no necesitará la contraseña anterior.`,
+      )
+    ) {
+      return
+    }
+    setEeErr(null)
+    setEeOk(null)
+    setEeResetBusy(true)
+    try {
+      await systemApi.resetEmployeePassword(editingEmployeeId, {
+        newPassword: eeResetPassword,
+        notifyByEmail: eeNotifyEmail,
+      })
+      setEeOk(
+        eeNotifyEmail
+          ? 'Contraseña restablecida. Si SMTP está activo, se envió un correo al usuario.'
+          : 'Contraseña restablecida correctamente.',
+      )
+      setEeResetPassword('')
+    } catch (ex) {
+      setEeErr(ex instanceof Error ? ex.message : 'Error al restablecer contraseña')
+    } finally {
+      setEeResetBusy(false)
+    }
   }
 
   async function submitEditEmployee(e) {
@@ -335,6 +383,10 @@ export function AdminToolsPage() {
     if (!editingEmployeeId) return
     setEeErr(null)
     setEeOk(null)
+    if (eeRoleIds.size === 0) {
+      setEeErr('Selecciona al menos un rol para el usuario.')
+      return
+    }
     setEeBusy(true)
     try {
       const body = {
@@ -679,7 +731,8 @@ export function AdminToolsPage() {
                   </label>
                 </div>
                 <div className="field">
-                  <span>Roles</span>
+                  <span>Roles *</span>
+                  <p className="muted small form-hint">Marca los permisos que tendrá el usuario.</p>
                   <div className="role-checks">
                     {roleOptions.map((r) => (
                       <label key={r.id}>
@@ -710,6 +763,22 @@ export function AdminToolsPage() {
             </div>
           )}
 
+          <div className="card pad" style={{ paddingBottom: 0 }}>
+            <label className="field">
+              <span>Buscar usuario</span>
+              <input
+                type="search"
+                placeholder="Nombre, email, código o usuario de login…"
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <p className="muted small form-hint" style={{ marginTop: '0.25rem' }}>
+              Solo se listan empleados activos.
+            </p>
+          </div>
+
           <div className="card card--table">
             <div className="table-wrap">
               <table className="table">
@@ -720,11 +789,17 @@ export function AdminToolsPage() {
                     <th>Nombre</th>
                     <th>Sucursal</th>
                     <th>Roles</th>
-                    <th>Activo</th>
                     {canManage ? <th>Acciones</th> : null}
                   </tr>
                 </thead>
                 <tbody>
+                  {emp.length === 0 ? (
+                    <tr>
+                      <td colSpan={canManage ? 6 : 5} className="muted small">
+                        No hay usuarios activos que coincidan con la búsqueda.
+                      </td>
+                    </tr>
+                  ) : null}
                   {emp.map((e) => (
                     <tr key={e.id}>
                       <td>{e.employeeCode}</td>
@@ -739,7 +814,6 @@ export function AdminToolsPage() {
                           : '—'}
                       </td>
                       <td className="small">{e.roles.map((r) => r.name).join(', ')}</td>
-                      <td>{e.active ? 'Sí' : 'No'}</td>
                       {canManage ? (
                         <td className="small">
                           <button
@@ -826,7 +900,8 @@ export function AdminToolsPage() {
                   </label>
                 </div>
                 <div className="field">
-                  <span>Roles</span>
+                  <span>Roles *</span>
+                  <p className="muted small form-hint">Modifica los permisos del usuario.</p>
                   <div className="role-checks">
                     {roleOptions.map((r) => (
                       <label key={r.id}>
@@ -839,6 +914,45 @@ export function AdminToolsPage() {
                       </label>
                     ))}
                   </div>
+                </div>
+                <div className="field" style={{ marginTop: '1rem' }}>
+                  <span>Restablecer contraseña (admin)</span>
+                  <p className="muted small form-hint">
+                    No se pide la contraseña anterior. Opcionalmente se notifica por correo si SMTP está
+                    configurado.
+                  </p>
+                  <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+                    <label className="field">
+                      <span>Nueva contraseña (mín. 8)</span>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={eeResetPassword}
+                        onChange={(e) => setEeResetPassword(e.target.value)}
+                        minLength={8}
+                        placeholder="••••••••"
+                      />
+                    </label>
+                    <label
+                      className="field"
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={eeNotifyEmail}
+                        onChange={(e) => setEeNotifyEmail(e.target.checked)}
+                      />
+                      <span>Enviar por correo</span>
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    disabled={eeResetBusy || eeResetPassword.length < 8}
+                    onClick={() => void submitResetPassword()}
+                  >
+                    {eeResetBusy ? 'Restableciendo…' : 'Restablecer contraseña'}
+                  </button>
                 </div>
                 {eeErr ? <p className="form-inline-error">{eeErr}</p> : null}
                 {eeOk ? <p className="form-success">{eeOk}</p> : null}

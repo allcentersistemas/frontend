@@ -145,11 +145,7 @@ export function OrdersPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Órdenes">
-        <p>
-          Listado desde <InlineCode>GET /api/biesse/scan/orders</InlineCode>
-        </p>
-      </PageHeader>
+
 
       <TabBar aria-label="Vista órdenes">
         <TabButton selected={pageTab === 'listado'} onClick={() => selectTab('listado')}>
