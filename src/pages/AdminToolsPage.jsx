@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import * as biesseApi from '../api/biesseApi'
 import { useAuth } from '../auth/AuthContext'
-import { normalizeRoleName, ROLE_ADMIN, ROLE_MASTER } from '../auth/roles'
+import {
+  normalizeRoleName,
+  ROLE_ADMIN,
+  ROLE_ADMIN_PRODUCCION,
+  ROLE_MASTER,
+} from '../auth/roles'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
 
@@ -65,14 +70,14 @@ export function AdminToolsPage() {
   const canManage =
     employee?.roles.some((r) => {
       const n = normalizeRoleName(r.name)
-      return n === ROLE_MASTER || n === ROLE_ADMIN
+      return n === ROLE_MASTER || n === ROLE_ADMIN || n === ROLE_ADMIN_PRODUCCION
     }) ?? false
 
   const [panel, setPanel] = useState('employees')
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [emp, setEmp] = useState(null)
-  const [roleOptions, setRoleOptions] = useState(null)
+  const [roleOptions, setRoleOptions] = useState([])
   const [branchOptions, setBranchOptions] = useState(null)
   const [roles, setRoles] = useState(null)
   const [audit, setAudit] = useState(null)
@@ -169,20 +174,34 @@ export function AdminToolsPage() {
   }
 
   useEffect(() => {
+    if (panel !== 'employees' || !canManage) return undefined
+    let cancelled = false
+    ;(async () => {
+      try {
+        const ro = await systemApi.listRoles()
+        if (!cancelled) setRoleOptions(Array.isArray(ro) ? ro : [])
+      } catch {
+        if (!cancelled) setRoleOptions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [panel, canManage, refreshKey])
+
+  useEffect(() => {
     let cancelled = false
     ;(async () => {
       setErr(null)
       setLoading(true)
       try {
         if (panel === 'employees') {
-          const [list, ro, branches] = await Promise.all([
+          const [list, branches] = await Promise.all([
             systemApi.listEmployees({ activeOnly: true, q: empSearch }),
-            systemApi.listRoles(),
             systemApi.listBranches(),
           ])
           if (!cancelled) {
             setEmp(list)
-            setRoleOptions(ro)
             setBranchOptions(branches)
           }
         } else if (panel === 'roles') {
@@ -592,7 +611,7 @@ export function AdminToolsPage() {
         <p className="muted">Cargando…</p>
       ) : panel === 'employees' && emp ? (
         <>
-          {canManage && roleOptions ? (
+          {canManage ? (
             <div className="card pad form-section">
               <h2>Nuevo empleado</h2>
               <form onSubmit={(e) => void submitCreateEmployee(e)}>
@@ -631,6 +650,28 @@ export function AdminToolsPage() {
                       required
                     />
                   </label>
+                </div>
+                <div className="field">
+                  <span>Roles *</span>
+                  <p className="muted small form-hint">Marca uno o más roles para el usuario.</p>
+                  {roleOptions.length === 0 ? (
+                    <p className="form-inline-error">
+                      No hay roles en el sistema. Crea roles en la pestaña «Roles» y vuelve aquí.
+                    </p>
+                  ) : (
+                    <div className="role-checks">
+                      {roleOptions.map((r) => (
+                        <label key={r.id}>
+                          <input
+                            type="checkbox"
+                            checked={ceRoleIds.has(r.id)}
+                            onChange={() => toggleCeRole(r.id)}
+                          />
+                          {r.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="form-row-2">
                   <label className="field">
@@ -730,26 +771,14 @@ export function AdminToolsPage() {
                     </select>
                   </label>
                 </div>
-                <div className="field">
-                  <span>Roles *</span>
-                  <p className="muted small form-hint">Marca los permisos que tendrá el usuario.</p>
-                  <div className="role-checks">
-                    {roleOptions.map((r) => (
-                      <label key={r.id}>
-                        <input
-                          type="checkbox"
-                          checked={ceRoleIds.has(r.id)}
-                          onChange={() => toggleCeRole(r.id)}
-                        />
-                        {r.name}
-                      </label>
-                    ))}
-                  </div>
-                </div>
                 {ceErr ? <p className="form-inline-error">{ceErr}</p> : null}
                 {ceOk ? <p className="form-success">{ceOk}</p> : null}
                 <div className="form-actions">
-                  <button type="submit" className="btn btn--primary" disabled={ceBusy}>
+                  <button
+                    type="submit"
+                    className="btn btn--primary"
+                    disabled={ceBusy || roleOptions.length === 0}
+                  >
                     {ceBusy ? 'Creando…' : 'Crear empleado'}
                   </button>
                 </div>
@@ -758,7 +787,7 @@ export function AdminToolsPage() {
           ) : (
             <div className="card pad">
               <p className="muted">
-                Solo usuarios con rol Master o Admin pueden dar de alta empleados desde la API.
+                Solo usuarios con rol Master, Admin o Admin producción pueden dar de alta empleados.
               </p>
             </div>
           )}
@@ -838,7 +867,7 @@ export function AdminToolsPage() {
               </table>
             </div>
           </div>
-          {canManage && roleOptions && editingEmployeeId ? (
+          {canManage && editingEmployeeId ? (
             <div className="card pad form-section">
               <h2>Editar empleado</h2>
               <form onSubmit={(e) => void submitEditEmployee(e)}>
