@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import * as inventoryStockApi from '../api/inventoryStockApi'
-import * as rmApi from '../api/rmApi'
-import { inventoryApiBase } from '../config/env'
+import * as systemApi from '../api/systemApi'
+import { systemApiBase } from '../config/env'
 import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
@@ -48,14 +47,14 @@ export function StockAlmacenPanel() {
   const [movReason, setMovReason] = useState('')
   const [movRef, setMovRef] = useState('')
 
-  const rows = useMemo(() => rmApi.pageContent(listBody), [listBody])
-  const meta = useMemo(() => rmApi.pageMeta(listBody), [listBody])
+  const rows = useMemo(() => systemApi.pageContent(listBody), [listBody])
+  const meta = useMemo(() => systemApi.pageMeta(listBody), [listBody])
 
   const loadList = useCallback(async () => {
     setListLoading(true)
     setListErr(null)
     try {
-      const body = await inventoryStockApi.listInventoryItems({
+      const body = await systemApi.listInventoryItems({
         page,
         size: pageSize,
         q: q.trim() || undefined,
@@ -78,7 +77,7 @@ export function StockAlmacenPanel() {
     setDetailErr(null)
     setDetail(null)
     try {
-      const data = await inventoryStockApi.getInventoryItemDetail(id)
+      const data = await systemApi.getInventoryItemDetail(id)
       setDetail(data)
     } catch (e) {
       setDetailErr(e instanceof Error ? e.message : 'Error al cargar detalle')
@@ -107,7 +106,7 @@ export function StockAlmacenPanel() {
     e.preventDefault()
     setCreateMsg(null)
     try {
-      await inventoryStockApi.createInventoryItem({
+      await systemApi.createInventoryItem({
         sku: newSku.trim(),
         name: newName.trim(),
         unit: newUnit.trim() || 'UN',
@@ -132,7 +131,7 @@ export function StockAlmacenPanel() {
         setDetailErr('Cantidad inválida (use negativo para salida).')
         return
       }
-      await inventoryStockApi.addInventoryMovement(selectedId, {
+      await systemApi.addInventoryMovement(selectedId, {
         quantityChange: qty,
         reason: movReason.trim(),
         externalRef: movRef.trim() || undefined,
@@ -151,7 +150,7 @@ export function StockAlmacenPanel() {
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <p className="muted small" style={{ margin: 0 }}>
-          Stock de almacén vía <code>{inventoryApiBase}</code> (<code>VITE_INVENTORY_API_BASE</code>). Movimientos
+          Stock de almacén vía <code>{systemApiBase}</code> (<code>VITE_SYSTEM_API_BASE</code>). Movimientos
           positivos ingresan mercadería; negativos salen.
         </p>
       </div>

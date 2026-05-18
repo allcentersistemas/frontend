@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import * as osiApi from '../api/osiApi'
+import * as biesseApi from '../api/biesseApi'
 import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
 import { Can } from '../access/AbilityContext'
 import { FEATURE } from '../access/permissionCatalog'
@@ -71,7 +71,7 @@ export function OrdersPage() {
       setLoading(true)
       setErr(null)
       try {
-        const res = await osiApi.listOrdersPage({
+        const res = await biesseApi.listOrdersPage({
           orderId: orderIdFilter.trim() || undefined,
           estado: stateFilter || undefined,
           q: q.trim() || undefined,
@@ -104,7 +104,7 @@ export function OrdersPage() {
     ;(async () => {
       setDetailLoading(true)
       try {
-        const d = await osiApi.orderDetail(selectedId)
+        const d = await biesseApi.orderDetail(selectedId)
         if (!cancelled) setDetail(d)
       } catch {
         if (!cancelled) setDetail(null)
@@ -131,8 +131,8 @@ export function OrdersPage() {
     setOrderEditBusy(true)
     setToolErr(null)
     try {
-      await osiApi.updateOrder(selectedId, { observaciones: orderEditNotes })
-      const fresh = await osiApi.orderDetail(selectedId)
+      await biesseApi.updateOrder(selectedId, { observaciones: orderEditNotes })
+      const fresh = await biesseApi.orderDetail(selectedId)
       setDetail(fresh)
       setOrderEditOpen(false)
       setToolMsg('Orden actualizada.')

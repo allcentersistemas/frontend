@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import * as rmApi from '../api/rmApi'
-import * as transportCatalogApi from '../api/transportCatalogApi'
-import { inventoryApiBase, rmApiBase, transportApiBase } from '../config/env'
+import * as systemApi from '../api/systemApi'
+import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
@@ -162,8 +161,8 @@ export function InventoryPage() {
   const [transportById, setTransportById] = useState(() => new Map())
   const [transportCatalogErr, setTransportCatalogErr] = useState(null)
 
-  const rows = useMemo(() => rmApi.pageContent(listBody), [listBody])
-  const meta = useMemo(() => rmApi.pageMeta(listBody), [listBody])
+  const rows = useMemo(() => systemApi.pageContent(listBody), [listBody])
+  const meta = useMemo(() => systemApi.pageMeta(listBody), [listBody])
   const filteredRows = useMemo(
     () => rows.filter((r) => rowMatchesRmFilter(tab, r, transportById, listFilter)),
     [rows, tab, transportById, listFilter],
@@ -182,13 +181,13 @@ export function InventoryPage() {
     try {
       let body
       if (tab === 'entradas') {
-        body = await rmApi.listRegistrosEntrada({ page, size: pageSize })
+        body = await systemApi.listRegistrosEntrada({ page, size: pageSize })
       } else if (tab === 'salidas') {
-        body = await rmApi.listRegistrosSalida({ page, size: pageSize })
+        body = await systemApi.listRegistrosSalida({ page, size: pageSize })
       } else if (tab === 'vehiculos') {
-        body = await rmApi.listRegistrosVehiculo({ page, size: pageSize })
+        body = await systemApi.listRegistrosVehiculo({ page, size: pageSize })
       } else {
-        body = await rmApi.listActasConformidad({ page, size: pageSize })
+        body = await systemApi.listActasConformidad({ page, size: pageSize })
       }
       setListBody(body)
     } catch (e) {
@@ -207,7 +206,7 @@ export function InventoryPage() {
     }
     setTransportCatalogErr(null)
     try {
-      const list = await transportCatalogApi.listTransporteVehiculos()
+      const list = await systemApi.listTransporteVehiculos()
       setTransportById(buildTransportLabelMap(list))
     } catch (e) {
       setTransportById(new Map())
@@ -239,13 +238,13 @@ export function InventoryPage() {
       try {
         let data
         if (tab === 'entradas') {
-          data = await rmApi.getRegistroEntrada(id)
+          data = await systemApi.getRegistroEntrada(id)
         } else if (tab === 'salidas') {
-          data = await rmApi.getRegistroSalida(id)
+          data = await systemApi.getRegistroSalida(id)
         } else if (tab === 'vehiculos') {
-          data = await rmApi.getRegistroVehiculo(id)
+          data = await systemApi.getRegistroVehiculo(id)
         } else {
-          data = await rmApi.getActaConformidad(id)
+          data = await systemApi.getActaConformidad(id)
         }
         setDetail({ tab, id, data })
       } catch (e) {
@@ -291,7 +290,7 @@ export function InventoryPage() {
             <h1 className="card__title">Inventario · almacén</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
               API <code>module-system</code>:{' '}
-              <code className="small">{inventoryApiBase}</code> (<code>VITE_INVENTORY_API_BASE</code>).
+              <code className="small">{systemApiBase}</code> (<code>VITE_SYSTEM_API_BASE</code>).
             </p>
           </div>
           <StockAlmacenPanel />
@@ -302,10 +301,10 @@ export function InventoryPage() {
         <h1 className="card__title">Inventario / recepción (module-system)</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
           Consulta de registros enviados desde la app móvil. RM:{' '}
-          <code className="small">{rmApiBase}</code>
+          <code className="small">{systemApiBase}</code>
           {' · '}
           Flota (etiquetas de transporte en entradas):{' '}
-          <code className="small">{transportApiBase}</code>
+          <code className="small">{systemApiBase}</code>
           {' '}
           (<code>VITE_RM_API_BASE</code>, <code>VITE_TRANSPORT_API_BASE</code>).
         </p>

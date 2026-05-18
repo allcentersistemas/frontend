@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import * as employeeApi from '../api/employeeApi'
+import * as systemApi from '../api/systemApi'
 import { ENDPOINT_CATALOG, FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 
@@ -30,7 +30,7 @@ export function ApiCatalogPage() {
       setLoading(true)
       setErr(null)
       try {
-        const data = await employeeApi.fetchApiCatalog()
+        const data = await systemApi.fetchApiCatalog()
         if (!cancelled) setBackendCatalog(data)
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'No se pudo cargar /api')

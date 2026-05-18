@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import * as paleApi from '../api/paleModuleApi'
+import * as systemApi from '../api/systemApi'
 import { AlertBanner } from '../ui/AlertBanner.jsx'
 import { Button } from '../ui/Button.jsx'
 import { EmptyState } from '../ui/EmptyState.jsx'
@@ -30,7 +30,7 @@ export function PaleAuditPanel() {
       setLoading(true)
       setErr(null)
       try {
-        const data = await paleApi.listPalletAudit({
+        const data = await systemApi.listPalletAudit({
           paleId: filters.paleId.trim() || undefined,
           action: filters.action.trim() || undefined,
           limit: 200,

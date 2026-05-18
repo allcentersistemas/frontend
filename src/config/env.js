@@ -3,8 +3,22 @@ function trimSlash(s) {
 }
 
 /**
- * URL base del monolito module-system (y opcionalmente overrides por módulo).
+ * Bases API alineadas con Android (BuildConfig) y docker/Caddy:
+ * - dev: localhost:8080 / :8086 (Android emulador: 10.0.2.2)
+ * - prod: /api-system y /api-biesse en https://app.allcenter.pe
  */
+export const systemApiBase = resolveApiBase(
+  'VITE_SYSTEM_API_BASE',
+  '/api-system',
+  'http://localhost:8080',
+)
+
+export const biesseApiBase = resolveApiBase(
+  'VITE_BIESSE_API_BASE',
+  '/api-biesse',
+  'http://localhost:8086',
+)
+
 function resolveApiBase(envKey, prodPathPrefix, devDefault) {
   const raw = import.meta.env[envKey]
   if (raw !== undefined && raw !== '') {
@@ -16,28 +30,7 @@ function resolveApiBase(envKey, prodPathPrefix, devDefault) {
   return trimSlash(devDefault)
 }
 
-/** Monolito AllCenter (empleados, órdenes, pales, transporte, inventario, RM, clientes). */
-export const systemApiBase = resolveApiBase(
-  'VITE_SYSTEM_API_BASE',
-  '/api-system',
-  'http://localhost:8080',
-)
-
-/** Integración Biesse / escaneo OSI (servicio aparte). */
-export const osiApiBase = resolveApiBase(
-  'VITE_OSI_API_BASE',
-  '/api-biesse',
-  import.meta.env.VITE_OSI_API_BASE
-    ? trimSlash(import.meta.env.VITE_OSI_API_BASE)
-    : 'http://localhost:8086',
-)
-
-// Aliases (misma API; overrides opcionales por VITE_*_API_BASE)
-export const employeeApiBase = resolveApiBase('VITE_EMPLOYEE_API_BASE', '/api-system', systemApiBase)
-export const orderApiBase = resolveApiBase('VITE_ORDER_API_BASE', '/api-system', systemApiBase)
-export const transportApiBase = resolveApiBase('VITE_TRANSPORT_API_BASE', '/api-system', systemApiBase)
-export const locationCatalogApiBase = resolveApiBase('VITE_LOCATION_API_BASE', '/api-system', systemApiBase)
-export const paleServiceApiBase = resolveApiBase('VITE_PALES_SERVICE_API_BASE', '/api-system', systemApiBase)
-export const clientPortalApiBase = resolveApiBase('VITE_CLIENT_API_BASE', '/api-system', systemApiBase)
-export const inventoryApiBase = resolveApiBase('VITE_INVENTORY_API_BASE', '/api-system', systemApiBase)
-export const rmApiBase = resolveApiBase('VITE_RM_API_BASE', '/api-system', systemApiBase)
+/** @deprecated Usar systemApiBase */
+export const employeeApiBase = systemApiBase
+/** @deprecated Usar biesseApiBase */
+export const osiApiBase = biesseApiBase

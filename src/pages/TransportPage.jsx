@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import * as employeeApi from '../api/employeeApi'
-import * as transportApi from '../api/transportApi'
+import * as systemApi from '../api/systemApi'
 import { Can } from '../access/AbilityContext'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
@@ -126,7 +125,7 @@ export function TransportPage() {
     setVehiculosLoading(true)
     setErr(null)
     try {
-      const list = await transportApi.listVehiculos()
+      const list = await systemApi.listVehiculos()
       setVehiculos(Array.isArray(list) ? list : [])
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al cargar vehículos')
@@ -139,7 +138,7 @@ export function TransportPage() {
     setCargasLoading(true)
     setErr(null)
     try {
-      const list = await transportApi.listCargas()
+      const list = await systemApi.listCargas()
       setCargas(Array.isArray(list) ? list : [])
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al cargar cargas')
@@ -157,7 +156,7 @@ export function TransportPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const list = await employeeApi.listEmployees()
+        const list = await systemApi.listEmployees()
         if (!cancelled) setConductores((Array.isArray(list) ? list : []).filter(isDriverEmployee))
       } catch {
         if (!cancelled) setConductores([])
@@ -172,7 +171,7 @@ export function TransportPage() {
     setAuditLoading(true)
     setErr(null)
     try {
-      const data = await transportApi.listTransportAuditoria({
+      const data = await systemApi.listTransportAuditoria({
         entityType: auditFilters.entityType.trim() || undefined,
         entityId: auditFilters.entityId.trim() || undefined,
         correlationId: auditFilters.correlationId.trim() || undefined,
@@ -207,7 +206,7 @@ export function TransportPage() {
     setCargaDetailLoading(true)
     setErr(null)
     try {
-      const data = await transportApi.getCarga(id)
+      const data = await systemApi.getCarga(id)
       setCargaDetail(data)
       const h = data?.carga
       if (h) {
@@ -242,7 +241,7 @@ export function TransportPage() {
     e.preventDefault()
     setErr(null)
     try {
-      await transportApi.createVehiculo({
+      await systemApi.createVehiculo({
         placa: newVehiculo.placa.trim(),
         numeroSerie: newVehiculo.numeroSerie.trim() || undefined,
         modelo: newVehiculo.modelo.trim() || undefined,
@@ -278,7 +277,7 @@ export function TransportPage() {
         activo: row.activo !== false,
       })
     try {
-      const fresh = await transportApi.getVehiculo(id)
+      const fresh = await systemApi.getVehiculo(id)
       setEditVehiculo({
         placa: fresh.placa ?? '',
         numeroSerie: fresh.numeroSerie ?? '',
@@ -308,7 +307,7 @@ export function TransportPage() {
     setTab('vehiculos')
     void (async () => {
       try {
-        const fresh = await transportApi.getVehiculo(id)
+        const fresh = await systemApi.getVehiculo(id)
         await startEditVehiculo(fresh)
       } catch {
         await startEditVehiculo({ transporteId: id, placa: '', marca: '' })
@@ -330,7 +329,7 @@ export function TransportPage() {
     if (editingVehiculoId == null) return
     setErr(null)
     try {
-      await transportApi.updateVehiculo(editingVehiculoId, {
+      await systemApi.updateVehiculo(editingVehiculoId, {
         placa: editVehiculo.placa.trim() || undefined,
         numeroSerie: editVehiculo.numeroSerie.trim() || undefined,
         modelo: editVehiculo.modelo.trim() || undefined,
@@ -368,7 +367,7 @@ export function TransportPage() {
       if (newCarga.fechaSalida.trim()) {
         body.fechaSalida = `${newCarga.fechaSalida.trim()}:00`
       }
-      const created = await transportApi.createCarga(body)
+      const created = await systemApi.createCarga(body)
       setNewCarga({
         transporteId: '',
         choferEmployeeId: '',
@@ -403,7 +402,7 @@ export function TransportPage() {
       if (cargaEdit.fechaEntrega.trim()) {
         body.fechaEntrega = `${cargaEdit.fechaEntrega.trim()}:00`
       }
-      await transportApi.updateCarga(selectedCargaId, body)
+      await systemApi.updateCarga(selectedCargaId, body)
       showMsg('Carga actualizada.')
       await loadCargas()
       await loadCargaDetail(selectedCargaId)
@@ -427,7 +426,7 @@ export function TransportPage() {
     }
     setErr(null)
     try {
-      await transportApi.addCargaDetalle(selectedCargaId, {
+      await systemApi.addCargaDetalle(selectedCargaId, {
         paleEnvioId: paleId,
         paleCodigo: addPale.paleCodigo.trim() || undefined,
         cantidad: qty,
@@ -447,7 +446,7 @@ export function TransportPage() {
     if (!window.confirm('¿Quitar este pale de la carga?')) return
     setErr(null)
     try {
-      await transportApi.removeCargaDetalle(selectedCargaId, detalleId)
+      await systemApi.removeCargaDetalle(selectedCargaId, detalleId)
       showMsg('Pale quitado de la carga.')
       await loadCargas()
       await loadCargaDetail(selectedCargaId)

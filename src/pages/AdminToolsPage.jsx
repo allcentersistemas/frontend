@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import * as employeeApi from '../api/employeeApi'
-import * as locationApi from '../api/locationCatalogApi'
-import * as osiApi from '../api/osiApi'
-import * as transportApi from '../api/transportApi'
+import * as systemApi from '../api/systemApi'
+import * as biesseApi from '../api/biesseApi'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeRoleName, ROLE_ADMIN, ROLE_MASTER } from '../auth/roles'
 
@@ -174,9 +172,9 @@ export function AdminToolsPage() {
       try {
         if (panel === 'employees') {
           const [list, ro, branches] = await Promise.all([
-            employeeApi.listEmployees(),
-            employeeApi.listRoles(),
-            locationApi.listBranches(),
+            systemApi.listEmployees(),
+            systemApi.listRoles(),
+            systemApi.listBranches(),
           ])
           if (!cancelled) {
             setEmp(list)
@@ -184,12 +182,12 @@ export function AdminToolsPage() {
             setBranchOptions(branches)
           }
         } else if (panel === 'roles') {
-          const r = await employeeApi.listRoles()
+          const r = await systemApi.listRoles()
           if (!cancelled) setRoles(r)
         } else if (panel === 'ubicaciones') {
           const [br, loc] = await Promise.all([
-            locationApi.listBranches(),
-            locationApi.listLocations(),
+            systemApi.listBranches(),
+            systemApi.listLocations(),
           ])
           if (!cancelled) {
             setBranchOptions(br)
@@ -198,13 +196,13 @@ export function AdminToolsPage() {
         } else {
           const requests = []
           if (auditSource === 'all' || auditSource === 'employee') {
-            requests.push(employeeApi.auditEntries({ page: auditPage, size: 30, sort: 'occurredAt,desc' }).then((data) => ['employee', data]))
+            requests.push(systemApi.auditEntries({ page: auditPage, size: 30, sort: 'occurredAt,desc' }).then((data) => ['employee', data]))
           }
           if (auditSource === 'all' || auditSource === 'transport') {
-            requests.push(transportApi.listTransportAuditoria({ page: auditPage, size: 30 }).then((data) => ['transport', data]))
+            requests.push(systemApi.listTransportAuditoria({ page: auditPage, size: 30 }).then((data) => ['transport', data]))
           }
           if (auditSource === 'all' || auditSource === 'biesse') {
-            requests.push(osiApi.listBiesseAudit({ limit: 30, offset: auditPage * 30 }).then((data) => ['biesse', data]))
+            requests.push(biesseApi.listBiesseAudit({ limit: 30, offset: auditPage * 30 }).then((data) => ['biesse', data]))
           }
           const settled = await Promise.allSettled(requests)
           const rows = settled.flatMap((result) => {
@@ -236,7 +234,7 @@ export function AdminToolsPage() {
     setCrOk(null)
     setCrBusy(true)
     try {
-      const created = await employeeApi.createRole({
+      const created = await systemApi.createRole({
         name: crName.trim(),
         description: crDesc.trim() || undefined,
       })
@@ -289,7 +287,7 @@ export function AdminToolsPage() {
         body.branchId = parsed
       }
 
-      const created = await employeeApi.createEmployee(body)
+      const created = await systemApi.createEmployee(body)
       setCeOk(
         `Usuario creado: login «${created.samAccountName || ceUsername.trim()}» (${created.employeeCode}). Correo: ${created.email}.`,
       )
@@ -354,7 +352,7 @@ export function AdminToolsPage() {
         }
         body.branchId = parsed
       }
-      await employeeApi.patchEmployee(editingEmployeeId, body)
+      await systemApi.patchEmployee(editingEmployeeId, body)
       setEeOk('Empleado actualizado correctamente.')
       bump()
     } catch (ex) {
@@ -370,7 +368,7 @@ export function AdminToolsPage() {
     setBrOk(null)
     setBrBusy(true)
     try {
-      await locationApi.createBranch({
+      await systemApi.createBranch({
         nombre: brNombre.trim(),
         direccion: brDir.trim() || undefined,
         ciudad: brCiudad.trim() || undefined,
@@ -395,7 +393,7 @@ export function AdminToolsPage() {
     setUbOk(null)
     setUbBusy(true)
     try {
-      await locationApi.createLocation({
+      await systemApi.createLocation({
         nombre: ubNombre.trim(),
         direccion: ubDir.trim() || undefined,
         distrito: ubDist.trim() || undefined,
@@ -450,7 +448,7 @@ export function AdminToolsPage() {
     setErOk(null)
     setErBusy(true)
     try {
-      await employeeApi.patchRole(editingRoleId, {
+      await systemApi.patchRole(editingRoleId, {
         description: erDesc.trim() || undefined,
       })
       setErOk('Rol actualizado.')
@@ -468,7 +466,7 @@ export function AdminToolsPage() {
     const ok = window.confirm(`¿Eliminar el rol "${row.name}"? Solo funciona si ningún empleado lo usa.`)
     if (!ok) return
     try {
-      await employeeApi.deleteRole(row.id)
+      await systemApi.deleteRole(row.id)
       bump()
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : 'No se pudo eliminar el rol')
@@ -479,7 +477,7 @@ export function AdminToolsPage() {
     setAuditDetailLoading(true)
     setAuditDetail(null)
     try {
-      const d = await employeeApi.getAuditEntryById(id)
+      const d = await systemApi.getAuditEntryById(id)
       setAuditDetail(d)
     } catch {
       setAuditDetail(null)
@@ -494,7 +492,7 @@ export function AdminToolsPage() {
     )
     if (!ok) return
     try {
-      await employeeApi.deleteEmployee(row.id)
+      await systemApi.deleteEmployee(row.id)
       if (editingEmployeeId === row.id) {
         cancelEditEmployee()
       }

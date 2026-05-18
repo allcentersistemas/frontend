@@ -6,13 +6,11 @@ import {
   useMemo,
   useState,
 } from 'react'
-import * as employeeApi from '../api/employeeApi'
+import * as systemApi from '../api/systemApi'
 import { AbilityProvider } from '../access/AbilityContext'
 import {
-  configureInventoryExtraHeaders,
-  configureRmExtraHeaders,
+  configureSystemExtraHeaders,
   configureTokenRefresh,
-  configureTransportExtraHeaders,
   getStoredTokens,
   refreshSessionRequest,
   setStoredTokens,
@@ -56,7 +54,7 @@ export function AuthProvider({ children }) {
         return
       }
       try {
-        const me = await employeeApi.fetchMe()
+        const me = await systemApi.fetchMe()
         if (!cancelled) setEmployee(me)
       } catch {
         setStoredTokens(null)
@@ -80,31 +78,18 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    configureTransportExtraHeaders(() => {
-      if (!employee?.id) return {}
-      const h = { 'X-Actor-Employee-Id': String(employee.id) }
-      if (employee.email && String(employee.email).trim() !== '') {
-        h['X-Actor-Email'] = String(employee.email).trim()
+    configureSystemExtraHeaders(() => {
+      if (!employee) return {}
+      const h = {}
+      if (employee.id) {
+        h['X-Actor-Employee-Id'] = String(employee.id)
+      }
+      const email = employee.email && String(employee.email).trim()
+      if (email) {
+        h['X-Actor-Email'] = email
+        h['X-User-Email'] = email
       }
       return h
-    })
-  }, [employee])
-
-  useEffect(() => {
-    configureRmExtraHeaders(() => {
-      if (!employee?.email || String(employee.email).trim() === '') {
-        return {}
-      }
-      return { 'X-User-Email': String(employee.email).trim() }
-    })
-  }, [employee])
-
-  useEffect(() => {
-    configureInventoryExtraHeaders(() => {
-      if (!employee?.email || String(employee.email).trim() === '') {
-        return {}
-      }
-      return { 'X-User-Email': String(employee.email).trim() }
     })
   }, [employee])
 
@@ -114,7 +99,7 @@ export function AuthProvider({ children }) {
   )
 
   const login = useCallback(async (username, password) => {
-    const session = await employeeApi.login({ username, password })
+    const session = await systemApi.login({ username, password })
     setStoredTokens({
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
@@ -126,7 +111,7 @@ export function AuthProvider({ children }) {
     setEmployee(session.employee)
     const dash = dashboardForRoles(session.employee.roles.map((r) => r.name))
     if (!dash) {
-      await employeeApi.logout({ refreshToken: session.refreshToken })
+      await systemApi.logout({ refreshToken: session.refreshToken })
       setStoredTokens(null)
       saveAuthTokens(null)
       setEmployee(null)
@@ -141,7 +126,7 @@ export function AuthProvider({ children }) {
     const t = getStoredTokens()
     if (t?.refreshToken) {
       try {
-        await employeeApi.logout({ refreshToken: t.refreshToken })
+        await systemApi.logout({ refreshToken: t.refreshToken })
       } catch {
         /* ignore */
       }
@@ -152,7 +137,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const reloadMe = useCallback(async () => {
-    const me = await employeeApi.fetchMe()
+    const me = await systemApi.fetchMe()
     setEmployee(me)
   }, [])
 

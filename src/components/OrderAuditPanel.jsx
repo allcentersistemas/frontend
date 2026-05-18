@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import * as osiApi from '../api/osiApi'
+import * as biesseApi from '../api/biesseApi'
 import { AlertBanner } from '../ui/AlertBanner.jsx'
 import { Button } from '../ui/Button.jsx'
 import { EmptyState } from '../ui/EmptyState.jsx'
@@ -31,7 +31,7 @@ export function OrderAuditPanel() {
       setLoading(true)
       setErr(null)
       try {
-        const data = await osiApi.listBiesseAudit({
+        const data = await biesseApi.listBiesseAudit({
           orderId: filters.orderId.trim() || undefined,
           partId: filters.partId.trim() || undefined,
           action: filters.action.trim() || undefined,

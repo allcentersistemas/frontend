@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import * as paleApi from '../api/paleModuleApi'
+import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
@@ -271,7 +271,7 @@ export function PalesPage() {
       setLoading(true)
       setErr(null)
       try {
-        const list = await paleApi.listPallets()
+        const list = await systemApi.listPallets()
         if (!cancelled) setPallets(Array.isArray(list) ? list : [])
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Error al cargar pales')
@@ -293,7 +293,7 @@ export function PalesPage() {
     ;(async () => {
       setDetailLoading(true)
       try {
-        const d = await paleApi.getPalletById(selectedId)
+        const d = await systemApi.getPalletById(selectedId)
         if (!cancelled) setDetail(d)
       } catch {
         if (!cancelled) setDetail(null)
@@ -350,9 +350,9 @@ export function PalesPage() {
     setEditBusy(true)
     setOpErr(null)
     try {
-      const updated = await paleApi.updatePallet(selectedId, { notes: editNotes })
+      const updated = await systemApi.updatePallet(selectedId, { notes: editNotes })
       setDetail(updated)
-      const list = await paleApi.listPallets()
+      const list = await systemApi.listPallets()
       setPallets(Array.isArray(list) ? list : [])
       setEditOpen(false)
       setOpMsg('Pale actualizado.')

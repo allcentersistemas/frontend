@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import * as employeeApi from '../api/employeeApi'
+import * as systemApi from '../api/systemApi'
 import { useAuth } from '../auth/AuthContext'
 
 const emptyForm = () => ({
@@ -68,7 +68,7 @@ export function ProfilePage() {
       setLoading(true)
       setErr(null)
       try {
-        const me = await employeeApi.fetchMe()
+        const me = await systemApi.fetchMe()
         if (!cancelled) setForm(toForm(me))
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Error al cargar perfil')
@@ -109,7 +109,7 @@ export function ProfilePage() {
         emergencyContactPhone: form.emergencyContactPhone.trim(),
         notes: form.notes.trim(),
       }
-      await employeeApi.patchMyProfile(body)
+      await systemApi.patchMyProfile(body)
       setOk('Cambios guardados.')
       await reloadMe()
     } catch (ex) {
@@ -133,7 +133,7 @@ export function ProfilePage() {
     }
     setPwBusy(true)
     try {
-      await employeeApi.changePassword({
+      await systemApi.changePassword({
         currentPassword: curPw,
         newPassword: newPw,
       })
@@ -159,7 +159,7 @@ export function ProfilePage() {
     }
     setLogoutAllBusy(true)
     try {
-      await employeeApi.logoutAll()
+      await systemApi.logoutAll()
       await logout()
       navigate('/login', { replace: true })
     } catch (ex) {

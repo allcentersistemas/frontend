@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { printBiessePartSticker } from '../utils/printBiessePartSticker'
-import * as osiApi from '../api/osiApi'
+import * as biesseApi from '../api/biesseApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
 import { inputClass, labelClass } from '../ui/fields.js'
@@ -75,7 +75,7 @@ export function BiesseStickerPrintButton({ detail }) {
       })
 
       try {
-        await osiApi.recordStickerPrint({
+        await biesseApi.recordStickerPrint({
           orderId: detail.orderId,
           metodo: 'MANUAL',
           equipo:

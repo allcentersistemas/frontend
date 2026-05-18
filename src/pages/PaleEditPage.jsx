@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import * as paleApi from '../api/paleModuleApi'
+import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
@@ -62,8 +62,8 @@ export function PaleEditPage() {
       setErr(null)
       try {
         const [data, catalogData] = await Promise.all([
-          paleApi.getPalletById(paleId),
-          paleApi.getPalletCatalogs().catch(() => ({ branches: [], locations: [] })),
+          systemApi.getPalletById(paleId),
+          systemApi.getPalletCatalogs().catch(() => ({ branches: [], locations: [] })),
         ])
         if (!cancelled) {
           setDetail(data)
@@ -89,7 +89,7 @@ export function PaleEditPage() {
     setSaving(true)
     setErr(null)
     try {
-      const data = await paleApi.updatePallet(paleId, {
+      const data = await systemApi.updatePallet(paleId, {
         code: form.code.trim(),
         estado: form.estado,
         branchId: toIdOrNull(form.branchId),
@@ -113,7 +113,7 @@ export function PaleEditPage() {
     setDeletingId(detailId)
     setErr(null)
     try {
-      const data = await paleApi.deletePalletDetail(paleId, detailId)
+      const data = await systemApi.deletePalletDetail(paleId, detailId)
       setDetail(data)
       setMsg('Detalle eliminado.')
     } catch (ex) {
