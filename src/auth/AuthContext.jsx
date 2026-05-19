@@ -16,6 +16,7 @@ import {
   setStoredTokens,
   subscribeTokens,
 } from '../api/http'
+import { isAccessTokenExpired } from './jwtUtils'
 import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './tokenStorage'
 import { dashboardForRoles } from './roles'
 
@@ -52,6 +53,17 @@ export function AuthProvider({ children }) {
       if (!p) {
         if (!cancelled) setReady(true)
         return
+      }
+      if (isAccessTokenExpired(p.accessToken) && p.refreshToken) {
+        const refreshed = await refreshSession()
+        if (refreshed) {
+          const next = {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+          }
+          setStoredTokens(next)
+          saveAuthTokens(next)
+        }
       }
       try {
         const me = await systemApi.fetchMe()

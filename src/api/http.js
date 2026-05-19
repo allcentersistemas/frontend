@@ -1,3 +1,4 @@
+import { isAccessTokenExpired } from '../auth/jwtUtils'
 import { biesseApiBase, systemApiBase } from '../config/env'
 
 const RM_MEDIA_MARKER = '/api/rm/media/'
@@ -125,8 +126,12 @@ async function backendJson(apiBase, path, init, { mergeSystemHeaders = false } =
   }
   if (!skipAuth) {
     const t = getStoredTokens()
-    if (t?.accessToken) {
-      headers.set('Authorization', `Bearer ${t.accessToken}`)
+    if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+      await tryRefresh()
+    }
+    const tAfter = getStoredTokens()
+    if (tAfter?.accessToken) {
+      headers.set('Authorization', `Bearer ${tAfter.accessToken}`)
     }
   }
   const url = `${apiBase}${path.startsWith('/') ? '' : '/'}${path}`
@@ -225,7 +230,11 @@ export async function fetchSystemMediaBlob(mediaUrl) {
   for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
     headers.set(k, v)
   }
-  const t = getStoredTokens()
+  let t = getStoredTokens()
+  if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+    await tryRefresh()
+    t = getStoredTokens()
+  }
   if (t?.accessToken) {
     headers.set('Authorization', `Bearer ${t.accessToken}`)
   }

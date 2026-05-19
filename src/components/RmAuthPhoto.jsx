@@ -34,7 +34,11 @@ export function RmAuthPhoto({ apiUrl, className = '' }) {
   }, [apiUrl])
 
   if (error) {
-    return <span className="muted small">No se pudo cargar la foto.</span>
+    return (
+      <span className="muted small">
+        Foto no disponible (puede haberse perdido al actualizar el servidor). Vuelva a registrarla desde la app.
+      </span>
+    )
   }
   if (!src) {
     return <span className="muted small">Cargando foto…</span>
