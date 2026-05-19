@@ -195,6 +195,10 @@ export function resolveRmMediaUrl(apiUrl) {
           '',
         )
 
+  if (trimmed.startsWith(RM_MEDIA_MARKER)) {
+    return `${apiRoot}${trimmed}`
+  }
+
   try {
     const parsed = new URL(trimmed, window.location.origin)
     const idx = parsed.pathname.indexOf(RM_MEDIA_MARKER)
@@ -202,17 +206,14 @@ export function resolveRmMediaUrl(apiUrl) {
       const mediaPath = parsed.pathname.slice(idx)
       return `${apiRoot}${mediaPath}${parsed.search}`
     }
-    return trimmed
   } catch {
     if (trimmed.includes(RM_MEDIA_MARKER)) {
       const idx = trimmed.indexOf(RM_MEDIA_MARKER)
       return `${apiRoot}${trimmed.slice(idx)}`
     }
-    if (trimmed.startsWith('/')) {
-      return `${apiRoot}${trimmed}`
-    }
-    return trimmed
   }
+
+  return null
 }
 
 /** Descarga binaria de fotos RM con JWT (img src directo no envía Authorization). */

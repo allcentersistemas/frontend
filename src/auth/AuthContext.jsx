@@ -57,9 +57,27 @@ export function AuthProvider({ children }) {
         const me = await systemApi.fetchMe()
         if (!cancelled) setEmployee(me)
       } catch {
-        setStoredTokens(null)
-        saveAuthTokens(null)
-        if (!cancelled) setEmployee(null)
+        const refreshed = await refreshSession()
+        if (refreshed) {
+          const next = {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+          }
+          setStoredTokens(next)
+          saveAuthTokens(next)
+          try {
+            const me = await systemApi.fetchMe()
+            if (!cancelled) setEmployee(me)
+          } catch {
+            setStoredTokens(null)
+            saveAuthTokens(null)
+            if (!cancelled) setEmployee(null)
+          }
+        } else {
+          setStoredTokens(null)
+          saveAuthTokens(null)
+          if (!cancelled) setEmployee(null)
+        }
       } finally {
         if (!cancelled) setReady(true)
       }
