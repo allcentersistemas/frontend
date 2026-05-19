@@ -1,5 +1,7 @@
 import { biesseApiBase, systemApiBase } from '../config/env'
 
+const RM_MEDIA_MARKER = '/api/rm/media/'
+
 let tokens = null
 const listeners = []
 
@@ -174,6 +176,76 @@ export async function refreshSessionRequest(body) {
     body: JSON.stringify(body),
     skipAuth: true,
   })
+}
+
+/**
+ * Las URLs de fotos RM del API pueden venir sin el prefijo del proxy (/api-system).
+ * Normaliza a la base que usa el frontend (misma que systemJson).
+ */
+export function resolveRmMediaUrl(apiUrl) {
+  if (!apiUrl || typeof apiUrl !== 'string') return null
+  const trimmed = apiUrl.trim()
+  if (!trimmed) return null
+
+  const apiRoot =
+    systemApiBase.startsWith('http://') || systemApiBase.startsWith('https://')
+      ? systemApiBase.replace(/\/+$/, '')
+      : `${window.location.origin}${systemApiBase.startsWith('/') ? systemApiBase : `/${systemApiBase}`}`.replace(
+          /\/+$/,
+          '',
+        )
+
+  try {
+    const parsed = new URL(trimmed, window.location.origin)
+    const idx = parsed.pathname.indexOf(RM_MEDIA_MARKER)
+    if (idx >= 0) {
+      const mediaPath = parsed.pathname.slice(idx)
+      return `${apiRoot}${mediaPath}${parsed.search}`
+    }
+    return trimmed
+  } catch {
+    if (trimmed.includes(RM_MEDIA_MARKER)) {
+      const idx = trimmed.indexOf(RM_MEDIA_MARKER)
+      return `${apiRoot}${trimmed.slice(idx)}`
+    }
+    if (trimmed.startsWith('/')) {
+      return `${apiRoot}${trimmed}`
+    }
+    return trimmed
+  }
+}
+
+/** Descarga binaria de fotos RM con JWT (img src directo no envía Authorization). */
+export async function fetchSystemMediaBlob(mediaUrl) {
+  const url = resolveRmMediaUrl(mediaUrl)
+  if (!url) throw new Error('URL de media inválida')
+
+  const headers = new Headers()
+  for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
+    headers.set(k, v)
+  }
+  const t = getStoredTokens()
+  if (t?.accessToken) {
+    headers.set('Authorization', `Bearer ${t.accessToken}`)
+  }
+
+  let res = await fetch(url, { headers, credentials: 'omit' })
+  if (res.status === 401 && t?.refreshToken) {
+    const ok = await tryRefresh()
+    if (ok) {
+      const t2 = getStoredTokens()
+      if (t2?.accessToken) {
+        headers.set('Authorization', `Bearer ${t2.accessToken}`)
+      }
+      res = await fetch(url, { headers, credentials: 'omit' })
+    }
+  }
+
+  if (!res.ok) {
+    const detail = await readErrorDetail(res)
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
+  return res.blob()
 }
 
 export async function biessePingText() {

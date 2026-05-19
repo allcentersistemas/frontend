@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
-import { systemApiBase } from '../config/env'
+import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
@@ -603,7 +603,7 @@ export function InventoryPage() {
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos vehículo (cabecera)
               </p>
-              <PhotoRow urls={detail.data.cabeceraVehiculoPhotoUrls} />
+              <RmPhotoRow urls={detail.data.cabeceraVehiculoPhotoUrls} />
               <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
                 Líneas
               </h3>
@@ -616,7 +616,7 @@ export function InventoryPage() {
                     OC: {esc(d.ocNumero)} · Guía: {esc(d.guiaNumero)} · Color/modelo: {esc(d.colorModelo)} · Cant.:{' '}
                     {esc(d.cantidadRecibida)} · Unidad: {esc(d.unidad)}
                   </p>
-                  <PhotoRow urls={d.photoUrls} />
+                  <RmPhotoRow urls={d.photoUrls} />
                 </div>
               ))}
             </div>
@@ -679,7 +679,7 @@ export function InventoryPage() {
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos cabecera
               </p>
-              <PhotoRow urls={detail.data.cabeceraPhotoUrls} />
+              <RmPhotoRow urls={detail.data.cabeceraPhotoUrls} />
               <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
                 Líneas
               </h3>
@@ -692,7 +692,7 @@ export function InventoryPage() {
                     Hora línea: {esc(d.hora)} · RQM: {esc(d.noRqmVale)} · Guía: {esc(d.noGuia)} · Recibe:{' '}
                     {esc(d.recibeFirma)} · Entrega RCI: {esc(d.entregaRci)}
                   </p>
-                  <PhotoRow urls={d.photoUrls} />
+                  <RmPhotoRow urls={d.photoUrls} />
                 </div>
               ))}
             </div>
@@ -739,7 +739,7 @@ export function InventoryPage() {
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos
               </p>
-              <PhotoRow urls={detail.data.photoUrls} />
+              <RmPhotoRow urls={detail.data.photoUrls} />
             </div>
           ) : null}
 
@@ -787,7 +787,7 @@ export function InventoryPage() {
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos
               </p>
-              <PhotoRow urls={detail.data.photoUrls} />
+              <RmPhotoRow urls={detail.data.photoUrls} />
             </div>
           ) : null}
         </div>
@@ -801,24 +801,10 @@ export function InventoryPage() {
         .inv-dl dd { margin: 0; font-size: 0.9rem; }
         tr.inv-row-selected { background: var(--surface-2, rgba(0,0,0,0.06)); }
         .inv-photo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-        .inv-photo-row img { max-width: 160px; max-height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border, #e5e4e7); }
+        .inv-photo-row img,
+        .inv-photo-thumb { max-width: 160px; max-height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border, #e5e4e7); }
       `}</style>
     </div>
   )
 }
 
-function PhotoRow({ urls }) {
-  const list = Array.isArray(urls) ? urls : []
-  if (!list.length) {
-    return <p className="muted small">Sin fotos.</p>
-  }
-  return (
-    <div className="inv-photo-row">
-      {list.map((u) => (
-        <a key={u} href={u} target="_blank" rel="noreferrer">
-          <img src={u} alt="" loading="lazy" />
-        </a>
-      ))}
-    </div>
-  )
-}
