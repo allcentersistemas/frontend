@@ -624,7 +624,7 @@ export function AdminToolsPage() {
                       value={ceUsername}
                       onChange={(e) => setCeUsername(e.target.value)}
                       required
-                      placeholder="jperez"
+                      placeholder=""
                     />
                   </label>
                   <label className="field">

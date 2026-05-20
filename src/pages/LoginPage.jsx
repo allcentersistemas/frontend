@@ -169,7 +169,7 @@ export function LoginPage() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
-                      placeholder="jperez"
+                      placeholder=""
                       className="
                     w-full
                     bg-black/20
