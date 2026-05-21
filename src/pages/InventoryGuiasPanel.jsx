@@ -38,6 +38,23 @@ function resolveGuiaSub(raw) {
   return raw === 'create' ? 'create' : 'list'
 }
 
+function newCreateRow() {
+  return { key: `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, paleId: '' }
+}
+
+function paleOptionLabel(p) {
+  const codigo = (p.codigo ?? '').trim() || `#${p.paleId ?? p.id}`
+  const resumen = (p.ordenesResumen ?? '').trim()
+  return resumen ? `${codigo} — ${resumen}` : codigo
+}
+
+function findPaleById(pales, paleId) {
+  if (paleId === '' || paleId == null) return null
+  const id = Number(paleId)
+  if (!Number.isFinite(id)) return null
+  return pales.find((p) => (p.paleId ?? p.id) === id) ?? null
+}
+
 export function InventoryGuiasPanel() {
   const { employee } = useAuth()
   const creadoPor = employee?.id ?? null
@@ -62,6 +79,8 @@ export function InventoryGuiasPanel() {
     destinationBranchId: '',
     destinationLocationId: '',
   })
+  const [createRows, setCreateRows] = useState(() => [newCreateRow()])
+  const [creatingGuia, setCreatingGuia] = useState(false)
 
   const [guiaEdit, setGuiaEdit] = useState({ estado: 'BORRADOR', notas: '' })
 
@@ -181,6 +200,24 @@ export function InventoryGuiasPanel() {
     }
   }, [guiaSub, selectedGuiaId, draftPaleCodigo, loadPalesEscaneados])
 
+  useEffect(() => {
+    if (guiaSub === 'create') {
+      void loadPalesEscaneados('')
+    }
+  }, [guiaSub, loadPalesEscaneados])
+
+  const createPaleIdsUsed = useMemo(
+    () => new Set(createRows.map((r) => r.paleId).filter((id) => id !== '' && id != null)),
+    [createRows],
+  )
+
+  function palesForCreateRow(rowPaleId) {
+    return palesEscaneados.filter((p) => {
+      const pid = String(p.paleId ?? p.id)
+      return pid === String(rowPaleId) || !createPaleIdsUsed.has(pid)
+    })
+  }
+
   const header = guiaDetail?.guia
   const detalles = useMemo(
     () => (Array.isArray(guiaDetail?.detalles) ? guiaDetail.detalles : []),
@@ -215,9 +252,17 @@ export function InventoryGuiasPanel() {
   async function handleCreateGuia(e) {
     e.preventDefault()
     setErr(null)
+    const paleIds = createRows
+      .map((r) => Number(r.paleId))
+      .filter((id) => Number.isFinite(id) && id > 0)
+    if (!paleIds.length) {
+      setErr('Agregue al menos un palé escaneado en la tabla.')
+      return
+    }
     const body = {
       notas: newGuia.notas.trim() || undefined,
       creadoPor: creadoPor ?? undefined,
+      paleIds,
     }
     if (destinoEsObra) {
       const loc = Number(newGuia.destinationLocationId)
@@ -230,19 +275,24 @@ export function InventoryGuiasPanel() {
         body.destinationBranchId = branch
       }
     }
+    setCreatingGuia(true)
     try {
       const created = await systemApi.createGuia(body)
       setNewGuia({ notas: '', destinationBranchId: '', destinationLocationId: '' })
       setDestinoEsObra(false)
+      setCreateRows([newCreateRow()])
       const newId = created?.guia?.guiaId
-      showMsg(`Guía creada: ${created?.guia?.numeroGuia ?? '—'}`)
+      showMsg(`Guía creada: ${created?.guia?.numeroGuia ?? '—'} (${created?.detalles?.length ?? paleIds.length} líneas)`)
       await loadGuias()
+      await loadPalesEscaneados('')
       if (newId != null) {
         setSelectedGuiaId(newId)
         setGuiaSub('list')
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'No se pudo crear la guía')
+    } finally {
+      setCreatingGuia(false)
     }
   }
 
@@ -330,8 +380,8 @@ export function InventoryGuiasPanel() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h1 className="card__title">Guías de despacho</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Número <strong>automático</strong> (sin vehículo ni chofer). Agregue palés <strong>ESCANEADOS</strong> por
-          número de palé; descripción = órdenes, unidad y cantidad en piezas. Genere la hoja al finalizar.
+          Número <strong>automático</strong> (sin vehículo ni chofer). En «Crear guía» defina destino y palés
+          escaneados en un solo formulario; al pulsar <strong>Crear</strong> se guarda la guía y todas las líneas.
         </p>
       </div>
 
@@ -364,13 +414,16 @@ export function InventoryGuiasPanel() {
       ) : null}
 
       {guiaSub === 'create' ? (
-        <div className="card pad" style={{ maxWidth: '36rem' }}>
-          <h2 className="card__title">Nueva guía</h2>
-          <p className="muted small">El número correlativo (G-000001, …) se asigna al guardar.</p>
+        <div className="card pad">
+          <h2 className="card__title">Nueva guía de despacho</h2>
+          <p className="muted small">
+            El número correlativo (G-000001, …) se asigna al guardar. Elija destino y palés escaneados; un solo clic en
+            Crear guarda cabecera y líneas.
+          </p>
           <form className="form-section" onSubmit={handleCreateGuia} style={{ marginTop: '1rem' }}>
             <fieldset className="field" style={{ border: 'none', padding: 0, margin: 0 }}>
               <legend className="field" style={{ marginBottom: '0.5rem' }}>
-                <span>Destino (opcional)</span>
+                <span>Destino</span>
               </legend>
               <label className="field field--inline">
                 <input
@@ -388,7 +441,7 @@ export function InventoryGuiasPanel() {
                 <span>Destino es obra (ubicación)</span>
               </label>
               {!destinoEsObra ? (
-                <label className="field">
+                <label className="field" style={{ maxWidth: '24rem' }}>
                   <span>Sucursal destino</span>
                   <select
                     value={newGuia.destinationBranchId}
@@ -403,8 +456,8 @@ export function InventoryGuiasPanel() {
                   </select>
                 </label>
               ) : (
-                <label className="field">
-                  <span>Obra / ubicación</span>
+                <label className="field" style={{ maxWidth: '24rem' }}>
+                  <span>Obra / ubicación destino</span>
                   <select
                     value={newGuia.destinationLocationId}
                     onChange={(e) => setNewGuia((s) => ({ ...s, destinationLocationId: e.target.value }))}
@@ -419,13 +472,120 @@ export function InventoryGuiasPanel() {
                 </label>
               )}
             </fieldset>
-            <label className="field">
-              <span>Notas</span>
+
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <h3 className="detail__h" style={{ margin: 0 }}>
+                  Palés escaneados
+                </h3>
+                {palesLoading ? <span className="muted small">Cargando palés…</span> : null}
+                <button
+                  type="button"
+                  className="btn btn--ghost small"
+                  onClick={() => setCreateRows((rows) => [...rows, newCreateRow()])}
+                >
+                  + Agregar fila
+                </button>
+              </div>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Descripción (palé)</th>
+                      <th>Unidad de medida</th>
+                      <th>Cantidad</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {createRows.map((row) => {
+                      const pale = findPaleById(palesEscaneados, row.paleId)
+                      const line = pale ? paleLineFromPale(pale) : null
+                      const options = palesForCreateRow(row.paleId)
+                      return (
+                        <tr key={row.key}>
+                          <td>
+                            <select
+                              className="field__input"
+                              value={row.paleId}
+                              onChange={(e) => {
+                                const paleId = e.target.value
+                                setCreateRows((rows) =>
+                                  rows.map((r) => (r.key === row.key ? { ...r, paleId } : r)),
+                                )
+                              }}
+                            >
+                              <option value="">— Elegir palé —</option>
+                              {options.map((p) => {
+                                const pid = p.paleId ?? p.id
+                                return (
+                                  <option key={pid} value={pid}>
+                                    {paleOptionLabel(p)}
+                                  </option>
+                                )
+                              })}
+                            </select>
+                          </td>
+                          <td className="small">
+                            <input
+                              type="text"
+                              className="field__input"
+                              readOnly
+                              value={line?.unidadMedida ?? UNIDAD_PIEZAS}
+                              tabIndex={-1}
+                            />
+                          </td>
+                          <td className="small">
+                            <input
+                              type="text"
+                              className="field__input"
+                              readOnly
+                              value={line?.cantidad ?? ''}
+                              placeholder="—"
+                              tabIndex={-1}
+                            />
+                          </td>
+                          <td>
+                            {createRows.length > 1 ? (
+                              <button
+                                type="button"
+                                className="linkish small"
+                                onClick={() => setCreateRows((rows) => rows.filter((r) => r.key !== row.key))}
+                              >
+                                Quitar
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {!palesLoading && !palesEscaneados.length ? (
+                <p className="muted small" style={{ marginTop: '0.35rem' }}>
+                  No hay palés con estado de envío ESCANEADO disponibles.
+                </p>
+              ) : (
+                <p className="muted small" style={{ marginTop: '0.35rem' }}>
+                  Descripción = órdenes del palé; unidad fija en piezas; cantidad = piezas del palé.
+                </p>
+              )}
+            </div>
+
+            <label className="field" style={{ maxWidth: '36rem', marginTop: '1rem' }}>
+              <span>Notas (opcional)</span>
               <textarea rows={2} value={newGuia.notas} onChange={(e) => setNewGuia((s) => ({ ...s, notas: e.target.value }))} />
             </label>
             <div className="form-actions">
-              <CanButton I={ACTION.CREATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
-                Crear guía
+              <CanButton
+                I={ACTION.CREATE}
+                a={FEATURE.INVENTORY}
+                type="submit"
+                className="btn btn--primary"
+                disabled={creatingGuia}
+              >
+                {creatingGuia ? 'Creando…' : 'Crear'}
               </CanButton>
               <button type="button" className="btn btn--ghost" onClick={() => setGuiaSub('list')}>
                 Ver listado
