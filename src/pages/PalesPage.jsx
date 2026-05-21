@@ -382,8 +382,9 @@ export function PalesPage() {
         <>
       <GlassCard className="mb-4">
         <p className="text-sm text-slate-600">
-          Para enviar palés cerrados, crea una <strong>guía</strong> en Transporte (número de guía + vehículo).
-          Cada palé asignado recibe código <InlineCode>G-{'{número}'}</InlineCode>.
+          Para enviar palés cerrados, crea una <strong>guía</strong> en Transporte (número, vehículo y{' '}
+          <strong>destino</strong>). Cada palé asignado recibe código <InlineCode>G-{'{número}'}</InlineCode>.
+          El destino ya no se define al crear el palé.
         </p>
         <p className="mt-2">
           <Link to={guiasHref} className={linkButtonClass}>
@@ -467,7 +468,7 @@ export function PalesPage() {
                           </Td>
                           <Td className="tabular-nums">{row.cantidadPiezas ?? 0}</Td>
                           <Td className="text-xs text-slate-400">{row.sucursalOrigenNombre ?? '—'}</Td>
-                          <Td className="text-xs text-slate-400">{row.sucursalDestinoNombre ?? row.ubicacionDestinoNombre ?? '-'}</Td>
+                          <Td className="text-xs text-slate-400">En guía</Td>
                           <Td className="whitespace-nowrap text-xs text-slate-400">{formatDateTime(row.fechaCreacion)}</Td>
                         </Tr>
                       )

@@ -94,8 +94,6 @@ export function PaleEditPage() {
         estado: form.estado,
         branchId: toIdOrNull(form.branchId),
         originLocationId: toIdOrNull(form.originLocationId),
-        destinationBranchId: toIdOrNull(form.destinationBranchId),
-        destinationLocationId: toIdOrNull(form.destinationLocationId),
         notes: form.notes,
       })
       setDetail(data)
@@ -203,34 +201,10 @@ export function PaleEditPage() {
                 ))}
               </select>
             </label>
-            <label className="field">
-              <span>Sucursal destino</span>
-              <select
-                value={form.destinationBranchId}
-                onChange={(e) => setForm((s) => ({ ...s, destinationBranchId: e.target.value }))}
-              >
-                <option value="">Sin sucursal destino</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Ubicación destino / obra</span>
-              <select
-                value={form.destinationLocationId}
-                onChange={(e) => setForm((s) => ({ ...s, destinationLocationId: e.target.value }))}
-              >
-                <option value="">Sin ubicación destino</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <p className="muted small">
+              El destino de envío se define en la <strong>guía de transporte</strong> (portal web), no en el
+              palé.
+            </p>
             <dl className="kv">
               <div>
                 <dt>Creación</dt>

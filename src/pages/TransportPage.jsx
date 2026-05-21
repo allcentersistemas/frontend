@@ -57,6 +57,13 @@ function employeeDocument(row) {
   return row?.documentNumber ?? row?.documento ?? row?.dni ?? row?.identityNumber ?? ''
 }
 
+function formatGuiaDestino(h) {
+  if (!h) return '—'
+  if (h.ubicacionDestinoNombre) return `Obra: ${h.ubicacionDestinoNombre}`
+  if (h.sucursalDestinoNombre) return `Sucursal: ${h.sucursalDestinoNombre}`
+  return '—'
+}
+
 function resolveTransportTab(raw) {
   if (raw === 'vehiculos' || raw === 'auditoria') return raw
   return 'guias'
@@ -86,6 +93,10 @@ export function TransportPage() {
   const [guiaDetail, setGuiaDetail] = useState(null)
   const [guiaDetailLoading, setGuiaDetailLoading] = useState(false)
 
+  const [branches, setBranches] = useState([])
+  const [locations, setLocations] = useState([])
+  const [newGuiaDestinoEsObra, setNewGuiaDestinoEsObra] = useState(false)
+
   const [newGuia, setNewGuia] = useState({
     transporteId: '',
     numeroGuia: '',
@@ -94,6 +105,8 @@ export function TransportPage() {
     choferDocumento: '',
     notas: '',
     fechaSalida: '',
+    destinationBranchId: '',
+    destinationLocationId: '',
   })
 
   const [guiaEdit, setGuiaEdit] = useState({
@@ -192,6 +205,28 @@ export function TransportPage() {
     void loadVehiculos()
     void loadGuias()
   }, [loadVehiculos, loadGuias])
+
+  useEffect(() => {
+    if (tab !== 'guias') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [b, l] = await Promise.all([systemApi.listBranches(), systemApi.listLocations()])
+        if (!cancelled) {
+          setBranches(Array.isArray(b) ? b : [])
+          setLocations(Array.isArray(l) ? l : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setBranches([])
+          setLocations([])
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tab])
 
   useEffect(() => {
     let cancelled = false
@@ -401,6 +436,17 @@ export function TransportPage() {
       setErr('Indica el número de guía.')
       return
     }
+    const destBranch = newGuiaDestinoEsObra ? null : Number(newGuia.destinationBranchId)
+    const destLoc = newGuiaDestinoEsObra ? Number(newGuia.destinationLocationId) : null
+    if (newGuiaDestinoEsObra) {
+      if (!Number.isFinite(destLoc) || destLoc <= 0) {
+        setErr('Selecciona la obra (ubicación) de destino.')
+        return
+      }
+    } else if (!Number.isFinite(destBranch) || destBranch <= 0) {
+      setErr('Selecciona la sucursal de destino.')
+      return
+    }
     setErr(null)
     try {
       const body = {
@@ -409,6 +455,8 @@ export function TransportPage() {
         choferNombre: newGuia.choferNombre.trim(),
         choferDocumento: newGuia.choferDocumento.trim() || undefined,
         notas: newGuia.notas.trim() || undefined,
+        destinationBranchId: destBranch ?? undefined,
+        destinationLocationId: destLoc ?? undefined,
         creadoPor: creadoPor ?? undefined,
       }
       if (newGuia.fechaSalida.trim()) {
@@ -423,7 +471,10 @@ export function TransportPage() {
         choferDocumento: '',
         notas: '',
         fechaSalida: '',
+        destinationBranchId: '',
+        destinationLocationId: '',
       })
+      setNewGuiaDestinoEsObra(false)
       showMsg('Guía creada (estado BORRADOR).')
       await loadGuias()
       const newId = created?.guia?.guiaId
@@ -747,6 +798,7 @@ export function TransportPage() {
                       <th>ID</th>
                       <th>N° guía</th>
                       <th>Placa</th>
+                      <th>Destino</th>
                       <th>Chofer</th>
                       <th>Estado</th>
                       <th>Pales</th>
@@ -774,6 +826,7 @@ export function TransportPage() {
                           </td>
                           <td className="small">{c.numeroGuia ?? '—'}</td>
                           <td>{c.placa ?? '—'}</td>
+                          <td className="small">{formatGuiaDestino(c)}</td>
                           <td className="small">{c.choferNombre}</td>
                           <td>{c.estado}</td>
                           <td>{c.totalPales ?? 0}</td>
@@ -849,6 +902,60 @@ export function TransportPage() {
                 )}
               </label>
 
+              <fieldset className="field" style={{ border: 'none', padding: 0, margin: 0 }}>
+                <legend className="field" style={{ marginBottom: '0.5rem' }}>
+                  <span>Destino *</span>
+                </legend>
+                <label className="field field--inline">
+                  <input
+                    type="checkbox"
+                    checked={newGuiaDestinoEsObra}
+                    onChange={(e) => {
+                      setNewGuiaDestinoEsObra(e.target.checked)
+                      if (e.target.checked) {
+                        setNewGuia((s) => ({ ...s, destinationBranchId: '' }))
+                      } else {
+                        setNewGuia((s) => ({ ...s, destinationLocationId: '' }))
+                      }
+                    }}
+                  />
+                  <span>Destino es obra (ubicación)</span>
+                </label>
+                {!newGuiaDestinoEsObra ? (
+                  <label className="field">
+                    <span>Sucursal destino</span>
+                    <select
+                      value={newGuia.destinationBranchId}
+                      onChange={(e) => setNewGuia((s) => ({ ...s, destinationBranchId: e.target.value }))}
+                      required
+                    >
+                      <option value="">— Elegir —</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <label className="field">
+                    <span>Obra / ubicación</span>
+                    <select
+                      value={newGuia.destinationLocationId}
+                      onChange={(e) => setNewGuia((s) => ({ ...s, destinationLocationId: e.target.value }))}
+                      required
+                    >
+                      <option value="">— Elegir —</option>
+                      {locations.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </fieldset>
+
               <label className="field">
                 <span>Notas</span>
                 <textarea
@@ -902,6 +1009,10 @@ export function TransportPage() {
                   <div>
                     <dt>Estado</dt>
                     <dd>{header.estado}</dd>
+                  </div>
+                  <div>
+                    <dt>Destino</dt>
+                    <dd>{formatGuiaDestino(header)}</dd>
                   </div>
                   <div>
                     <dt>Palés en guía</dt>
