@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
@@ -33,12 +34,19 @@ function paleLineFromPale(p) {
   }
 }
 
+function resolveGuiaSub(raw) {
+  return raw === 'create' ? 'create' : 'list'
+}
+
 export function InventoryGuiasPanel() {
   const { employee } = useAuth()
   const creadoPor = employee?.id ?? null
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
+
+  const [guiaSub, setGuiaSubState] = useState(() => resolveGuiaSub(searchParams.get('sub')))
 
   const [guias, setGuias] = useState([])
   const [guiasLoading, setGuiasLoading] = useState(false)
@@ -61,6 +69,30 @@ export function InventoryGuiasPanel() {
   const [palesLoading, setPalesLoading] = useState(false)
   const [draftPaleCodigo, setDraftPaleCodigo] = useState('')
   const [addingPale, setAddingPale] = useState(false)
+
+  const setGuiaSub = useCallback(
+    (next) => {
+      setGuiaSubState(next)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.set('area', 'guias')
+          if (next === 'list') {
+            p.delete('sub')
+          } else {
+            p.set('sub', next)
+          }
+          return p
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  useEffect(() => {
+    setGuiaSubState(resolveGuiaSub(searchParams.get('sub')))
+  }, [searchParams])
 
   const showMsg = useCallback((text) => {
     setErr(null)
@@ -138,17 +170,16 @@ export function InventoryGuiasPanel() {
   }, [])
 
   useEffect(() => {
-    void loadGuiaDetail(selectedGuiaId)
-    setDraftPaleCodigo('')
-  }, [selectedGuiaId, loadGuiaDetail])
+    if (guiaSub === 'list') {
+      void loadGuiaDetail(selectedGuiaId)
+    }
+  }, [selectedGuiaId, loadGuiaDetail, guiaSub])
 
   useEffect(() => {
-    if (selectedGuiaId == null) return
-    const t = window.setTimeout(() => {
+    if (guiaSub === 'list' && selectedGuiaId != null) {
       void loadPalesEscaneados(draftPaleCodigo.trim() || undefined)
-    }, 280)
-    return () => window.clearTimeout(t)
-  }, [selectedGuiaId, draftPaleCodigo, loadPalesEscaneados])
+    }
+  }, [guiaSub, selectedGuiaId, draftPaleCodigo, loadPalesEscaneados])
 
   const header = guiaDetail?.guia
   const detalles = useMemo(
@@ -203,11 +234,12 @@ export function InventoryGuiasPanel() {
       const created = await systemApi.createGuia(body)
       setNewGuia({ notas: '', destinationBranchId: '', destinationLocationId: '' })
       setDestinoEsObra(false)
+      const newId = created?.guia?.guiaId
       showMsg(`Guía creada: ${created?.guia?.numeroGuia ?? '—'}`)
       await loadGuias()
-      const newId = created?.guia?.guiaId
       if (newId != null) {
         setSelectedGuiaId(newId)
+        setGuiaSub('list')
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'No se pudo crear la guía')
@@ -298,10 +330,26 @@ export function InventoryGuiasPanel() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h1 className="card__title">Guías de despacho</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Número <strong>automático</strong> (sin vehículo ni chofer). En el detalle, agregue palés con envío{' '}
-          <strong>ESCANEADO</strong> desde el buscador por número de palé; se completan descripción (órdenes), unidad
-          piezas y cantidad. Al terminar, genere la <strong>hoja</strong> de la guía.
+          Número <strong>automático</strong> (sin vehículo ni chofer). Agregue palés <strong>ESCANEADOS</strong> por
+          número de palé; descripción = órdenes, unidad y cantidad en piezas. Genere la hoja al finalizar.
         </p>
+      </div>
+
+      <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={guiaSub === 'list' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setGuiaSub('list')}
+        >
+          Guías
+        </button>
+        <button
+          type="button"
+          className={guiaSub === 'create' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setGuiaSub('create')}
+        >
+          Crear guía
+        </button>
       </div>
 
       {msg ? (
@@ -315,50 +363,11 @@ export function InventoryGuiasPanel() {
         </p>
       ) : null}
 
-      <div className="split" style={{ marginTop: '1rem' }}>
-        <div className="card card--table">
-          <h2 className="card__title pad">Guías</h2>
-          {guiasLoading ? (
-            <p className="muted pad">Cargando…</p>
-          ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>N° guía</th>
-                    <th>Destino</th>
-                    <th>Estado</th>
-                    <th>Líneas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {guias.map((c) => {
-                    const id = c.guiaId ?? c.id
-                    return (
-                      <tr key={id} className={selectedGuiaId === id ? 'table__row--active' : undefined}>
-                        <td>
-                          <button type="button" className="linkish" onClick={() => setSelectedGuiaId(id)}>
-                            {id}
-                          </button>
-                        </td>
-                        <td className="small">{c.numeroGuia ?? '—'}</td>
-                        <td className="small">{formatGuiaDestino(c)}</td>
-                        <td>{c.estado}</td>
-                        <td>{c.totalLineas ?? 0}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              {!guias.length ? <p className="muted pad">No hay guías.</p> : null}
-            </div>
-          )}
-
-          <h3 className="card__title pad" style={{ borderTop: '1px solid var(--border, #e5e5e5)' }}>
-            Nueva guía
-          </h3>
-          <form className="form-section pad" onSubmit={handleCreateGuia}>
+      {guiaSub === 'create' ? (
+        <div className="card pad" style={{ maxWidth: '36rem' }}>
+          <h2 className="card__title">Nueva guía</h2>
+          <p className="muted small">El número correlativo (G-000001, …) se asigna al guardar.</p>
+          <form className="form-section" onSubmit={handleCreateGuia} style={{ marginTop: '1rem' }}>
             <fieldset className="field" style={{ border: 'none', padding: 0, margin: 0 }}>
               <legend className="field" style={{ marginBottom: '0.5rem' }}>
                 <span>Destino (opcional)</span>
@@ -418,189 +427,229 @@ export function InventoryGuiasPanel() {
               <CanButton I={ACTION.CREATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
                 Crear guía
               </CanButton>
+              <button type="button" className="btn btn--ghost" onClick={() => setGuiaSub('list')}>
+                Ver listado
+              </button>
             </div>
           </form>
         </div>
-
-        <aside className="card detail-panel">
-          <h2 className="card__title">Detalle de guía</h2>
-          {selectedGuiaId == null ? (
-            <p className="muted pad">Selecciona una guía para agregar palés y generar la hoja.</p>
-          ) : guiaDetailLoading ? (
-            <p className="muted pad">Cargando…</p>
-          ) : header ? (
-            <div className="detail pad">
-              <dl className="kv">
-                <div>
-                  <dt>N° guía</dt>
-                  <dd>
-                    <strong>{header.numeroGuia ?? '—'}</strong>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Estado</dt>
-                  <dd>{header.estado}</dd>
-                </div>
-                <div>
-                  <dt>Destino</dt>
-                  <dd>{formatGuiaDestino(header)}</dd>
-                </div>
-                <div>
-                  <dt>Creada</dt>
-                  <dd>{formatDateTime(header.fechaCreacion)}</dd>
-                </div>
-              </dl>
-
-              {!guiaCerrada ? (
-                <form className="form-section" onSubmit={handleUpdateGuia} style={{ marginTop: '0.75rem' }}>
-                  <label className="field">
-                    <span>Estado</span>
-                    <select value={guiaEdit.estado} onChange={(e) => setGuiaEdit((s) => ({ ...s, estado: e.target.value }))}>
-                      {ESTADOS_GUIA.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Notas</span>
-                    <textarea rows={2} value={guiaEdit.notas} onChange={(e) => setGuiaEdit((s) => ({ ...s, notas: e.target.value }))} />
-                  </label>
-                  <div className="form-actions">
-                    <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY} type="submit" className="btn">
-                      Guardar cabecera
-                    </CanButton>
-                  </div>
-                </form>
-              ) : null}
+      ) : (
+        <div className="split" style={{ marginTop: '0' }}>
+          <div className="card card--table">
+            <h2 className="card__title pad">Listado</h2>
+            {guiasLoading ? (
+              <p className="muted pad">Cargando…</p>
+            ) : (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>N° guía</th>
+                      <th>Destino</th>
+                      <th>Estado</th>
+                      <th>Líneas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guias.map((c) => {
+                      const id = c.guiaId ?? c.id
+                      return (
+                        <tr key={id} className={selectedGuiaId === id ? 'table__row--active' : undefined}>
+                          <td>
+                            <button type="button" className="linkish" onClick={() => setSelectedGuiaId(id)}>
+                              {id}
+                            </button>
+                          </td>
+                          <td className="small">{c.numeroGuia ?? '—'}</td>
+                          <td className="small">{formatGuiaDestino(c)}</td>
+                          <td>{c.estado}</td>
+                          <td>{c.totalLineas ?? 0}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {!guias.length ? <p className="muted pad">No hay guías. Use «Crear guía».</p> : null}
+              </div>
+            )}
+            <div className="pad">
+              <button type="button" className="btn btn--ghost" onClick={() => setGuiaSub('create')}>
+                + Crear guía
+              </button>
             </div>
-          ) : (
-            <p className="text-warn pad">No se pudo cargar el detalle.</p>
-          )}
-        </aside>
-      </div>
-
-      {selectedGuiaId != null && header && !guiaDetailLoading ? (
-        <div className="card pad" style={{ marginTop: '1rem' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <h3 className="card__title" style={{ margin: 0 }}>
-              Detalle de la guía ({detalles.length} líneas)
-            </h3>
-            <CanButton
-              I={ACTION.VIEW}
-              a={FEATURE.INVENTORY}
-              type="button"
-              className="btn btn--primary"
-              disabled={!detalles.length}
-              onClick={handlePrintHoja}
-            >
-              Generar hoja / imprimir
-            </CanButton>
           </div>
 
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: '10rem' }}>N° palé</th>
-                  <th>Descripción</th>
-                  <th style={{ width: '8rem' }}>Unidad</th>
-                  <th style={{ width: '6rem' }}>Cantidad</th>
-                  {!guiaCerrada ? <th style={{ width: '5rem' }} /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {detalles.map((d) => (
-                  <tr key={d.id}>
-                    <td className="small">
-                      <strong>{d.paleCodigo ?? (d.paleId != null ? `#${d.paleId}` : '—')}</strong>
-                    </td>
-                    <td className="small">{d.descripcion ?? '—'}</td>
-                    <td className="small">{d.unidadMedida ?? '—'}</td>
-                    <td className="small">{d.cantidad ?? '—'}</td>
-                    {!guiaCerrada ? (
-                      <td>
-                        <CanButton
-                          I={ACTION.DELETE}
-                          a={FEATURE.INVENTORY}
-                          type="button"
-                          className="linkish small"
-                          onClick={() => void handleRemoveDetalle(d.id)}
-                        >
-                          Quitar
-                        </CanButton>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
+          <aside className="card detail-panel">
+            <h2 className="card__title">Detalle</h2>
+            {selectedGuiaId == null ? (
+              <p className="muted pad">Selecciona una guía del listado para agregar palés y generar la hoja.</p>
+            ) : guiaDetailLoading ? (
+              <p className="muted pad">Cargando…</p>
+            ) : header ? (
+              <div className="detail pad">
+                <dl className="kv">
+                  <div>
+                    <dt>N° guía</dt>
+                    <dd>
+                      <strong>{header.numeroGuia ?? '—'}</strong>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>{header.estado}</dd>
+                  </div>
+                  <div>
+                    <dt>Destino</dt>
+                    <dd>{formatGuiaDestino(header)}</dd>
+                  </div>
+                  <div>
+                    <dt>Creada</dt>
+                    <dd>{formatDateTime(header.fechaCreacion)}</dd>
+                  </div>
+                </dl>
 
                 {!guiaCerrada ? (
-                  <tr className="table__row--draft">
-                    <td>
-                      <input
-                        type="text"
-                        className="field__input"
-                        list="pales-escaneados-datalist"
-                        placeholder="Buscar N° palé…"
-                        value={draftPaleCodigo}
-                        disabled={addingPale}
-                        onChange={(e) => setDraftPaleCodigo(e.target.value)}
-                        onKeyDown={handleDraftKeyDown}
-                        onBlur={() => {
-                          if (draftPaleCodigo.trim()) {
-                            void commitDraftPale()
-                          }
-                        }}
-                        aria-label="Buscar palé escaneado por número"
-                      />
-                      <datalist id="pales-escaneados-datalist">
-                        {palesDisponibles.map((p) => {
-                          const codigo = p.codigo ?? ''
-                          const pid = p.paleId ?? p.id
-                          return (
-                            <option key={pid} value={codigo} label={`${codigo} · ${p.cantidadPiezas ?? 0} pzas`} />
-                          )
-                        })}
-                      </datalist>
-                      {palesLoading ? <span className="muted small"> Buscando…</span> : null}
-                      {palesDisponibles.length === 0 && !palesLoading && draftPaleCodigo ? (
-                        <span className="muted small"> Sin coincidencias escaneadas</span>
-                      ) : null}
-                    </td>
-                    <td className="small muted">{draftFields?.descripcion ?? '—'}</td>
-                    <td className="small muted">{draftFields?.unidadMedida ?? UNIDAD_PIEZAS}</td>
-                    <td className="small muted">{draftFields?.cantidad ?? '—'}</td>
-                    <td>
-                      <CanButton
-                        I={ACTION.CREATE}
-                        a={FEATURE.INVENTORY}
-                        type="button"
-                        className="btn btn--ghost small"
-                        disabled={!draftPreview || addingPale}
-                        onClick={() => void commitDraftPale()}
-                      >
-                        {addingPale ? '…' : 'Agregar'}
+                  <form className="form-section" onSubmit={handleUpdateGuia} style={{ marginTop: '0.75rem' }}>
+                    <label className="field">
+                      <span>Estado</span>
+                      <select value={guiaEdit.estado} onChange={(e) => setGuiaEdit((s) => ({ ...s, estado: e.target.value }))}>
+                        {ESTADOS_GUIA.map((st) => (
+                          <option key={st} value={st}>
+                            {st}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Notas</span>
+                      <textarea rows={2} value={guiaEdit.notas} onChange={(e) => setGuiaEdit((s) => ({ ...s, notas: e.target.value }))} />
+                    </label>
+                    <div className="form-actions">
+                      <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY} type="submit" className="btn">
+                        Guardar cabecera
                       </CanButton>
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="muted small" style={{ marginTop: '0.75rem' }}>
+                    Guía cerrada.
+                  </p>
+                )}
 
-          {guiaCerrada ? (
-            <p className="muted small" style={{ marginTop: '0.5rem' }}>
-              Guía cerrada: solo consulta e impresión de hoja.
-            </p>
-          ) : (
-            <p className="muted small" style={{ marginTop: '0.5rem' }}>
-              Escriba o elija el número de palé (estado ESCANEADO). Al confirmar, se guarda la línea y queda una fila
-              nueva para el siguiente palé.
-            </p>
-          )}
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 className="detail__h" style={{ margin: 0 }}>
+                      Líneas ({detalles.length})
+                    </h3>
+                    <CanButton
+                      I={ACTION.VIEW}
+                      a={FEATURE.INVENTORY}
+                      type="button"
+                      className="btn btn--primary small"
+                      disabled={!detalles.length}
+                      onClick={handlePrintHoja}
+                    >
+                      Generar hoja
+                    </CanButton>
+                  </div>
+
+                  <div className="table-wrap" style={{ marginTop: '0.5rem' }}>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>N° palé</th>
+                          <th>Descripción</th>
+                          <th>Unidad</th>
+                          <th>Cant.</th>
+                          {!guiaCerrada ? <th /> : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detalles.map((d) => (
+                          <tr key={d.id}>
+                            <td className="small">
+                              <strong>{d.paleCodigo ?? (d.paleId != null ? `#${d.paleId}` : '—')}</strong>
+                            </td>
+                            <td className="small">{d.descripcion ?? '—'}</td>
+                            <td className="small">{d.unidadMedida ?? '—'}</td>
+                            <td className="small">{d.cantidad ?? '—'}</td>
+                            {!guiaCerrada ? (
+                              <td>
+                                <CanButton
+                                  I={ACTION.DELETE}
+                                  a={FEATURE.INVENTORY}
+                                  type="button"
+                                  className="linkish small"
+                                  onClick={() => void handleRemoveDetalle(d.id)}
+                                >
+                                  Quitar
+                                </CanButton>
+                              </td>
+                            ) : null}
+                          </tr>
+                        ))}
+                        {!guiaCerrada ? (
+                          <tr>
+                            <td>
+                              <input
+                                type="text"
+                                className="field__input"
+                                list="pales-escaneados-datalist"
+                                placeholder="N° palé…"
+                                value={draftPaleCodigo}
+                                disabled={addingPale}
+                                onChange={(e) => setDraftPaleCodigo(e.target.value)}
+                                onKeyDown={handleDraftKeyDown}
+                                onBlur={() => {
+                                  if (draftPaleCodigo.trim()) {
+                                    void commitDraftPale()
+                                  }
+                                }}
+                              />
+                              <datalist id="pales-escaneados-datalist">
+                                {palesDisponibles.map((p) => {
+                                  const codigo = p.codigo ?? ''
+                                  const pid = p.paleId ?? p.id
+                                  return (
+                                    <option key={pid} value={codigo} label={`${p.cantidadPiezas ?? 0} pzas`} />
+                                  )
+                                })}
+                              </datalist>
+                            </td>
+                            <td className="small muted">{draftFields?.descripcion ?? '—'}</td>
+                            <td className="small muted">{draftFields?.unidadMedida ?? UNIDAD_PIEZAS}</td>
+                            <td className="small muted">{draftFields?.cantidad ?? '—'}</td>
+                            <td>
+                              <CanButton
+                                I={ACTION.CREATE}
+                                a={FEATURE.INVENTORY}
+                                type="button"
+                                className="btn btn--ghost small"
+                                disabled={!draftPreview || addingPale}
+                                onClick={() => void commitDraftPale()}
+                              >
+                                {addingPale ? '…' : 'Agregar'}
+                              </CanButton>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!guiaCerrada ? (
+                    <p className="muted small" style={{ marginTop: '0.35rem' }}>
+                      Busque el palé escaneado en la última fila y pulse Agregar.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-warn pad">No se pudo cargar el detalle.</p>
+            )}
+          </aside>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

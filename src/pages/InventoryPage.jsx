@@ -305,7 +305,7 @@ export function InventoryPage() {
           className={areaTab === 'rm' ? 'btn btn--primary' : 'btn btn--ghost'}
           onClick={() => setAreaTab('rm')}
         >
-          Recepción RM (app)
+          Recepción Mercaderia
         </button>
         <button
           type="button"

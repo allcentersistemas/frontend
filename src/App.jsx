@@ -49,7 +49,12 @@ export default function App() {
               <Route path="gestion" element={<GestionPage />} />
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="api" element={<ApiCatalogPage />} />
-              <Route path="administracion" element={<AdminToolsPage />} />
+              <Route
+                path="administracion"
+                element={
+                  <LegacySegmentRedirect fromSegment="administracion" toSegment="gestion" defaultTab="employees" />
+                }
+              />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="inventario" element={<InventoryPage />} />
             </Route>

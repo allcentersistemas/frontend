@@ -65,7 +65,13 @@ function normalizeAuditRows(source, payload) {
   }))
 }
 
-export function AdminToolsPage() {
+/**
+ * @param {object} [props]
+ * @param {boolean} [props.embedded] - Sin cabecera propia (dentro de Gestión unificada)
+ * @param {string} [props.panel] - Pestaña activa controlada por el padre
+ * @param {(id: string) => void} [props.onPanelChange]
+ */
+export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChange }) {
   const { employee } = useAuth()
   const canManage =
     employee?.roles.some((r) => {
@@ -73,7 +79,9 @@ export function AdminToolsPage() {
       return n === ROLE_MASTER || n === ROLE_ADMIN || n === ROLE_ADMIN_PRODUCCION
     }) ?? false
 
-  const [panel, setPanel] = useState('employees')
+  const [panelInternal, setPanelInternal] = useState('employees')
+  const panel = panelProp ?? panelInternal
+  const setPanel = onPanelChange ?? setPanelInternal
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [emp, setEmp] = useState(null)
@@ -580,28 +588,32 @@ export function AdminToolsPage() {
     ['audit', 'Auditoría'],
   ]
 
-  return (
-    <div className="page">
-      <header className="page__head">
-        <h1>Gestión</h1>
-        <p className="page__lead">
-          Como <strong>Master</strong> o <strong>Admin</strong> puedes crear roles y empleados desde aquí.
-          El backend valida los mismos permisos en cada petición.
-        </p>
-      </header>
+  const body = (
+    <>
+      {!embedded ? (
+        <header className="page__head">
+          <h1>Administración</h1>
+          <p className="page__lead">
+            Como <strong>Master</strong> o <strong>Admin</strong> puedes crear roles y empleados desde aquí.
+            El backend valida los mismos permisos en cada petición.
+          </p>
+        </header>
+      ) : null}
 
-      <div className="tabs">
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={'tabs__btn' + (panel === id ? ' tabs__btn--on' : '')}
-            onClick={() => setPanel(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {!embedded ? (
+        <div className="tabs">
+          {tabs.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={'tabs__btn' + (panel === id ? ' tabs__btn--on' : '')}
+              onClick={() => setPanel(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {err ? (
         <div className="card pad">
@@ -1363,6 +1375,12 @@ export function AdminToolsPage() {
           ) : null}
         </div>
       ) : null}
-    </div>
+    </>
   )
+
+  if (embedded) {
+    return <div style={{ marginTop: '0.5rem' }}>{body}</div>
+  }
+
+  return <div className="page">{body}</div>
 }

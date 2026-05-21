@@ -6,8 +6,12 @@ export const SIDEBAR_MENU = [
   { id: 'orders', segment: 'ordenes', label: 'Órdenes', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', segment: 'pales', label: 'Pales', feature: FEATURE.PALES_LIST },
   { id: 'inventario', segment: 'inventario', label: 'Inventario', feature: FEATURE.INVENTORY },
-  { id: 'gestion', segment: 'gestion', label: 'Gestión', feature: FEATURE.TRANSPORT_VEHICLES },
-  { id: 'admin', segment: 'administracion', label: 'Administración', feature: FEATURE.EMPLOYEE_ADMIN },
+  {
+    id: 'gestion',
+    segment: 'gestion',
+    label: 'Gestión',
+    features: [FEATURE.TRANSPORT_VEHICLES, FEATURE.EMPLOYEE_ADMIN],
+  },
   { id: 'api', segment: 'api', label: 'Catálogo API', feature: FEATURE.API_CATALOG },
   { id: 'profile', segment: 'perfil', label: 'Mi perfil', feature: FEATURE.EMPLOYEE_PROFILE },
   { id: 'proyectos', segment: 'proyectos', label: 'Proyectos', feature: FEATURE.PROJECT_LIST },
@@ -17,9 +21,15 @@ export const SIDEBAR_MENU = [
 
 export function sidebarSectionsForDashboard(role, ability) {
   const base = `/dashboard/${role}`
-  const items = SIDEBAR_MENU.filter(
-    (item) => !item.feature || ability.can('view', item.feature) || ability.can('manage', 'all'),
-  ).map((item) => ({
+  const items = SIDEBAR_MENU.filter((item) => {
+    if (ability.can('manage', 'all')) {
+      return true
+    }
+    if (item.features?.length) {
+      return item.features.some((f) => ability.can('view', f))
+    }
+    return !item.feature || ability.can('view', item.feature)
+  }).map((item) => ({
     ...item,
     to: item.segment ? `${base}/${item.segment}` : base,
   }))
