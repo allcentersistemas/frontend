@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { assertSecureDeployment } from './config/security'
+import { ThemeProvider } from './theme/ThemeProvider'
 
 assertSecureDeployment()
 
@@ -11,6 +12,8 @@ if (!rootEl) throw new Error('No se encontró #root')
 
 createRoot(rootEl).render(
   <StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 )

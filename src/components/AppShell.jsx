@@ -5,6 +5,7 @@ import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { shellSubtitle } from '../auth/roles'
 import { cn } from '../lib/cn'
+import { ThemeToggle } from './ThemeToggle'
 import logo from '../assets/allcenter1.png'
 /** @typedef {{ to: string, label: string, end?: boolean }} NavItem */
 /** @typedef {{ id: string, title: string | null, items: NavItem[] }} NavSection */
@@ -44,20 +45,19 @@ export function AppShell({ role }) {
         menuOpen && 'max-lg:overflow-hidden',
       )}
     >
-      {/* Canvas principal */}
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-slate-950"
+        className="pointer-events-none fixed inset-0 -z-10 bg-slate-100 dark:bg-slate-950"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_90%_60%_at_0%_-10%,rgba(251,191,36,0.12),transparent_50%),radial-gradient(ellipse_80%_50%_at_100%_100%,rgba(245,158,11,0.08),transparent_45%),linear-gradient(180deg,rgb(15,23,42)_0%,rgb(2,6,23)_100%)]"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_90%_60%_at_0%_-10%,rgba(251,191,36,0.18),transparent_50%),radial-gradient(ellipse_80%_50%_at_100%_100%,rgba(245,158,11,0.1),transparent_45%),linear-gradient(180deg,rgb(248,250,252)_0%,rgb(241,245,249)_100%)] dark:bg-[radial-gradient(ellipse_90%_60%_at_0%_-10%,rgba(251,191,36,0.12),transparent_50%),radial-gradient(ellipse_80%_50%_at_100%_100%,rgba(245,158,11,0.08),transparent_45%),linear-gradient(180deg,rgb(15,23,42)_0%,rgb(2,6,23)_100%)]"
         aria-hidden
       />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-white/[0.08] bg-slate-950/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/80 lg:hidden">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold text-white shadow-depth transition hover:border-amber-400/25 hover:bg-amber-400/5"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-amber-400/40 hover:bg-amber-50 dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:shadow-depth dark:hover:border-amber-400/25 dark:hover:bg-amber-400/5"
           aria-controls="app-sidebar"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
@@ -70,7 +70,7 @@ export function AppShell({ role }) {
           {menuOpen ? 'Cerrar' : 'Menú'}
         </button>
         <div className="min-w-0 text-right">
-          <p className="truncate text-sm font-semibold text-white">AllCenter</p>
+          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">AllCenter</p>
           <p className="truncate text-xs text-slate-500">{subtitle}</p>
         </div>
       </header>
@@ -78,7 +78,7 @@ export function AppShell({ role }) {
       {menuOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-sm dark:bg-slate-950/70 lg:hidden"
           aria-label="Cerrar menú"
           onClick={() => setMenuOpen(false)}
         />
@@ -87,7 +87,7 @@ export function AppShell({ role }) {
       <aside
         id="app-sidebar"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[min(88vw,300px)] flex-col border-r border-white/[0.08] bg-slate-950/70 px-4 py-6 shadow-depth backdrop-blur-2xl transition-transform duration-200 ease-out max-lg:pt-[4.5rem] lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-5',
+          'fixed inset-y-0 left-0 z-50 flex w-[min(88vw,300px)] flex-col border-r border-slate-200/80 bg-white/90 px-4 py-6 shadow-xl backdrop-blur-2xl transition-transform duration-200 ease-out max-lg:pt-[4.5rem] dark:border-white/[0.08] dark:bg-slate-950/70 dark:shadow-depth lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-5',
           menuOpen ? 'translate-x-0' : 'max-lg:-translate-x-full',
         )}
         aria-label="Barra lateral"
@@ -108,7 +108,7 @@ export function AppShell({ role }) {
            />
           </span>
           <div className="min-w-0">
-            <p className="truncate font-semibold tracking-tight text-white">AllCenter</p>
+            <p className="truncate font-semibold tracking-tight text-slate-900 dark:text-white">AllCenter</p>
             <p className="truncate text-xs text-slate-500">{subtitle}</p>
           </div>
         </div>
@@ -118,7 +118,7 @@ export function AppShell({ role }) {
             <div key={section.id} className="flex flex-col gap-1">
               {section.title ? (
                 <p
-                  className="mb-1 mt-4 px-3 text-[0.65rem] font-bold uppercase tracking-widest text-slate-500 first:mt-0"
+                  className="mb-1 mt-4 px-3 text-[0.65rem] font-bold tracking-widest text-slate-500 uppercase first:mt-0"
                   id={`nav-h-${section.id}`}
                 >
                   {section.title}
@@ -139,8 +139,8 @@ export function AppShell({ role }) {
                         cn(
                           'block rounded-xl px-3 py-2.5 text-sm font-medium transition',
                           isActive
-                            ? 'bg-gradient-to-r from-amber-400/20 to-amber-600/10 text-amber-50 ring-1 ring-amber-400/20'
-                            : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200',
+                            ? 'bg-gradient-to-r from-amber-400/25 to-amber-600/15 text-amber-900 ring-1 ring-amber-400/30 dark:from-amber-400/20 dark:to-amber-600/10 dark:text-amber-50 dark:ring-amber-400/20'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-slate-200',
                         )
                       }
                     >
@@ -153,26 +153,29 @@ export function AppShell({ role }) {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-white/[0.08] pt-4">
+        <div className="mt-auto space-y-3 border-t border-slate-200/80 pt-4 dark:border-white/[0.08]">
+          <div className="flex justify-center px-1">
+            <ThemeToggle size="sm" className="w-full max-w-[220px] justify-center" />
+          </div>
           {profileHref ? (
             <Link
               to={profileHref}
-              className="mb-3 block truncate rounded-xl px-1 py-1 text-sm font-medium text-amber-200/90 transition hover:text-amber-100"
+              className="mb-1 block truncate rounded-xl px-1 py-1 text-sm font-medium text-amber-700 transition hover:text-amber-600 dark:text-amber-200/90 dark:hover:text-amber-100"
               title={email ?? 'Mi perfil'}
               onClick={() => setMenuOpen(false)}
             >
-              <span className="block truncate text-white">{displayName}</span>
+              <span className="block truncate text-slate-900 dark:text-white">{displayName}</span>
               {email ? <span className="block truncate text-xs font-normal text-slate-500">{email}</span> : null}
             </Link>
           ) : (
-            <div className="mb-3 px-1">
-              <span className="block truncate text-sm font-medium text-white">{displayName}</span>
+            <div className="mb-1 px-1">
+              <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{displayName}</span>
               {email ? <span className="block truncate text-xs text-slate-500">{email}</span> : null}
             </div>
           )}
           <button
             type="button"
-            className="w-full rounded-xl border border-white/10 bg-transparent py-2.5 text-sm font-medium text-slate-300 transition hover:border-amber-400/30 hover:bg-amber-400/5 hover:text-white"
+            className="w-full rounded-xl border border-slate-200 bg-transparent py-2.5 text-sm font-medium text-slate-600 transition hover:border-amber-400/40 hover:bg-amber-50 hover:text-slate-900 dark:border-white/10 dark:text-slate-300 dark:hover:border-amber-400/30 dark:hover:bg-amber-400/5 dark:hover:text-white"
             onClick={() => void logout()}
           >
             Cerrar sesión
