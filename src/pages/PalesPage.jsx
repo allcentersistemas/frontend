@@ -237,7 +237,7 @@ export function PalesPage() {
   }
 
   const guiasHref = useMemo(
-    () => `${location.pathname.replace(/\/pales\/?$/, '/transporte')}?tab=guias`,
+    () => `${location.pathname.replace(/\/pales\/?$/, '/inventario')}`,
     [location.pathname],
   )
 
@@ -382,9 +382,8 @@ export function PalesPage() {
         <>
       <GlassCard className="mb-4">
         <p className="text-sm text-slate-600">
-          Para enviar palés cerrados, crea una <strong>guía</strong> en Transporte (número, vehículo y{' '}
-          <strong>destino</strong>). Cada palé asignado recibe código <InlineCode>G-{'{número}'}</InlineCode>.
-          El destino ya no se define al crear el palé.
+          Para despachar palés <strong>escaneados</strong>, créalos en una <strong>guía</strong> en Inventario (número
+          automático, sin vehículo ni chofer). También puedes agregar líneas manuales a la guía.
         </p>
         <p className="mt-2">
           <Link to={guiasHref} className={linkButtonClass}>

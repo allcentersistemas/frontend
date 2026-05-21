@@ -5,6 +5,7 @@ import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
 import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
+import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
 
 function formatDateTime(value) {
@@ -283,9 +284,18 @@ export function InventoryPage() {
         >
           Almacén (stock)
         </button>
+        <button
+          type="button"
+          className={areaTab === 'guias' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setAreaTab('guias')}
+        >
+          Guías de despacho
+        </button>
       </div>
 
-      {areaTab === 'stock' ? (
+      {areaTab === 'guias' ? (
+        <InventoryGuiasPanel />
+      ) : areaTab === 'stock' ? (
         <>
           <div className="card pad" style={{ marginBottom: '1rem' }}>
             <h1 className="card__title">Inventario · almacén</h1>

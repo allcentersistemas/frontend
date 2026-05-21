@@ -339,36 +339,51 @@ export async function updateVehiculo(id, body) {
 }
 
 export async function listGuias() {
-  return systemJson('/api/transport/guias')
+  return systemJson('/api/inventory/guias')
+}
+
+export async function listGuiasPalesEscaneados() {
+  return systemJson('/api/inventory/guias/pales-escaneados')
 }
 
 export async function getGuia(id) {
-  return systemJson(`/api/transport/guias/${id}`)
+  return systemJson(`/api/inventory/guias/${id}`)
 }
 
 export async function createGuia(body) {
-  return systemJson('/api/transport/guias', {
+  const created = await systemJson('/api/inventory/guias', {
     method: 'POST',
     body: JSON.stringify(body),
   })
+  if (created?.id != null) {
+    return getGuia(created.id)
+  }
+  return created
 }
 
 export async function updateGuia(id, body) {
-  return systemJson(`/api/transport/guias/${id}`, {
+  return systemJson(`/api/inventory/guias/${id}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   })
 }
 
-export async function addGuiaPale(guiaId, body) {
-  return systemJson(`/api/transport/guias/${guiaId}/pales`, {
+export async function addGuiaDetalleManual(guiaId, body) {
+  return systemJson(`/api/inventory/guias/${guiaId}/detalles`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
-export async function removeGuiaPale(guiaId, guiaPaleId) {
-  return systemJson(`/api/transport/guias/${guiaId}/pales/${guiaPaleId}`, {
+export async function addGuiaDetallePale(guiaId, body) {
+  return systemJson(`/api/inventory/guias/${guiaId}/detalles/pale`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function removeGuiaDetalle(guiaId, detalleId) {
+  return systemJson(`/api/inventory/guias/${guiaId}/detalles/${detalleId}`, {
     method: 'DELETE',
   })
 }
