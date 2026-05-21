@@ -236,8 +236,8 @@ export function PalesPage() {
     else setSearchParams({})
   }
 
-  const transportHref = useMemo(
-    () => location.pathname.replace(/\/pales\/?$/, '/transporte'),
+  const guiasHref = useMemo(
+    () => `${location.pathname.replace(/\/pales\/?$/, '/transporte')}?tab=guias`,
     [location.pathname],
   )
 
@@ -380,6 +380,17 @@ export function PalesPage() {
         <PaleAuditPanel />
       ) : (
         <>
+      <GlassCard className="mb-4">
+        <p className="text-sm text-slate-600">
+          Para enviar palés cerrados, crea una <strong>guía</strong> en Transporte (número de guía + vehículo).
+          Cada palé asignado recibe código <InlineCode>G-{'{número}'}</InlineCode>.
+        </p>
+        <p className="mt-2">
+          <Link to={guiasHref} className={linkButtonClass}>
+            Ir a crear / gestionar guías
+          </Link>
+        </p>
+      </GlassCard>
       {err ? <AlertBanner>{err}</AlertBanner> : null}
       {opErr ? <AlertBanner>{opErr}</AlertBanner> : null}
       {opMsg ? (

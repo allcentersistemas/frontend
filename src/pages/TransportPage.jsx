@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { normalizeRoleName } from '../auth/roles'
 import { CanButton } from '../components/CanButton'
 
-const ESTADOS_CARGA = ['BORRADOR', 'CONFIRMADA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA']
+const ESTADOS_GUIA = ['BORRADOR', 'CONFIRMADA', 'EN_RUTA', 'ENTREGADA', 'CANCELADA']
 const DRIVER_ROLES = new Set(['CONDUCTOR', 'CHOFER', 'DRIVER', 'ROLE_CONDUCTOR', 'ROLE_CHOFER'])
 
 function formatDateTime(value) {
@@ -57,6 +57,11 @@ function employeeDocument(row) {
   return row?.documentNumber ?? row?.documento ?? row?.dni ?? row?.identityNumber ?? ''
 }
 
+function resolveTransportTab(raw) {
+  if (raw === 'vehiculos' || raw === 'auditoria') return raw
+  return 'guias'
+}
+
 export function TransportPage() {
   const { employee } = useAuth()
   const ability = useAppAbility()
@@ -64,7 +69,7 @@ export function TransportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const vehiculoQueryHandled = useRef(false)
 
-  const [tab, setTab] = useState('vehiculos')
+  const [tab, setTab] = useState(() => resolveTransportTab(searchParams.get('tab')))
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
 
@@ -75,14 +80,15 @@ export function TransportPage() {
   const [editingVehiculoId, setEditingVehiculoId] = useState(null)
   const [editVehiculo, setEditVehiculo] = useState(() => emptyVehicleForm())
 
-  const [cargas, setCargas] = useState([])
-  const [cargasLoading, setCargasLoading] = useState(false)
-  const [selectedCargaId, setSelectedCargaId] = useState(null)
-  const [cargaDetail, setCargaDetail] = useState(null)
-  const [cargaDetailLoading, setCargaDetailLoading] = useState(false)
+  const [guias, setGuias] = useState([])
+  const [guiasLoading, setGuiasLoading] = useState(false)
+  const [selectedGuiaId, setSelectedGuiaId] = useState(null)
+  const [guiaDetail, setGuiaDetail] = useState(null)
+  const [guiaDetailLoading, setGuiaDetailLoading] = useState(false)
 
-  const [newCarga, setNewCarga] = useState({
+  const [newGuia, setNewGuia] = useState({
     transporteId: '',
+    numeroGuia: '',
     choferEmployeeId: '',
     choferNombre: '',
     choferDocumento: '',
@@ -90,7 +96,7 @@ export function TransportPage() {
     fechaSalida: '',
   })
 
-  const [cargaEdit, setCargaEdit] = useState({
+  const [guiaEdit, setGuiaEdit] = useState({
     choferNombre: '',
     choferDocumento: '',
     estado: 'BORRADOR',
@@ -100,11 +106,46 @@ export function TransportPage() {
   })
 
   const [addPale, setAddPale] = useState({
-    paleEnvioId: '',
+    paleId: '',
     paleCodigo: '',
     cantidad: '1',
     observacion: '',
   })
+
+  const selectTab = useCallback(
+    (next) => {
+      setTab(next)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          if (next === 'guias') {
+            p.set('tab', 'guias')
+          } else if (next === 'auditoria') {
+            p.set('tab', 'auditoria')
+          } else if (next === 'vehiculos') {
+            p.set('tab', 'vehiculos')
+          } else {
+            p.delete('tab')
+          }
+          return p
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  useEffect(() => {
+    const fromUrl = resolveTransportTab(searchParams.get('tab'))
+    setTab((current) => (current === fromUrl ? current : fromUrl))
+    const rawGuia = searchParams.get('guia')
+    if (rawGuia) {
+      const id = Number(rawGuia)
+      if (Number.isFinite(id) && id > 0) {
+        setSelectedGuiaId(id)
+      }
+    }
+  }, [searchParams])
 
   const [auditFilters, setAuditFilters] = useState({
     entityType: '',
@@ -134,23 +175,23 @@ export function TransportPage() {
     }
   }, [])
 
-  const loadCargas = useCallback(async () => {
-    setCargasLoading(true)
+  const loadGuias = useCallback(async () => {
+    setGuiasLoading(true)
     setErr(null)
     try {
-      const list = await systemApi.listCargas()
-      setCargas(Array.isArray(list) ? list : [])
+      const list = await systemApi.listGuias()
+      setGuias(Array.isArray(list) ? list : [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Error al cargar cargas')
+      setErr(e instanceof Error ? e.message : 'Error al cargar guías')
     } finally {
-      setCargasLoading(false)
+      setGuiasLoading(false)
     }
   }, [])
 
   useEffect(() => {
     void loadVehiculos()
-    void loadCargas()
-  }, [loadVehiculos, loadCargas])
+    void loadGuias()
+  }, [loadVehiculos, loadGuias])
 
   useEffect(() => {
     let cancelled = false
@@ -198,19 +239,19 @@ export function TransportPage() {
     void loadAuditoria()
   }, [tab, loadAuditoria])
 
-  const loadCargaDetail = useCallback(async (id) => {
+  const loadGuiaDetail = useCallback(async (id) => {
     if (id == null) {
-      setCargaDetail(null)
+      setGuiaDetail(null)
       return
     }
-    setCargaDetailLoading(true)
+    setGuiaDetailLoading(true)
     setErr(null)
     try {
-      const data = await systemApi.getCarga(id)
-      setCargaDetail(data)
-      const h = data?.carga
+      const data = await systemApi.getGuia(id)
+      setGuiaDetail(data)
+      const h = data?.guia
       if (h) {
-        setCargaEdit({
+        setGuiaEdit({
           choferNombre: h.choferNombre ?? '',
           choferDocumento: h.choferDocumento ?? '',
           estado: h.estado ?? 'BORRADOR',
@@ -220,21 +261,21 @@ export function TransportPage() {
         })
       }
     } catch (e) {
-      setCargaDetail(null)
-      setErr(e instanceof Error ? e.message : 'Error al cargar la carga')
+      setGuiaDetail(null)
+      setErr(e instanceof Error ? e.message : 'Error al cargar la guía')
     } finally {
-      setCargaDetailLoading(false)
+      setGuiaDetailLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void loadCargaDetail(selectedCargaId)
-  }, [selectedCargaId, loadCargaDetail])
+    void loadGuiaDetail(selectedGuiaId)
+  }, [selectedGuiaId, loadGuiaDetail])
 
-  const header = cargaDetail?.carga
-  const detalles = useMemo(
-    () => (Array.isArray(cargaDetail?.detalles) ? cargaDetail.detalles : []),
-    [cargaDetail],
+  const header = guiaDetail?.guia
+  const palesEnGuia = useMemo(
+    () => (Array.isArray(guiaDetail?.pales) ? guiaDetail.pales : []),
+    [guiaDetail],
   )
 
   async function handleCreateVehiculo(e) {
@@ -304,7 +345,7 @@ export function TransportPage() {
     const id = Number(raw)
     if (!Number.isFinite(id) || id <= 0) return
     vehiculoQueryHandled.current = true
-    setTab('vehiculos')
+    selectTab('vehiculos')
     void (async () => {
       try {
         const fresh = await systemApi.getVehiculo(id)
@@ -348,76 +389,86 @@ export function TransportPage() {
     }
   }
 
-  async function handleCreateCarga(e) {
+  async function handleCreateGuia(e) {
     e.preventDefault()
-    const tid = Number(newCarga.transporteId)
+    const tid = Number(newGuia.transporteId)
+    const numero = newGuia.numeroGuia.trim()
     if (!Number.isFinite(tid) || tid <= 0) {
       setErr('Selecciona un vehículo válido.')
+      return
+    }
+    if (!numero) {
+      setErr('Indica el número de guía.')
       return
     }
     setErr(null)
     try {
       const body = {
         transporteId: tid,
-        choferNombre: newCarga.choferNombre.trim(),
-        choferDocumento: newCarga.choferDocumento.trim() || undefined,
-        notas: newCarga.notas.trim() || undefined,
+        numeroGuia: numero,
+        choferNombre: newGuia.choferNombre.trim(),
+        choferDocumento: newGuia.choferDocumento.trim() || undefined,
+        notas: newGuia.notas.trim() || undefined,
         creadoPor: creadoPor ?? undefined,
       }
-      if (newCarga.fechaSalida.trim()) {
-        body.fechaSalida = `${newCarga.fechaSalida.trim()}:00`
+      if (newGuia.fechaSalida.trim()) {
+        body.fechaSalida = `${newGuia.fechaSalida.trim()}:00`
       }
-      const created = await systemApi.createCarga(body)
-      setNewCarga({
+      const created = await systemApi.createGuia(body)
+      setNewGuia({
         transporteId: '',
+        numeroGuia: '',
         choferEmployeeId: '',
         choferNombre: '',
         choferDocumento: '',
         notas: '',
         fechaSalida: '',
       })
-      showMsg('Carga creada (estado BORRADOR).')
-      await loadCargas()
-      const newId = created?.carga?.transporteCargaId
-      if (newId != null) setSelectedCargaId(newId)
+      showMsg('Guía creada (estado BORRADOR).')
+      await loadGuias()
+      const newId = created?.guia?.guiaId
+      if (newId != null) {
+        setSelectedGuiaId(newId)
+        setSearchParams({ tab: 'guias', guia: String(newId) }, { replace: true })
+      }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo crear la carga')
+      setErr(e instanceof Error ? e.message : 'No se pudo crear la guía')
     }
   }
 
-  async function handleUpdateCarga(e) {
+  async function handleUpdateGuia(e) {
     e.preventDefault()
-    if (selectedCargaId == null) return
+    if (selectedGuiaId == null) return
     setErr(null)
     try {
       const body = {
-        choferNombre: cargaEdit.choferNombre.trim() || undefined,
-        choferDocumento: cargaEdit.choferDocumento.trim() || undefined,
-        estado: cargaEdit.estado,
-        notas: cargaEdit.notas.trim() || undefined,
+        choferNombre: guiaEdit.choferNombre.trim() || undefined,
+        choferDocumento: guiaEdit.choferDocumento.trim() || undefined,
+        estado: guiaEdit.estado,
+        notas: guiaEdit.notas.trim() || undefined,
       }
-      if (cargaEdit.fechaSalida.trim()) {
-        body.fechaSalida = `${cargaEdit.fechaSalida.trim()}:00`
+      if (guiaEdit.fechaSalida.trim()) {
+        body.fechaSalida = `${guiaEdit.fechaSalida.trim()}:00`
       }
-      if (cargaEdit.fechaEntrega.trim()) {
-        body.fechaEntrega = `${cargaEdit.fechaEntrega.trim()}:00`
+      if (guiaEdit.fechaEntrega.trim()) {
+        body.fechaEntrega = `${guiaEdit.fechaEntrega.trim()}:00`
       }
-      await systemApi.updateCarga(selectedCargaId, body)
-      showMsg('Carga actualizada.')
-      await loadCargas()
-      await loadCargaDetail(selectedCargaId)
+      await systemApi.updateGuia(selectedGuiaId, body)
+      showMsg('Guía actualizada.')
+      await loadGuias()
+      await loadGuiaDetail(selectedGuiaId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo actualizar la carga')
+      setErr(e instanceof Error ? e.message : 'No se pudo actualizar la guía')
     }
   }
 
   async function handleAddPale(e) {
     e.preventDefault()
-    if (selectedCargaId == null) return
-    const paleId = Number(addPale.paleEnvioId)
+    if (selectedGuiaId == null) return
+    const paleId = Number(addPale.paleId)
     const qty = Number(addPale.cantidad)
     if (!Number.isFinite(paleId) || paleId <= 0) {
-      setErr('Indica el ID del pale (envío) a cargar.')
+      setErr('Indica el ID del palé a asignar.')
       return
     }
     if (!Number.isFinite(qty) || qty < 1) {
@@ -426,30 +477,30 @@ export function TransportPage() {
     }
     setErr(null)
     try {
-      await systemApi.addCargaDetalle(selectedCargaId, {
-        paleEnvioId: paleId,
+      await systemApi.addGuiaPale(selectedGuiaId, {
+        paleId,
         paleCodigo: addPale.paleCodigo.trim() || undefined,
         cantidad: qty,
         observacion: addPale.observacion.trim() || undefined,
       })
-      setAddPale({ paleEnvioId: '', paleCodigo: '', cantidad: '1', observacion: '' })
-      showMsg('Pale agregado a la carga (debe estar cerrado en el servicio de pales).')
-      await loadCargas()
-      await loadCargaDetail(selectedCargaId)
+      setAddPale({ paleId: '', paleCodigo: '', cantidad: '1', observacion: '' })
+      showMsg('Palé agregado a la guía. Se generó código G-{número de guía}.')
+      await loadGuias()
+      await loadGuiaDetail(selectedGuiaId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo agregar el pale')
+      setErr(e instanceof Error ? e.message : 'No se pudo agregar el palé')
     }
   }
 
-  async function handleRemoveDetalle(detalleId) {
-    if (selectedCargaId == null) return
-    if (!window.confirm('¿Quitar este pale de la carga?')) return
+  async function handleRemovePale(guiaPaleId) {
+    if (selectedGuiaId == null) return
+    if (!window.confirm('¿Quitar este palé de la guía?')) return
     setErr(null)
     try {
-      await systemApi.removeCargaDetalle(selectedCargaId, detalleId)
-      showMsg('Pale quitado de la carga.')
-      await loadCargas()
-      await loadCargaDetail(selectedCargaId)
+      await systemApi.removeGuiaPale(selectedGuiaId, guiaPaleId)
+      showMsg('Palé quitado de la guía.')
+      await loadGuias()
+      await loadGuiaDetail(selectedGuiaId)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'No se pudo quitar')
     }
@@ -465,10 +516,9 @@ export function TransportPage() {
       <header className="page__head">
         <h1>Transporte</h1>
         <p className="page__lead">
-          Vehículos, cargas y <strong>auditoría</strong> desde{' '}
-          <code className="code-inline">module-system</code>. Cada cambio queda registrado con actor
-          (empleado en sesión), instante y detalle. Los pales deben estar cerrados según validación del
-          backend.
+          Las <strong>guías de despacho</strong> se crean y gestionan aquí (pestaña Guías): número de guía,
+          vehículo, chofer y palés asignados (código <code className="code-inline">G-{'{número}'}</code>).
+          La app móvil no crea guías de transporte. Flota y auditoría en las otras pestañas.
         </p>
       </header>
 
@@ -487,20 +537,20 @@ export function TransportPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={tab === 'vehiculos'}
-          className={tab === 'vehiculos' ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
-          onClick={() => setTab('vehiculos')}
+          aria-selected={tab === 'guias'}
+          className={tab === 'guias' ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
+          onClick={() => selectTab('guias')}
         >
-          Vehículos
+          Guías
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={tab === 'cargas'}
-          className={tab === 'cargas' ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
-          onClick={() => setTab('cargas')}
+          aria-selected={tab === 'vehiculos'}
+          className={tab === 'vehiculos' ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
+          onClick={() => selectTab('vehiculos')}
         >
-          Cargas
+          Vehículos
         </button>
         <Can I="view" a={FEATURE.TRANSPORT_AUDIT}>
           <button
@@ -508,7 +558,7 @@ export function TransportPage() {
             role="tab"
             aria-selected={tab === 'auditoria'}
             className={tab === 'auditoria' ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
-            onClick={() => setTab('auditoria')}>
+            onClick={() => selectTab('auditoria')}>
             Auditoría
           </button>
         </Can>
@@ -683,11 +733,11 @@ export function TransportPage() {
             ) : null}
           </div>
         </div>
-      ) : tab === 'cargas' ? (
+      ) : tab === 'guias' ? (
         <div className="split" style={{ marginTop: '1rem' }}>
           <div className="card card--table">
-            <h2 className="card__title pad">Cargas</h2>
-            {cargasLoading ? (
+            <h2 className="card__title pad">Guías</h2>
+            {guiasLoading ? (
               <p className="muted pad">Cargando…</p>
             ) : (
               <div className="table-wrap">
@@ -695,6 +745,7 @@ export function TransportPage() {
                   <thead>
                     <tr>
                       <th>ID</th>
+                      <th>N° guía</th>
                       <th>Placa</th>
                       <th>Chofer</th>
                       <th>Estado</th>
@@ -702,18 +753,26 @@ export function TransportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cargas.map((c) => {
-                      const id = c.transporteCargaId ?? c.id
+                    {guias.map((c) => {
+                      const id = c.guiaId ?? c.id
                       return (
                         <tr
                           key={id}
-                          className={selectedCargaId === id ? 'table__row--active' : undefined}
+                          className={selectedGuiaId === id ? 'table__row--active' : undefined}
                         >
                           <td>
-                            <button type="button" className="linkish" onClick={() => setSelectedCargaId(id)}>
+                            <button
+                              type="button"
+                              className="linkish"
+                              onClick={() => {
+                                setSelectedGuiaId(id)
+                                setSearchParams({ tab: 'guias', guia: String(id) }, { replace: true })
+                              }}
+                            >
                               {id}
                             </button>
                           </td>
+                          <td className="small">{c.numeroGuia ?? '—'}</td>
                           <td>{c.placa ?? '—'}</td>
                           <td className="small">{c.choferNombre}</td>
                           <td>{c.estado}</td>
@@ -723,19 +782,29 @@ export function TransportPage() {
                     })}
                   </tbody>
                 </table>
-                {!cargas.length ? <p className="muted pad">No hay cargas.</p> : null}
+                {!guias.length ? <p className="muted pad">No hay guías.</p> : null}
               </div>
             )}
 
             <h3 className="card__title pad" style={{ borderTop: '1px solid var(--border, #e5e5e5)' }}>
-              Nueva carga
+              Nueva guía
             </h3>
-            <form className="form-section pad" onSubmit={handleCreateCarga}>
+            <form className="form-section pad" onSubmit={handleCreateGuia}>
+              <label className="field">
+                <span>Número de guía *</span>
+                <input
+                  value={newGuia.numeroGuia}
+                  onChange={(e) => setNewGuia((s) => ({ ...s, numeroGuia: e.target.value }))}
+                  placeholder="Ej. NG-2024-00123"
+                  required
+                />
+                <small className="muted">Los palés asignados recibirán código G-{'{número}'}</small>
+              </label>
               <label className="field">
                 <span>Vehículo *</span>
                 <select
-                  value={newCarga.transporteId}
-                  onChange={(e) => setNewCarga((s) => ({ ...s, transporteId: e.target.value }))}
+                  value={newGuia.transporteId}
+                  onChange={(e) => setNewGuia((s) => ({ ...s, transporteId: e.target.value }))}
                   required
                 >
                   <option value="">— Elegir —</option>
@@ -753,10 +822,10 @@ export function TransportPage() {
               <label className="field">
                 <span>Chofer empleado *</span>
                 <select
-                  value={newCarga.choferEmployeeId}
+                  value={newGuia.choferEmployeeId}
                   onChange={(e) => {
                     const selected = conductores.find((row) => String(row.id) === e.target.value)
-                    setNewCarga((s) => ({
+                    setNewGuia((s) => ({
                       ...s,
                       choferEmployeeId: e.target.value,
                       choferNombre: selected ? employeeFullName(selected) || selected.email || '' : '',
@@ -784,41 +853,45 @@ export function TransportPage() {
                 <span>Notas</span>
                 <textarea
                   rows={2}
-                  value={newCarga.notas}
-                  onChange={(e) => setNewCarga((s) => ({ ...s, notas: e.target.value }))}
+                  value={newGuia.notas}
+                  onChange={(e) => setNewGuia((s) => ({ ...s, notas: e.target.value }))}
                 />
               </label>
               <label className="field">
                 <span>Salida programada</span>
                 <input
                   type="datetime-local"
-                  value={newCarga.fechaSalida}
-                  onChange={(e) => setNewCarga((s) => ({ ...s, fechaSalida: e.target.value }))}
+                  value={newGuia.fechaSalida}
+                  onChange={(e) => setNewGuia((s) => ({ ...s, fechaSalida: e.target.value }))}
                 />
               </label>
               {creadoPor == null ? (
-                <p className="muted small">Sin sesión de empleado: la carga se creará sin creadoPor.</p>
+                <p className="muted small">Sin sesión de empleado: la guía se creará sin creadoPor.</p>
               ) : null}
               <div className="form-actions">
                 <CanButton I={ACTION.CREATE} a={FEATURE.TRANSPORT_LOADS} type="submit" className="btn btn--primary">
-                  Crear carga
+                  Crear guía
                 </CanButton>
               </div>
             </form>
           </div>
 
           <aside className="card detail-panel">
-            <h2 className="card__title">Detalle de carga</h2>
-            {selectedCargaId == null ? (
-              <p className="muted pad">Selecciona una carga en la tabla.</p>
-            ) : cargaDetailLoading ? (
+            <h2 className="card__title">Detalle de guía</h2>
+            {selectedGuiaId == null ? (
+              <p className="muted pad">Selecciona una guía en la tabla.</p>
+            ) : guiaDetailLoading ? (
               <p className="muted pad">Cargando…</p>
             ) : header ? (
               <div className="detail pad">
                 <dl className="kv">
                   <div>
                     <dt>ID</dt>
-                    <dd>{header.transporteCargaId ?? selectedCargaId}</dd>
+                    <dd>{header.guiaId ?? selectedGuiaId}</dd>
+                  </div>
+                  <div>
+                    <dt>N° guía</dt>
+                    <dd>{header.numeroGuia ?? '—'}</dd>
                   </div>
                   <div>
                     <dt>Vehículo</dt>
@@ -831,35 +904,35 @@ export function TransportPage() {
                     <dd>{header.estado}</dd>
                   </div>
                   <div>
-                    <dt>Pales en carga</dt>
-                    <dd>{header.totalPales ?? detalles.length}</dd>
+                    <dt>Palés en guía</dt>
+                    <dd>{header.totalPales ?? palesEnGuia.length}</dd>
                   </div>
                 </dl>
 
 
 
-                <form className="form-section" onSubmit={handleUpdateCarga} style={{ marginTop: '1rem' }}>
+                <form className="form-section" onSubmit={handleUpdateGuia} style={{ marginTop: '1rem' }}>
                   <label className="field">
                     <span>Chofer</span>
                     <input
-                      value={cargaEdit.choferNombre}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, choferNombre: e.target.value }))}
+                      value={guiaEdit.choferNombre}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, choferNombre: e.target.value }))}
                     />
                   </label>
                   <label className="field">
                     <span>Documento</span>
                     <input
-                      value={cargaEdit.choferDocumento}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, choferDocumento: e.target.value }))}
+                      value={guiaEdit.choferDocumento}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, choferDocumento: e.target.value }))}
                     />
                   </label>
                   <label className="field">
                     <span>Estado</span>
                     <select
-                      value={cargaEdit.estado}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, estado: e.target.value }))}
+                      value={guiaEdit.estado}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, estado: e.target.value }))}
                     >
-                      {ESTADOS_CARGA.map((st) => (
+                      {ESTADOS_GUIA.map((st) => (
                         <option key={st} value={st}>
                           {st}
                         </option>
@@ -870,45 +943,45 @@ export function TransportPage() {
                     <span>Notas</span>
                     <textarea
                       rows={2}
-                      value={cargaEdit.notas}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, notas: e.target.value }))}
+                      value={guiaEdit.notas}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, notas: e.target.value }))}
                     />
                   </label>
                   <label className="field">
                     <span>Salida</span>
                     <input
                       type="datetime-local"
-                      value={cargaEdit.fechaSalida}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, fechaSalida: e.target.value }))}
+                      value={guiaEdit.fechaSalida}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, fechaSalida: e.target.value }))}
                     />
                   </label>
                   <label className="field">
                     <span>Entrega</span>
                     <input
                       type="datetime-local"
-                      value={cargaEdit.fechaEntrega}
-                      onChange={(e) => setCargaEdit((s) => ({ ...s, fechaEntrega: e.target.value }))}
+                      value={guiaEdit.fechaEntrega}
+                      onChange={(e) => setGuiaEdit((s) => ({ ...s, fechaEntrega: e.target.value }))}
                     />
                   </label>
                   <div className="form-actions">
                     <CanButton I={ACTION.UPDATE} a={FEATURE.TRANSPORT_LOADS} type="submit" className="btn btn--primary">
-                      Guardar carga
+                      Guardar guía
                     </CanButton>
                   </div>
                 </form>
 
-                <h3 className="detail__h">Agregar pale</h3>
+                <h3 className="detail__h">Agregar palé</h3>
                 <p className="muted small">
-                  Usa el mismo ID que en la pantalla de pales (columna interna). El pale debe estar{' '}
-                  <strong>cerrado</strong>.
+                  Usa el ID del palé en module-system. Debe estar <strong>cerrado</strong>. Se asignará código{' '}
+                  <code className="code-inline">G-{'{número de guía}'}</code>.
                 </p>
                 <form className="form-section" onSubmit={handleAddPale}>
                   <label className="field">
-                    <span>ID pale (envío) *</span>
+                    <span>ID palé *</span>
                     <input
                       inputMode="numeric"
-                      value={addPale.paleEnvioId}
-                      onChange={(e) => setAddPale((s) => ({ ...s, paleEnvioId: e.target.value }))}
+                      value={addPale.paleId}
+                      onChange={(e) => setAddPale((s) => ({ ...s, paleId: e.target.value }))}
                     />
                   </label>
                   <label className="field">
@@ -936,19 +1009,19 @@ export function TransportPage() {
                   </label>
                   <div className="form-actions">
                     <CanButton I={ACTION.CREATE} a={FEATURE.TRANSPORT_LOADS} type="submit" className="btn btn--primary">
-                      Añadir a la carga
+                      Añadir a la guía
                     </CanButton>
                   </div>
                 </form>
 
-                <h3 className="detail__h">Pales en esta carga ({detalles.length})</h3>
+                <h3 className="detail__h">Palés en esta guía ({palesEnGuia.length})</h3>
                 <ul className="detail-list">
-                  {detalles.map((d) => {
-                    const did = d.transporteCargaDetalleId ?? d.id
+                  {palesEnGuia.map((d) => {
+                    const did = d.guiaPaleId ?? d.id
                     return (
                       <li key={did}>
                         <span className="detail-list__code">
-                          {d.paleCodigo ?? '—'} · ID {d.paleEnvioId} ×{d.cantidad ?? 1}
+                          <strong>{d.codigo ?? '—'}</strong> · {d.paleCodigo ?? '—'} (ID {d.paleId}) ×{d.cantidad ?? 1}
                         </span>
                         <span className="muted small">{formatDateTime(d.fechaRegistro)}</span>
                         <CanButton
@@ -957,7 +1030,7 @@ export function TransportPage() {
                           type="button"
                           className="linkish small"
                           style={{ marginLeft: '0.5rem' }}
-                          onClick={() => void handleRemoveDetalle(did)}
+                          onClick={() => void handleRemovePale(did)}
                         >
                           Quitar
                         </CanButton>
@@ -965,7 +1038,7 @@ export function TransportPage() {
                     )
                   })}
                 </ul>
-                {!detalles.length ? <p className="muted small">Aún no hay pales asignados.</p> : null}
+                {!palesEnGuia.length ? <p className="muted small">Aún no hay palés asignados.</p> : null}
               </div>
             ) : (
               <p className="text-warn pad">No se pudo cargar el detalle.</p>
@@ -977,7 +1050,7 @@ export function TransportPage() {
         <div className="card card--table pad" style={{ marginTop: '1rem' }}>
           <h2 className="card__title">Auditoría y trazabilidad</h2>
           <p className="muted small form-hint">
-            Filtra por tipo de entidad, ID concreto o por <strong>correlation ID</strong> (= ID de carga) para ver
+            Filtra por tipo de entidad, ID concreto o por <strong>correlation ID</strong> (= ID de guía) para ver
             todo el historial de una expedición. El actor se toma del empleado en sesión (cabeceras enviadas por la
             app).
           </p>
@@ -997,8 +1070,8 @@ export function TransportPage() {
               >
                 <option value="">(todos)</option>
                 <option value="Transporte">Transporte</option>
-                <option value="TransporteCarga">TransporteCarga</option>
-                <option value="TransporteCargaDetalle">TransporteCargaDetalle</option>
+                <option value="Guia">Guia</option>
+                <option value="GuiaPale">GuiaPale</option>
               </select>
             </label>
             <label className="field">
@@ -1010,11 +1083,11 @@ export function TransportPage() {
               />
             </label>
             <label className="field" style={{ gridColumn: '1 / -1' }}>
-              <span>Correlation ID (ID de carga)</span>
+              <span>Correlation ID (ID de guía)</span>
               <input
                 value={auditFilters.correlationId}
                 onChange={(e) => setAuditFilters((f) => ({ ...f, correlationId: e.target.value }))}
-                placeholder="Mismo ID que seleccionas en la pestaña Cargas"
+                placeholder="Mismo ID que seleccionas en la pestaña Guías"
               />
             </label>
             <div className="form-actions" style={{ gridColumn: '1 / -1' }}>

@@ -338,37 +338,37 @@ export async function updateVehiculo(id, body) {
   })
 }
 
-export async function listCargas() {
-  return systemJson('/api/transport/cargas')
+export async function listGuias() {
+  return systemJson('/api/transport/guias')
 }
 
-export async function getCarga(id) {
-  return systemJson(`/api/transport/cargas/${id}`)
+export async function getGuia(id) {
+  return systemJson(`/api/transport/guias/${id}`)
 }
 
-export async function createCarga(body) {
-  return systemJson('/api/transport/cargas', {
+export async function createGuia(body) {
+  return systemJson('/api/transport/guias', {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
-export async function updateCarga(id, body) {
-  return systemJson(`/api/transport/cargas/${id}`, {
+export async function updateGuia(id, body) {
+  return systemJson(`/api/transport/guias/${id}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   })
 }
 
-export async function addCargaDetalle(cargaId, body) {
-  return systemJson(`/api/transport/cargas/${cargaId}/detalles`, {
+export async function addGuiaPale(guiaId, body) {
+  return systemJson(`/api/transport/guias/${guiaId}/pales`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
-export async function removeCargaDetalle(cargaId, detalleId) {
-  return systemJson(`/api/transport/cargas/${cargaId}/detalles/${detalleId}`, {
+export async function removeGuiaPale(guiaId, guiaPaleId) {
+  return systemJson(`/api/transport/guias/${guiaId}/pales/${guiaPaleId}`, {
     method: 'DELETE',
   })
 }
