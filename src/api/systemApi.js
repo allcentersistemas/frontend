@@ -342,8 +342,13 @@ export async function listGuias() {
   return systemJson('/api/inventory/guias')
 }
 
-export async function listGuiasPalesEscaneados() {
-  return systemJson('/api/inventory/guias/pales-escaneados')
+export async function listGuiasPalesEscaneados(q) {
+  const params = new URLSearchParams()
+  if (q != null && String(q).trim() !== '') {
+    params.set('q', String(q).trim())
+  }
+  const suffix = params.toString() ? `?${params}` : ''
+  return systemJson(`/api/inventory/guias/pales-escaneados${suffix}`)
 }
 
 export async function getGuia(id) {

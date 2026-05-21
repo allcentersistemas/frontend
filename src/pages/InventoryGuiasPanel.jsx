@@ -4,8 +4,10 @@ import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { useAuth } from '../auth/AuthContext'
+import { printGuiaDespacho } from '../utils/printGuiaDespacho'
 
 const ESTADOS_GUIA = ['BORRADOR', 'CERRADA']
+const UNIDAD_PIEZAS = 'piezas'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -18,6 +20,17 @@ function formatGuiaDestino(h) {
   if (h.ubicacionDestinoNombre) return `Obra: ${h.ubicacionDestinoNombre}`
   if (h.sucursalDestinoNombre) return `Sucursal: ${h.sucursalDestinoNombre}`
   return '—'
+}
+
+function paleLineFromPale(p) {
+  const resumen = (p.ordenesResumen ?? '').trim()
+  const descripcion = resumen || (p.codigo ?? '').trim() || `Palé ${p.paleId ?? p.id}`
+  const piezas = p.cantidadPiezas ?? 0
+  return {
+    descripcion,
+    unidadMedida: UNIDAD_PIEZAS,
+    cantidad: String(piezas),
+  }
 }
 
 export function InventoryGuiasPanel() {
@@ -44,14 +57,10 @@ export function InventoryGuiasPanel() {
 
   const [guiaEdit, setGuiaEdit] = useState({ estado: 'BORRADOR', notas: '' })
 
-  const [manualLine, setManualLine] = useState({
-    descripcion: '',
-    unidadMedida: '',
-    cantidad: '',
-  })
-
   const [palesEscaneados, setPalesEscaneados] = useState([])
   const [palesLoading, setPalesLoading] = useState(false)
+  const [draftPaleCodigo, setDraftPaleCodigo] = useState('')
+  const [addingPale, setAddingPale] = useState(false)
 
   const showMsg = useCallback((text) => {
     setErr(null)
@@ -83,14 +92,16 @@ export function InventoryGuiasPanel() {
     }
   }, [])
 
-  const loadPalesEscaneados = useCallback(async () => {
+  const loadPalesEscaneados = useCallback(async (codigoQuery) => {
     setPalesLoading(true)
     try {
-      const list = await systemApi.listGuiasPalesEscaneados()
+      const list = await systemApi.listGuiasPalesEscaneados(codigoQuery)
       setPalesEscaneados(Array.isArray(list) ? list : [])
     } catch (e) {
       setPalesEscaneados([])
-      setErr(e instanceof Error ? e.message : 'No se pudieron cargar palés escaneados')
+      if (!codigoQuery) {
+        setErr(e instanceof Error ? e.message : 'No se pudieron cargar palés escaneados')
+      }
     } finally {
       setPalesLoading(false)
     }
@@ -128,13 +139,16 @@ export function InventoryGuiasPanel() {
 
   useEffect(() => {
     void loadGuiaDetail(selectedGuiaId)
+    setDraftPaleCodigo('')
   }, [selectedGuiaId, loadGuiaDetail])
 
   useEffect(() => {
-    if (selectedGuiaId != null) {
-      void loadPalesEscaneados()
-    }
-  }, [selectedGuiaId, loadPalesEscaneados])
+    if (selectedGuiaId == null) return
+    const t = window.setTimeout(() => {
+      void loadPalesEscaneados(draftPaleCodigo.trim() || undefined)
+    }, 280)
+    return () => window.clearTimeout(t)
+  }, [selectedGuiaId, draftPaleCodigo, loadPalesEscaneados])
 
   const header = guiaDetail?.guia
   const detalles = useMemo(
@@ -146,6 +160,26 @@ export function InventoryGuiasPanel() {
     [detalles],
   )
   const guiaCerrada = header?.estado === 'CERRADA'
+
+  const palesDisponibles = useMemo(
+    () =>
+      palesEscaneados.filter((p) => {
+        const pid = p.paleId ?? p.id
+        return pid != null && !paleIdsEnGuia.has(pid)
+      }),
+    [palesEscaneados, paleIdsEnGuia],
+  )
+
+  const paleByCodigo = useMemo(() => {
+    const m = new Map()
+    for (const p of palesEscaneados) {
+      const codigo = (p.codigo ?? '').trim()
+      if (codigo) {
+        m.set(codigo.toLowerCase(), p)
+      }
+    }
+    return m
+  }, [palesEscaneados])
 
   async function handleCreateGuia(e) {
     e.preventDefault()
@@ -197,36 +231,40 @@ export function InventoryGuiasPanel() {
     }
   }
 
-  async function handleAddManual(e) {
-    e.preventDefault()
-    if (selectedGuiaId == null || guiaCerrada) return
+  async function commitDraftPale(codigoInput) {
+    const codigo = (codigoInput ?? draftPaleCodigo).trim()
+    if (!codigo || selectedGuiaId == null || guiaCerrada || addingPale) return
+    const pale = paleByCodigo.get(codigo.toLowerCase())
+    if (!pale) {
+      setErr(`No hay palé escaneado con número «${codigo}».`)
+      return
+    }
+    const pid = pale.paleId ?? pale.id
+    if (paleIdsEnGuia.has(pid)) {
+      setErr('Ese palé ya está en la guía.')
+      setDraftPaleCodigo('')
+      return
+    }
+    setAddingPale(true)
     setErr(null)
     try {
-      await systemApi.addGuiaDetalleManual(selectedGuiaId, {
-        descripcion: manualLine.descripcion.trim(),
-        unidadMedida: manualLine.unidadMedida.trim(),
-        cantidad: manualLine.cantidad.trim(),
-      })
-      setManualLine({ descripcion: '', unidadMedida: '', cantidad: '' })
-      showMsg('Línea agregada.')
+      await systemApi.addGuiaDetallePale(selectedGuiaId, { paleId: pid })
+      setDraftPaleCodigo('')
+      showMsg(`Palé ${codigo} agregado.`)
       await loadGuias()
       await loadGuiaDetail(selectedGuiaId)
+      await loadPalesEscaneados('')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo agregar la línea')
+      setErr(e instanceof Error ? e.message : 'No se pudo agregar el palé')
+    } finally {
+      setAddingPale(false)
     }
   }
 
-  async function handleAddPale(paleId) {
-    if (selectedGuiaId == null || guiaCerrada) return
-    setErr(null)
-    try {
-      await systemApi.addGuiaDetallePale(selectedGuiaId, { paleId })
-      showMsg('Palé agregado a la guía.')
-      await loadGuias()
-      await loadGuiaDetail(selectedGuiaId)
-      await loadPalesEscaneados()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo agregar el palé')
+  function handleDraftKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      void commitDraftPale()
     }
   }
 
@@ -239,19 +277,30 @@ export function InventoryGuiasPanel() {
       showMsg('Línea eliminada.')
       await loadGuias()
       await loadGuiaDetail(selectedGuiaId)
+      await loadPalesEscaneados(draftPaleCodigo.trim() || undefined)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'No se pudo quitar la línea')
     }
   }
+
+  function handlePrintHoja() {
+    if (!header || !detalles.length) return
+    void printGuiaDespacho(header, detalles)
+  }
+
+  const draftPreview = draftPaleCodigo.trim()
+    ? paleByCodigo.get(draftPaleCodigo.trim().toLowerCase())
+    : null
+  const draftFields = draftPreview ? paleLineFromPale(draftPreview) : null
 
   return (
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h1 className="card__title">Guías de despacho</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          El número de guía es <strong>automático</strong> (correlativo <code>G-000001</code>, …). No se registra
-          vehículo ni chofer. Puede agregar líneas manuales o palés con estado de envío{' '}
-          <strong>ESCANEADO</strong> (descripción = código + resumen de órdenes; cantidad = piezas; unidad = piezas).
+          Número <strong>automático</strong> (sin vehículo ni chofer). En el detalle, agregue palés con envío{' '}
+          <strong>ESCANEADO</strong> desde el buscador por número de palé; se completan descripción (órdenes), unidad
+          piezas y cantidad. Al terminar, genere la <strong>hoja</strong> de la guía.
         </p>
       </div>
 
@@ -310,8 +359,6 @@ export function InventoryGuiasPanel() {
             Nueva guía
           </h3>
           <form className="form-section pad" onSubmit={handleCreateGuia}>
-            <p className="muted small">El número se asignará al guardar (sin vehículo ni chofer).</p>
-
             <fieldset className="field" style={{ border: 'none', padding: 0, margin: 0 }}>
               <legend className="field" style={{ marginBottom: '0.5rem' }}>
                 <span>Destino (opcional)</span>
@@ -363,7 +410,6 @@ export function InventoryGuiasPanel() {
                 </label>
               )}
             </fieldset>
-
             <label className="field">
               <span>Notas</span>
               <textarea rows={2} value={newGuia.notas} onChange={(e) => setNewGuia((s) => ({ ...s, notas: e.target.value }))} />
@@ -379,19 +425,17 @@ export function InventoryGuiasPanel() {
         <aside className="card detail-panel">
           <h2 className="card__title">Detalle de guía</h2>
           {selectedGuiaId == null ? (
-            <p className="muted pad">Selecciona una guía en la tabla.</p>
+            <p className="muted pad">Selecciona una guía para agregar palés y generar la hoja.</p>
           ) : guiaDetailLoading ? (
             <p className="muted pad">Cargando…</p>
           ) : header ? (
             <div className="detail pad">
               <dl className="kv">
                 <div>
-                  <dt>ID</dt>
-                  <dd>{header.guiaId ?? selectedGuiaId}</dd>
-                </div>
-                <div>
                   <dt>N° guía</dt>
-                  <dd>{header.numeroGuia ?? '—'}</dd>
+                  <dd>
+                    <strong>{header.numeroGuia ?? '—'}</strong>
+                  </dd>
                 </div>
                 <div>
                   <dt>Estado</dt>
@@ -402,13 +446,13 @@ export function InventoryGuiasPanel() {
                   <dd>{formatGuiaDestino(header)}</dd>
                 </div>
                 <div>
-                  <dt>Líneas</dt>
-                  <dd>{header.totalLineas ?? detalles.length}</dd>
+                  <dt>Creada</dt>
+                  <dd>{formatDateTime(header.fechaCreacion)}</dd>
                 </div>
               </dl>
 
               {!guiaCerrada ? (
-                <form className="form-section" onSubmit={handleUpdateGuia} style={{ marginTop: '1rem' }}>
+                <form className="form-section" onSubmit={handleUpdateGuia} style={{ marginTop: '0.75rem' }}>
                   <label className="field">
                     <span>Estado</span>
                     <select value={guiaEdit.estado} onChange={(e) => setGuiaEdit((s) => ({ ...s, estado: e.target.value }))}>
@@ -424,126 +468,139 @@ export function InventoryGuiasPanel() {
                     <textarea rows={2} value={guiaEdit.notas} onChange={(e) => setGuiaEdit((s) => ({ ...s, notas: e.target.value }))} />
                   </label>
                   <div className="form-actions">
-                    <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
-                      Guardar guía
+                    <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY} type="submit" className="btn">
+                      Guardar cabecera
                     </CanButton>
                   </div>
                 </form>
-              ) : (
-                <p className="muted small" style={{ marginTop: '1rem' }}>
-                  Guía cerrada: no admite más líneas ni cambios de contenido.
-                </p>
-              )}
-
-              {!guiaCerrada ? (
-                <>
-                  <h3 className="detail__h">Línea manual</h3>
-                  <form className="form-section" onSubmit={handleAddManual}>
-                    <label className="field">
-                      <span>Descripción *</span>
-                      <input
-                        value={manualLine.descripcion}
-                        onChange={(e) => setManualLine((s) => ({ ...s, descripcion: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Unidad de medida *</span>
-                      <input
-                        value={manualLine.unidadMedida}
-                        onChange={(e) => setManualLine((s) => ({ ...s, unidadMedida: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Cantidad *</span>
-                      <input
-                        value={manualLine.cantidad}
-                        onChange={(e) => setManualLine((s) => ({ ...s, cantidad: e.target.value }))}
-                        required
-                      />
-                    </label>
-                    <div className="form-actions">
-                      <CanButton I={ACTION.CREATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
-                        Agregar línea
-                      </CanButton>
-                    </div>
-                  </form>
-
-                  <h3 className="detail__h">Palés escaneados</h3>
-                  {palesLoading ? (
-                    <p className="muted small">Cargando palés…</p>
-                  ) : (
-                    <ul className="detail-list">
-                      {palesEscaneados.map((p) => {
-                        const pid = p.paleId ?? p.id
-                        const enGuia = paleIdsEnGuia.has(pid)
-                        return (
-                          <li key={pid}>
-                            <span className="detail-list__code">
-                              <strong>{p.codigo ?? pid}</strong> · {p.cantidadPiezas ?? 0} pzas
-                              {p.ordenesResumen ? (
-                                <span className="muted small"> — {p.ordenesResumen}</span>
-                              ) : null}
-                            </span>
-                            {enGuia ? (
-                              <span className="muted small"> (en guía)</span>
-                            ) : (
-                              <CanButton
-                                I={ACTION.CREATE}
-                                a={FEATURE.INVENTORY}
-                                type="button"
-                                className="linkish small"
-                                style={{ marginLeft: '0.5rem' }}
-                                onClick={() => void handleAddPale(pid)}
-                              >
-                                Agregar
-                              </CanButton>
-                            )}
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                  {!palesEscaneados.length && !palesLoading ? (
-                    <p className="muted small">No hay palés con estado de envío ESCANEADO.</p>
-                  ) : null}
-                </>
               ) : null}
-
-              <h3 className="detail__h">Líneas de la guía ({detalles.length})</h3>
-              <ul className="detail-list">
-                {detalles.map((d) => (
-                  <li key={d.id}>
-                    <span className="detail-list__code">
-                      <strong>{d.descripcion ?? '—'}</strong>
-                      {d.cantidad != null ? ` · ${d.cantidad}` : ''}
-                      {d.unidadMedida ? ` ${d.unidadMedida}` : ''}
-                      {d.paleId != null ? ` (palé #${d.paleId})` : ''}
-                    </span>
-                    <span className="muted small">{formatDateTime(d.fechaRegistro)}</span>
-                    {!guiaCerrada ? (
-                      <CanButton
-                        I={ACTION.DELETE}
-                        a={FEATURE.INVENTORY}
-                        type="button"
-                        className="linkish small"
-                        style={{ marginLeft: '0.5rem' }}
-                        onClick={() => void handleRemoveDetalle(d.id)}
-                      >
-                        Quitar
-                      </CanButton>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              {!detalles.length ? <p className="muted small">Sin líneas aún.</p> : null}
             </div>
           ) : (
             <p className="text-warn pad">No se pudo cargar el detalle.</p>
           )}
         </aside>
       </div>
+
+      {selectedGuiaId != null && header && !guiaDetailLoading ? (
+        <div className="card pad" style={{ marginTop: '1rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <h3 className="card__title" style={{ margin: 0 }}>
+              Detalle de la guía ({detalles.length} líneas)
+            </h3>
+            <CanButton
+              I={ACTION.VIEW}
+              a={FEATURE.INVENTORY}
+              type="button"
+              className="btn btn--primary"
+              disabled={!detalles.length}
+              onClick={handlePrintHoja}
+            >
+              Generar hoja / imprimir
+            </CanButton>
+          </div>
+
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ minWidth: '10rem' }}>N° palé</th>
+                  <th>Descripción</th>
+                  <th style={{ width: '8rem' }}>Unidad</th>
+                  <th style={{ width: '6rem' }}>Cantidad</th>
+                  {!guiaCerrada ? <th style={{ width: '5rem' }} /> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {detalles.map((d) => (
+                  <tr key={d.id}>
+                    <td className="small">
+                      <strong>{d.paleCodigo ?? (d.paleId != null ? `#${d.paleId}` : '—')}</strong>
+                    </td>
+                    <td className="small">{d.descripcion ?? '—'}</td>
+                    <td className="small">{d.unidadMedida ?? '—'}</td>
+                    <td className="small">{d.cantidad ?? '—'}</td>
+                    {!guiaCerrada ? (
+                      <td>
+                        <CanButton
+                          I={ACTION.DELETE}
+                          a={FEATURE.INVENTORY}
+                          type="button"
+                          className="linkish small"
+                          onClick={() => void handleRemoveDetalle(d.id)}
+                        >
+                          Quitar
+                        </CanButton>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+
+                {!guiaCerrada ? (
+                  <tr className="table__row--draft">
+                    <td>
+                      <input
+                        type="text"
+                        className="field__input"
+                        list="pales-escaneados-datalist"
+                        placeholder="Buscar N° palé…"
+                        value={draftPaleCodigo}
+                        disabled={addingPale}
+                        onChange={(e) => setDraftPaleCodigo(e.target.value)}
+                        onKeyDown={handleDraftKeyDown}
+                        onBlur={() => {
+                          if (draftPaleCodigo.trim()) {
+                            void commitDraftPale()
+                          }
+                        }}
+                        aria-label="Buscar palé escaneado por número"
+                      />
+                      <datalist id="pales-escaneados-datalist">
+                        {palesDisponibles.map((p) => {
+                          const codigo = p.codigo ?? ''
+                          const pid = p.paleId ?? p.id
+                          return (
+                            <option key={pid} value={codigo} label={`${codigo} · ${p.cantidadPiezas ?? 0} pzas`} />
+                          )
+                        })}
+                      </datalist>
+                      {palesLoading ? <span className="muted small"> Buscando…</span> : null}
+                      {palesDisponibles.length === 0 && !palesLoading && draftPaleCodigo ? (
+                        <span className="muted small"> Sin coincidencias escaneadas</span>
+                      ) : null}
+                    </td>
+                    <td className="small muted">{draftFields?.descripcion ?? '—'}</td>
+                    <td className="small muted">{draftFields?.unidadMedida ?? UNIDAD_PIEZAS}</td>
+                    <td className="small muted">{draftFields?.cantidad ?? '—'}</td>
+                    <td>
+                      <CanButton
+                        I={ACTION.CREATE}
+                        a={FEATURE.INVENTORY}
+                        type="button"
+                        className="btn btn--ghost small"
+                        disabled={!draftPreview || addingPale}
+                        onClick={() => void commitDraftPale()}
+                      >
+                        {addingPale ? '…' : 'Agregar'}
+                      </CanButton>
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          {guiaCerrada ? (
+            <p className="muted small" style={{ marginTop: '0.5rem' }}>
+              Guía cerrada: solo consulta e impresión de hoja.
+            </p>
+          ) : (
+            <p className="muted small" style={{ marginTop: '0.5rem' }}>
+              Escriba o elija el número de palé (estado ESCANEADO). Al confirmar, se guarda la línea y queda una fila
+              nueva para el siguiente palé.
+            </p>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }
