@@ -310,7 +310,7 @@ export async function deletePalletDetail(palletId, detailId) {
   })
 }
 
-/* ——— Transporte ——— */
+/* ——— Gestión (flota / vehículos) ——— */
 
 export async function listVehiculos() {
   return systemJson('/api/transport/vehiculos')

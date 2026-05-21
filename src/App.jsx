@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppShell } from './components/AppShell'
@@ -13,7 +14,7 @@ import { PaleAuditPage } from './pages/PaleAuditPage'
 import { OrderAuditPage } from './pages/OrderAuditPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { PalesPage } from './pages/PalesPage'
-import { TransportPage } from './pages/TransportPage'
+import { GestionPage } from './pages/GestionPage'
 import { InventoryPage } from './pages/InventoryPage.jsx'
 
 export default function App() {
@@ -31,7 +32,8 @@ export default function App() {
               <Route path="pales" element={<PalesPage />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="transporte" element={<TransportPage />} />
+              <Route path="gestion" element={<GestionPage />} />
+              <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
@@ -44,12 +46,12 @@ export default function App() {
               <Route path="pales" element={<PalesPage />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="transporte" element={<TransportPage />} />
+              <Route path="gestion" element={<GestionPage />} />
+              <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="api" element={<ApiCatalogPage />} />
-              <Route path="gestion" element={<AdminToolsPage />} />
+              <Route path="administracion" element={<AdminToolsPage />} />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="inventario" element={<InventoryPage />} />
-
             </Route>
           </Route>
 
@@ -60,7 +62,8 @@ export default function App() {
               <Route path="pales" element={<PalesPage />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="transporte" element={<TransportPage />} />
+              <Route path="gestion" element={<GestionPage />} />
+              <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>

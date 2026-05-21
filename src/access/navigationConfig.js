@@ -5,10 +5,10 @@ export const SIDEBAR_MENU = [
   { id: 'home', segment: '', label: 'Resumen', end: true },
   { id: 'orders', segment: 'ordenes', label: 'Órdenes', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', segment: 'pales', label: 'Pales', feature: FEATURE.PALES_LIST },
-  { id: 'transport', segment: 'transporte', label: 'Transporte', feature: FEATURE.TRANSPORT_LOADS },
-  { id: 'management', segment: 'gestion', label: 'Gestión', feature: FEATURE.EMPLOYEE_ADMIN },
-  { id: 'api', segment: 'api', label: 'Catálogo API', feature: FEATURE.API_CATALOG },
   { id: 'inventario', segment: 'inventario', label: 'Inventario', feature: FEATURE.INVENTORY },
+  { id: 'gestion', segment: 'gestion', label: 'Gestión', feature: FEATURE.TRANSPORT_VEHICLES },
+  { id: 'admin', segment: 'administracion', label: 'Administración', feature: FEATURE.EMPLOYEE_ADMIN },
+  { id: 'api', segment: 'api', label: 'Catálogo API', feature: FEATURE.API_CATALOG },
   { id: 'profile', segment: 'perfil', label: 'Mi perfil', feature: FEATURE.EMPLOYEE_PROFILE },
   { id: 'proyectos', segment: 'proyectos', label: 'Proyectos', feature: FEATURE.PROJECT_LIST },
 

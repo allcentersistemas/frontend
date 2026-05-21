@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
 import { systemApiBase } from '../config/env'
@@ -139,13 +139,38 @@ const TABS = [
   { id: 'actas', label: 'Actas NC' },
 ]
 
+function resolveAreaTab(raw) {
+  if (raw === 'guias' || raw === 'stock' || raw === 'rm') return raw
+  return 'rm'
+}
+
 export function InventoryPage() {
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const ability = useAppAbility()
   const canView = ability.can('view', FEATURE.INVENTORY)
   const canViewTransportCatalog = ability.can('view', FEATURE.TRANSPORT_VEHICLES)
 
-  const [areaTab, setAreaTab] = useState('rm')
+  const [areaTab, setAreaTabState] = useState(() => resolveAreaTab(searchParams.get('area')))
+
+  const setAreaTab = useCallback(
+    (next) => {
+      setAreaTabState(next)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          if (next === 'rm') {
+            p.delete('area')
+          } else {
+            p.set('area', next)
+          }
+          return p
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   const [listFilter, setListFilter] = useState('')
 
   const [tab, setTab] = useState('entradas')
@@ -170,9 +195,14 @@ export function InventoryPage() {
     [rows, tab, transportById, listFilter],
   )
 
-  const transporteEditorHref = useCallback(
+  useEffect(() => {
+    const fromUrl = resolveAreaTab(searchParams.get('area'))
+    setAreaTabState((current) => (current === fromUrl ? current : fromUrl))
+  }, [searchParams])
+
+  const gestionVehiculoHref = useCallback(
     (transporteId) =>
-      `${location.pathname.replace(/\/inventario\/?$/, '/transporte')}?vehiculo=${encodeURIComponent(String(transporteId))}`,
+      `${location.pathname.replace(/\/inventario\/?$/, '/gestion')}?vehiculo=${encodeURIComponent(String(transporteId))}`,
     [location.pathname],
   )
 
@@ -314,20 +344,17 @@ export function InventoryPage() {
           Consulta de registros enviados desde la app móvil. RM:{' '}
           <code className="small">{systemApiBase}</code>
           {' · '}
-          Flota (etiquetas de transporte en entradas):{' '}
-          <code className="small">{systemApiBase}</code>
-          {' '}
-          (<code>VITE_RM_API_BASE</code>, <code>VITE_TRANSPORT_API_BASE</code>).
+          Flota (vehículos en entradas RM): <code className="small">{systemApiBase}</code>.
         </p>
         {transportCatalogErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
-            {transportCatalogErr} — en entradas solo verás el ID de transporte hasta que la API de flota responda.
+            {transportCatalogErr} — en entradas solo verás el ID de vehículo hasta que la API de flota responda.
           </p>
         ) : null}
         {canView && !canViewTransportCatalog ? (
           <p className="muted small" style={{ marginTop: '0.5rem' }}>
-            Sin permiso de consulta de flota: en entradas se muestra el ID de transporte. Pide acceso a «transporte ·
-            vehículos» si necesitas placa y marca.
+            Sin permiso de flota: en entradas se muestra el ID de vehículo. Pide acceso a «Gestión · vehículos» si
+            necesitas placa y marca.
           </p>
         ) : null}
       </div>
@@ -394,7 +421,7 @@ export function InventoryPage() {
                       <th>ID</th>
                       <th>Fecha</th>
                       <th>Hora</th>
-                      <th>Vehículo / transporte</th>
+                      <th>Vehículo</th>
                       <th>Líneas</th>
                       <th>Creado</th>
                     </tr>
@@ -559,7 +586,7 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora</dt>
                 <dd>{esc(detail.data.hora)}</dd>
-                <dt>Vehículo / transporte</dt>
+                <dt>Vehículo</dt>
                 <dd className="small">
                   {transporteLabel(transportById, detail.data.transporteId)}
                   {detail.data.transporteId != null ? (
@@ -569,7 +596,7 @@ export function InventoryPage() {
                   ) : null}
                   {detail.data.transporteId != null && canViewTransportCatalog ? (
                     <span className="small" style={{ display: 'block', marginTop: '0.35rem' }}>
-                      <Link to={transporteEditorHref(detail.data.transporteId)}>Abrir en Transporte</Link>
+                      <Link to={gestionVehiculoHref(detail.data.transporteId)}>Abrir en Gestión</Link>
                     </span>
                   ) : null}
                 </dd>
@@ -642,7 +669,7 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora cabecera</dt>
                 <dd>{esc(detail.data.horaCabecera)}</dd>
-                <dt>Vehículo / transporte</dt>
+                <dt>Vehículo</dt>
                 <dd className="small">
                   {transporteLabel(transportById, detail.data.transporteId)}
                   {detail.data.transporteId != null ? (

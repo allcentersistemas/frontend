@@ -202,7 +202,7 @@ export function PaleEditPage() {
               </select>
             </label>
             <p className="muted small">
-              El destino de envío se define en la <strong>guía de transporte</strong> (portal web), no en el
+              El destino de envío se define en la <strong>guía de despacho</strong> (Inventario → Guías), no en el
               palé.
             </p>
             <dl className="kv">

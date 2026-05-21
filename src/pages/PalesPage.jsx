@@ -237,7 +237,7 @@ export function PalesPage() {
   }
 
   const guiasHref = useMemo(
-    () => `${location.pathname.replace(/\/pales\/?$/, '/inventario')}`,
+    () => `${location.pathname.replace(/\/pales\/?$/, '/inventario')}?area=guias`,
     [location.pathname],
   )
 

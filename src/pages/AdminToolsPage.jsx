@@ -1238,7 +1238,7 @@ export function AdminToolsPage() {
       ) : panel === 'audit' && audit ? (
         <div className="card card--table pad">
           <p className="muted small" style={{ marginBottom: '1rem' }}>
-            Auditoría centralizada del aplicativo: empleados/roles, transporte y trazabilidad Biesse.
+            Auditoría centralizada del aplicativo: empleados/roles, flota (gestión) y trazabilidad Biesse.
           </p>
           <div className="toolbar--wrap" style={{ marginBottom: '1rem' }}>
             <label className="field">
@@ -1253,7 +1253,7 @@ export function AdminToolsPage() {
               >
                 <option value="all">Todas</option>
                 <option value="employee">Gestión / empleados</option>
-                <option value="transport">Transporte</option>
+                <option value="transport">Gestión / flota</option>
                 <option value="biesse">Biesse / órdenes</option>
               </select>
             </label>
