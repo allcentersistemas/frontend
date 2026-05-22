@@ -51,8 +51,8 @@ export function OrderAuditPanel() {
 
   return (
     <>
-      <div className="mb-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-5 py-4 sm:px-6">
-        <h2 className="text-lg font-semibold text-white">Auditoría de órdenes</h2>
+      <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-4 sm:px-6 dark:border-white/[0.08] dark:bg-white/[0.02]">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Auditoría de órdenes</h2>
         <p className="mt-1 text-sm text-slate-400">
           Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse.
         </p>
@@ -96,7 +96,7 @@ export function OrderAuditPanel() {
       {err ? <AlertBanner>{err}</AlertBanner> : null}
 
       <GlassCard padding={false} className="overflow-hidden">
-        <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
+        <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
           <GlassCardTitle>Eventos</GlassCardTitle>
         </div>
         {loading ? (

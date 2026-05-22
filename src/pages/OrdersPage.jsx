@@ -221,9 +221,11 @@ export function OrdersPage() {
             <Spinner />
           ) : (
             <>
-              <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
+              <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
                 <GlassCardTitle>Órdenes</GlassCardTitle>
-                <p className="mt-1 text-xs text-slate-500">{total} registro{total !== 1 ? 's' : ''}</p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-500">
+                  {total} registro{total !== 1 ? 's' : ''}
+                </p>
               </div>
               <TableScroll>
                 <Table>
@@ -242,7 +244,7 @@ export function OrdersPage() {
                             {row.orderId}
                           </button>
                         </Td>
-                        <Td className="font-medium text-slate-100">{row.orderName}</Td>
+                        <Td className="font-medium">{row.orderName}</Td>
                         <Td>
                           <Badge tone="default">{row.estadoEscaneo ?? '—'}</Badge>
                         </Td>
@@ -289,14 +291,17 @@ export function OrdersPage() {
                   ['Observaciones', detail.observaciones || '—'],
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-                    <dd className="mt-1 text-sm text-slate-200">{v}</dd>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-500">{k}</dt>
+                    <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{v}</dd>
                   </div>
                 ))}
               </dl>
 
               {orderEditOpen ? (
-                <form className="space-y-4 border-t border-white/[0.06] pt-5" onSubmit={(e) => void handleSaveOrder(e)}>
+                <form
+                  className="space-y-4 border-t border-slate-200/80 pt-5 dark:border-white/[0.06]"
+                  onSubmit={(e) => void handleSaveOrder(e)}
+                >
                   <FormField label="Observaciones de la orden">
                     <textarea
                       rows={3}
@@ -322,8 +327,8 @@ export function OrdersPage() {
                 </form>
               ) : null}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
-                <h3 className="text-sm font-semibold text-white">Partes</h3>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Partes</h3>
                 <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
                   <BiesseStickerPrintButton detail={detail} />
                 </Can>
@@ -332,7 +337,7 @@ export function OrdersPage() {
                 {(detail.partes ?? []).map((p) => (
                   <li
                     key={p.partId}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2.5 text-sm"
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-white/[0.06] dark:bg-black/20"
                   >
                     <span className="font-mono text-xs text-amber-200/90">{p.partCode ?? p.partId}</span>
                     <Badge tone={p.escaneado ? 'success' : 'warn'}>{p.escaneado ? 'Escaneado' : 'Pendiente'}</Badge>

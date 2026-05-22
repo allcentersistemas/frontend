@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
 import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
+import {
+  buildRmVehiculoMap,
+  formatNumeroRegistro,
+  rmVehiculoLabel,
+  rowMatchesRmFilters,
+  tipoRegistroLabel,
+} from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
 
@@ -42,7 +49,7 @@ function buildTransportLabelMap(list) {
     if (Number.isNaN(id)) continue
     const placa = typeof v.placa === 'string' ? v.placa.trim() : ''
     const marca = typeof v.marca === 'string' ? v.marca.trim() : ''
-    const label = [placa, marca].filter(Boolean).join(' · ') || `ID ${id}`
+    const label = [placa, marca].filter(Boolean).join(' · ') || 'Vehículo de flota'
     m.set(id, label)
   }
   return m
@@ -52,7 +59,7 @@ function transporteLabel(transportById, transporteId) {
   if (transporteId == null || transporteId === '') return '—'
   const id = Number(transporteId)
   if (Number.isNaN(id)) return String(transporteId)
-  return transportById.get(id) ?? `ID ${id}`
+  return transportById.get(id) ?? '—'
 }
 
 function csvEscape(s) {
@@ -61,27 +68,13 @@ function csvEscape(s) {
   return t
 }
 
-function haystack(...parts) {
-  return parts
-    .filter((p) => p != null && p !== '')
-    .join(' ')
-    .toLowerCase()
-}
-
-function rowMatchesRmFilter(tab, row, transportById, query) {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  if (tab === 'entradas') {
-    const tidLabel = transporteLabel(transportById, row.transporteId)
-    return haystack(row.id, row.fecha, row.hora, row.transporteId, tidLabel, row.lineas, row.createdAt).includes(q)
-  }
-  if (tab === 'salidas') {
-    return haystack(row.id, row.fecha, row.horaCabecera, row.lineas, row.createdAt).includes(q)
-  }
-  if (tab === 'vehiculos') {
-    return haystack(row.id, row.fecha, row.placa, row.chofer, row.marca, row.createdAt).includes(q)
-  }
-  return haystack(row.id, row.razonSocialNombre, row.decision, row.createdAt).includes(q)
+const RM_LIST_PAGE_SIZE = 25
+const EMPTY_RM_FILTERS = {
+  q: '',
+  fechaDesde: '',
+  fechaHasta: '',
+  tipoRegistro: '',
+  placaChofer: '',
 }
 
 function downloadTextFile(filename, text) {
@@ -93,43 +86,76 @@ function downloadTextFile(filename, text) {
   URL.revokeObjectURL(a.href)
 }
 
-function exportRmPageCsv(tab, rows, transportById) {
+function exportRmPageCsv(tab, rows, vehiculoById) {
   const q = tab
   let head
   let lines
   if (q === 'entradas') {
-    head = ['id', 'fecha', 'hora', 'transporteId', 'vehiculo', 'lineas', 'creado']
+    head = ['numeroRegistro', 'fecha', 'hora', 'vehiculo', 'oc', 'guia', 'lineas', 'estado', 'creado']
     lines = [head.join(',')]
     for (const r of rows) {
-      const label = transporteLabel(transportById, r.transporteId)
       lines.push(
-        [r.id, r.fecha, r.hora, r.transporteId ?? '', label, r.lineas ?? '', r.createdAt]
+        [
+          r.numeroRegistro,
+          r.fecha,
+          r.hora,
+          rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
+          r.ocNumero,
+          r.guiaNumero,
+          r.lineas ?? '',
+          r.recepcionEstado,
+          r.createdAt,
+        ]
           .map((c) => csvEscape(c))
           .join(','),
       )
     }
   } else if (q === 'salidas') {
-    head = ['id', 'fecha', 'horaCabecera', 'lineas', 'creado']
-    lines = [head.join(',')]
-    for (const r of rows) {
-      lines.push([r.id, r.fecha, r.horaCabecera, r.lineas ?? '', r.createdAt].map((c) => csvEscape(c)).join(','))
-    }
-  } else if (q === 'vehiculos') {
-    head = ['id', 'fecha', 'placa', 'chofer', 'marca', 'creado']
-    lines = [head.join(',')]
-    for (const r of rows) {
-      lines.push([r.id, r.fecha, r.placa, r.chofer, r.marca, r.createdAt].map((c) => csvEscape(c)).join(','))
-    }
-  } else {
-    head = ['id', 'razonSocialNombre', 'decision', 'creado']
+    head = ['numeroRegistro', 'fecha', 'horaCabecera', 'vehiculo', 'lineas', 'estado', 'creado']
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
-        [r.id, r.razonSocialNombre, decisionLabel(r.decision), r.createdAt].map((c) => csvEscape(c)).join(','),
+        [
+          r.numeroRegistro,
+          r.fecha,
+          r.horaCabecera,
+          rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
+          r.lineas ?? '',
+          r.recepcionEstado,
+          r.createdAt,
+        ]
+          .map((c) => csvEscape(c))
+          .join(','),
+      )
+    }
+  } else if (q === 'vehiculos') {
+    head = ['numeroRegistro', 'tipoRegistro', 'fecha', 'placa', 'chofer', 'marca', 'creado']
+    lines = [head.join(',')]
+    for (const r of rows) {
+      lines.push(
+        [
+          r.numeroRegistro,
+          tipoRegistroLabel(r.tipoRegistro),
+          r.fecha,
+          r.placa,
+          r.chofer,
+          r.marca,
+          r.createdAt,
+        ]
+          .map((c) => csvEscape(c))
+          .join(','),
+      )
+    }
+  } else {
+    head = ['razonSocialNombre', 'decision', 'creado']
+    lines = [head.join(',')]
+    for (const r of rows) {
+      lines.push(
+        [r.razonSocialNombre, decisionLabel(r.decision), r.createdAt].map((c) => csvEscape(c)).join(','),
       )
     }
   }
-  downloadTextFile(`inventario-rm-${tab}-pagina.csv`, lines.join('\n'))
+  downloadTextFile(`inventario-rm-${tab}-filtrado.csv`, lines.join('\n'))
 }
 
 const TABS = [
@@ -145,7 +171,6 @@ function resolveAreaTab(raw) {
 }
 
 export function InventoryPage() {
-  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const ability = useAppAbility()
   const canView = ability.can('view', FEATURE.INVENTORY)
@@ -171,64 +196,77 @@ export function InventoryPage() {
     },
     [setSearchParams],
   )
-  const [listFilter, setListFilter] = useState('')
+  const [rmFilters, setRmFilters] = useState(() => ({ ...EMPTY_RM_FILTERS }))
 
   const [tab, setTab] = useState('entradas')
-  const [page, setPage] = useState(0)
-  const pageSize = 15
+  const [clientPage, setClientPage] = useState(0)
 
-  const [listBody, setListBody] = useState(null)
+  const [allRows, setAllRows] = useState([])
+  const [listTruncated, setListTruncated] = useState(false)
   const [listLoading, setListLoading] = useState(false)
   const [listErr, setListErr] = useState(null)
 
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailErr, setDetailErr] = useState(null)
+  const [detailVehiculo, setDetailVehiculo] = useState(null)
+
+  const [vehiculoById, setVehiculoById] = useState(() => new Map())
+  const [vehiculoIndexErr, setVehiculoIndexErr] = useState(null)
 
   const [transportById, setTransportById] = useState(() => new Map())
   const [transportCatalogErr, setTransportCatalogErr] = useState(null)
 
-  const rows = useMemo(() => systemApi.pageContent(listBody), [listBody])
-  const meta = useMemo(() => systemApi.pageMeta(listBody), [listBody])
   const filteredRows = useMemo(
-    () => rows.filter((r) => rowMatchesRmFilter(tab, r, transportById, listFilter)),
-    [rows, tab, transportById, listFilter],
+    () => allRows.filter((r) => rowMatchesRmFilters(tab, r, vehiculoById, rmFilters)),
+    [allRows, tab, vehiculoById, rmFilters],
   )
+  const clientTotalPages = Math.max(1, Math.ceil(filteredRows.length / RM_LIST_PAGE_SIZE))
+  const pagedRows = useMemo(() => {
+    const start = clientPage * RM_LIST_PAGE_SIZE
+    return filteredRows.slice(start, start + RM_LIST_PAGE_SIZE)
+  }, [filteredRows, clientPage])
 
   useEffect(() => {
     const fromUrl = resolveAreaTab(searchParams.get('area'))
     setAreaTabState((current) => (current === fromUrl ? current : fromUrl))
   }, [searchParams])
 
-  const gestionVehiculoHref = useCallback(
-    (transporteId) =>
-      `${location.pathname.replace(/\/inventario\/?$/, '/gestion')}?vehiculo=${encodeURIComponent(String(transporteId))}`,
-    [location.pathname],
-  )
+  const loadVehiculoIndex = useCallback(async () => {
+    if (!canView || areaTab !== 'rm') return
+    setVehiculoIndexErr(null)
+    try {
+      const { items } = await systemApi.fetchAllPaged(
+        (p) => systemApi.listRegistrosVehiculo(p),
+        { size: 100, maxItems: 3000 },
+      )
+      setVehiculoById(buildRmVehiculoMap(items))
+    } catch (e) {
+      setVehiculoById(new Map())
+      setVehiculoIndexErr(e instanceof Error ? e.message : 'No se pudo cargar vehículos RM')
+    }
+  }, [canView, areaTab])
 
   const loadList = useCallback(async () => {
     if (!canView || areaTab !== 'rm') return
     setListLoading(true)
     setListErr(null)
     try {
-      let body
-      if (tab === 'entradas') {
-        body = await systemApi.listRegistrosEntrada({ page, size: pageSize })
-      } else if (tab === 'salidas') {
-        body = await systemApi.listRegistrosSalida({ page, size: pageSize })
-      } else if (tab === 'vehiculos') {
-        body = await systemApi.listRegistrosVehiculo({ page, size: pageSize })
-      } else {
-        body = await systemApi.listActasConformidad({ page, size: pageSize })
-      }
-      setListBody(body)
+      let listFn
+      if (tab === 'entradas') listFn = systemApi.listRegistrosEntrada
+      else if (tab === 'salidas') listFn = systemApi.listRegistrosSalida
+      else if (tab === 'vehiculos') listFn = systemApi.listRegistrosVehiculo
+      else listFn = systemApi.listActasConformidad
+      const { items, truncated } = await systemApi.fetchAllPaged(listFn, { size: 100, maxItems: 2000 })
+      setAllRows(items)
+      setListTruncated(truncated)
     } catch (e) {
-      setListBody(null)
+      setAllRows([])
       setListErr(e instanceof Error ? e.message : 'Error al cargar')
     } finally {
       setListLoading(false)
     }
-  }, [canView, areaTab, tab, page, pageSize])
+  }, [canView, areaTab, tab])
 
   const loadTransportCatalog = useCallback(async () => {
     if (!canView || areaTab !== 'rm' || !canViewTransportCatalog) {
@@ -251,15 +289,24 @@ export function InventoryPage() {
   }, [loadList])
 
   useEffect(() => {
+    void loadVehiculoIndex()
+  }, [loadVehiculoIndex])
+
+  useEffect(() => {
     void loadTransportCatalog()
   }, [loadTransportCatalog])
 
   useEffect(() => {
-    setPage(0)
+    setClientPage(0)
     setDetail(null)
     setDetailErr(null)
-    setListFilter('')
+    setDetailVehiculo(null)
+    setRmFilters({ ...EMPTY_RM_FILTERS })
   }, [tab])
+
+  useEffect(() => {
+    setClientPage(0)
+  }, [rmFilters, tab])
 
   const openDetail = useCallback(
     async (id) => {
@@ -267,6 +314,7 @@ export function InventoryPage() {
       setDetailLoading(true)
       setDetailErr(null)
       setDetail(null)
+      setDetailVehiculo(null)
       try {
         let data
         if (tab === 'entradas') {
@@ -279,13 +327,36 @@ export function InventoryPage() {
           data = await systemApi.getActaConformidad(id)
         }
         setDetail({ tab, id, data })
+        const rvId = data?.registroVehiculoId
+        if (rvId != null && tab !== 'vehiculos') {
+          const cached = vehiculoById.get(Number(rvId))
+          if (cached) {
+            setDetailVehiculo(cached)
+          } else {
+            try {
+              const v = await systemApi.getRegistroVehiculo(rvId)
+              setDetailVehiculo(
+                buildRmVehiculoMap([v]).get(Number(rvId)) ?? {
+                  label: [v.placa, v.marca, v.chofer].filter(Boolean).join(' · ') || 'Vehículo RM',
+                  placa: v.placa,
+                  marca: v.marca,
+                  chofer: v.chofer,
+                  tipoRegistro: v.tipoRegistro,
+                  numeroRegistro: v.numeroRegistro,
+                },
+              )
+            } catch {
+              setDetailVehiculo(null)
+            }
+          }
+        }
       } catch (e) {
         setDetailErr(e instanceof Error ? e.message : 'Error al cargar detalle')
       } finally {
         setDetailLoading(false)
       }
     },
-    [canView, tab],
+    [canView, tab, vehiculoById],
   )
 
   if (!canView) {
@@ -346,15 +417,14 @@ export function InventoryPage() {
           {' · '}
           Flota (vehículos en entradas RM): <code className="small">{systemApiBase}</code>.
         </p>
-        {transportCatalogErr ? (
+        {vehiculoIndexErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
-            {transportCatalogErr} — en entradas solo verás el ID de vehículo hasta que la API de flota responda.
+            {vehiculoIndexErr} — el listado puede no mostrar placa/chofer en entradas y salidas.
           </p>
         ) : null}
-        {canView && !canViewTransportCatalog ? (
+        {transportCatalogErr ? (
           <p className="muted small" style={{ marginTop: '0.5rem' }}>
-            Sin permiso de flota: en entradas se muestra el ID de vehículo. Pide acceso a «Gestión · vehículos» si
-            necesitas placa y marca.
+            {transportCatalogErr} — en salida no se mostrará el vehículo de flota (transporte interno).
           </p>
         ) : null}
       </div>
@@ -384,6 +454,7 @@ export function InventoryPage() {
               disabled={listLoading}
               onClick={() => {
                 void loadList()
+                void loadVehiculoIndex()
                 void loadTransportCatalog()
               }}
             >
@@ -393,21 +464,79 @@ export function InventoryPage() {
               type="button"
               className="btn btn--ghost"
               disabled={!filteredRows.length}
-              onClick={() => exportRmPageCsv(tab, filteredRows, transportById)}
+              onClick={() => exportRmPageCsv(tab, filteredRows, vehiculoById)}
             >
-              CSV (vista)
+              CSV (filtrado)
             </button>
           </div>
           <div className="pad" style={{ paddingTop: 0 }}>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span className="small">Filtrar filas visibles (texto libre)</span>
-              <input
-                type="search"
-                value={listFilter}
-                onChange={(e) => setListFilter(e.target.value)}
-                placeholder="Ej. placa, ID, fecha…"
-              />
-            </label>
+            <div className="form-row-2" style={{ marginBottom: '0.75rem' }}>
+              <label className="field">
+                <span className="small">Buscar</span>
+                <input
+                  type="search"
+                  value={rmFilters.q}
+                  onChange={(e) => setRmFilters((f) => ({ ...f, q: e.target.value }))}
+                  placeholder="N° registro, placa, OC, guía…"
+                />
+              </label>
+              <label className="field">
+                <span className="small">Placa / chofer / marca</span>
+                <input
+                  type="search"
+                  value={rmFilters.placaChofer}
+                  onChange={(e) => setRmFilters((f) => ({ ...f, placaChofer: e.target.value }))}
+                  placeholder="Ej. ABC-123, Juan…"
+                  disabled={tab === 'actas'}
+                />
+              </label>
+              <label className="field">
+                <span className="small">Desde</span>
+                <input
+                  type="date"
+                  value={rmFilters.fechaDesde}
+                  onChange={(e) => setRmFilters((f) => ({ ...f, fechaDesde: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span className="small">Hasta</span>
+                <input
+                  type="date"
+                  value={rmFilters.fechaHasta}
+                  onChange={(e) => setRmFilters((f) => ({ ...f, fechaHasta: e.target.value }))}
+                />
+              </label>
+              {(tab === 'vehiculos' || tab === 'entradas' || tab === 'salidas') && (
+                <label className="field">
+                  <span className="small">Tipo registro</span>
+                  <select
+                    value={rmFilters.tipoRegistro}
+                    onChange={(e) => setRmFilters((f) => ({ ...f, tipoRegistro: e.target.value }))}
+                  >
+                    <option value="">Todos</option>
+                    <option value="ingreso">Ingreso</option>
+                    <option value="salida">Salida</option>
+                  </select>
+                </label>
+              )}
+              <div className="field" style={{ justifyContent: 'flex-end' }}>
+                <span className="small" style={{ visibility: 'hidden' }}>.</span>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setRmFilters({ ...EMPTY_RM_FILTERS })}
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+            {listTruncated ? (
+              <p className="small muted">Se cargaron como máximo 2000 registros. Ajusta filtros para acotar.</p>
+            ) : null}
+            <p className="small muted" style={{ margin: 0 }}>
+              {filteredRows.length} registro{filteredRows.length !== 1 ? 's' : ''} tras filtros
+              {allRows.length !== filteredRows.length ? ` (de ${allRows.length} cargados)` : ''}
+            </p>
           </div>
           {listErr ? <p className="pad" style={{ color: 'var(--danger, #b00020)' }}>{listErr}</p> : null}
           {listLoading ? (
@@ -418,30 +547,32 @@ export function InventoryPage() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>N° registro</th>
                       <th>Fecha</th>
                       <th>Hora</th>
-                      <th>Vehículo</th>
+                      <th>Vehículo (RM)</th>
+                      <th>OC / Guía</th>
+                      <th>Estado</th>
                       <th>Líneas</th>
-                      <th>Creado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
                         style={{ cursor: 'pointer' }}
                         onClick={() => void openDetail(r.id)}
                       >
-                        <td>{r.id}</td>
+                        <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.hora)}</td>
-                        <td className="small" title={r.transporteId != null ? `ID ${r.transporteId}` : ''}>
-                          {transporteLabel(transportById, r.transporteId)}
+                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
+                        <td className="small">
+                          {esc(r.ocNumero)} / {esc(r.guiaNumero)}
                         </td>
+                        <td className="small">{esc(r.recepcionEstado)}</td>
                         <td>{r.lineas ?? '—'}</td>
-                        <td className="small">{formatDateTime(r.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -452,26 +583,28 @@ export function InventoryPage() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>N° registro</th>
                       <th>Fecha</th>
                       <th>Hora cab.</th>
+                      <th>Vehículo (RM)</th>
+                      <th>Estado</th>
                       <th>Líneas</th>
-                      <th>Creado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
                         style={{ cursor: 'pointer' }}
                         onClick={() => void openDetail(r.id)}
                       >
-                        <td>{r.id}</td>
+                        <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
+                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
+                        <td className="small">{esc(r.recepcionEstado)}</td>
                         <td>{r.lineas ?? '—'}</td>
-                        <td className="small">{formatDateTime(r.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -482,28 +615,28 @@ export function InventoryPage() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>N° registro</th>
+                      <th>Tipo</th>
                       <th>Fecha</th>
                       <th>Placa</th>
                       <th>Chofer</th>
                       <th>Marca</th>
-                      <th>Creado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
                         style={{ cursor: 'pointer' }}
                         onClick={() => void openDetail(r.id)}
                       >
-                        <td>{r.id}</td>
+                        <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
+                        <td>{tipoRegistroLabel(r.tipoRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td>{esc(r.placa)}</td>
                         <td className="small">{esc(r.chofer)}</td>
                         <td className="small">{esc(r.marca)}</td>
-                        <td className="small">{formatDateTime(r.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -514,21 +647,19 @@ export function InventoryPage() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>ID</th>
                       <th>Proveedor / razón social</th>
                       <th>Decisión</th>
                       <th>Creado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((r) => (
+                    {pagedRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
                         style={{ cursor: 'pointer' }}
                         onClick={() => void openDetail(r.id)}
                       >
-                        <td>{r.id}</td>
                         <td className="small">{esc(r.razonSocialNombre)}</td>
                         <td className="small">{decisionLabel(r.decision)}</td>
                         <td className="small">{formatDateTime(r.createdAt)}</td>
@@ -540,7 +671,7 @@ export function InventoryPage() {
 
               {!filteredRows.length && !listErr ? (
                 <p className="muted pad">
-                  {rows.length ? 'Ninguna fila coincide con el filtro de esta página.' : 'No hay registros en esta página.'}
+                  {allRows.length ? 'Ningún registro coincide con los filtros.' : 'No hay registros.'}
                 </p>
               ) : null}
             </div>
@@ -550,19 +681,22 @@ export function InventoryPage() {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={page <= 0 || listLoading}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={clientPage <= 0 || listLoading}
+              onClick={() => setClientPage((p) => Math.max(0, p - 1))}
             >
               Anterior
             </button>
             <span className="muted small">
-              Página {meta.number + 1} de {Math.max(1, meta.totalPages)} · {meta.totalElements} registros
+              Página {clientPage + 1} de {clientTotalPages}
+              {filteredRows.length
+                ? ` · filas ${clientPage * RM_LIST_PAGE_SIZE + 1}–${Math.min((clientPage + 1) * RM_LIST_PAGE_SIZE, filteredRows.length)} de ${filteredRows.length}`
+                : ''}
             </span>
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={listLoading || page + 1 >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              disabled={listLoading || clientPage + 1 >= clientTotalPages}
+              onClick={() => setClientPage((p) => p + 1)}
             >
               Siguiente
             </button>
@@ -580,20 +714,25 @@ export function InventoryPage() {
           {detail?.tab === 'entradas' && detail.data ? (
             <div className="pad">
               <dl className="inv-dl">
-                <dt>ID</dt>
-                <dd>{detail.data.id}</dd>
+                <dt>N° registro</dt>
+                <dd>{formatNumeroRegistro(detail.data.numeroRegistro)}</dd>
                 <dt>Fecha</dt>
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora</dt>
                 <dd>{esc(detail.data.hora)}</dd>
+                <dt>Vehículo (RM)</dt>
+                <dd className="small">
+                  {detailVehiculo?.label ?? rmVehiculoLabel(vehiculoById, detail.data.registroVehiculoId)}
+                  {detailVehiculo?.tipoRegistro ? (
+                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
+                      Tipo: {tipoRegistroLabel(detailVehiculo.tipoRegistro)}
+                    </span>
+                  ) : null}
+                </dd>
                 <dt>OC</dt>
                 <dd>{esc(detail.data.ocNumero)}</dd>
                 <dt>Guía</dt>
                 <dd>{esc(detail.data.guiaNumero)}</dd>
-                <dt>Destino</dt>
-                <dd>{esc(detail.data.destino)}</dd>
-                <dt>Registro vehículo</dt>
-                <dd>{detail.data.registroVehiculoId ?? '—'}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
@@ -612,11 +751,6 @@ export function InventoryPage() {
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
                     ? esc(detail.data.choferValidacionNombre)
                     : '—'}
-                  {detail.data.choferValidacionEmpleadoId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      Empleado id: {detail.data.choferValidacionEmpleadoId}
-                    </span>
-                  ) : null}
                 </dd>
               </dl>
               <p className="small" style={{ marginTop: '0.75rem' }}>
@@ -640,12 +774,21 @@ export function InventoryPage() {
           {detail?.tab === 'salidas' && detail.data ? (
             <div className="pad">
               <dl className="inv-dl">
-                <dt>ID</dt>
-                <dd>{detail.data.id}</dd>
+                <dt>N° registro</dt>
+                <dd>{formatNumeroRegistro(detail.data.numeroRegistro)}</dd>
                 <dt>Fecha</dt>
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora cabecera</dt>
                 <dd>{esc(detail.data.horaCabecera)}</dd>
+                <dt>Vehículo (RM)</dt>
+                <dd className="small">
+                  {detailVehiculo?.label ?? rmVehiculoLabel(vehiculoById, detail.data.registroVehiculoId)}
+                  {detailVehiculo?.tipoRegistro ? (
+                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
+                      Tipo: {tipoRegistroLabel(detailVehiculo.tipoRegistro)}
+                    </span>
+                  ) : null}
+                </dd>
                 <dt>Origen</dt>
                 <dd>{esc(detail.data.origen)}</dd>
                 <dt>Destino</dt>
@@ -654,25 +797,13 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.numeroGuia)}</dd>
                 <dt>Orden de compra</dt>
                 <dd>{esc(detail.data.ordenCompra)}</dd>
-                <dt>Vehículo</dt>
-                <dd className="small">
-                  {transporteLabel(transportById, detail.data.transporteId)}
-                  {detail.data.transporteId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      ID flota: {detail.data.transporteId}
-                    </span>
-                  ) : null}
-                </dd>
+                <dt>Vehículo flota (salida)</dt>
+                <dd className="small">{transporteLabel(transportById, detail.data.transporteId)}</dd>
                 <dt>Chofer salida</dt>
                 <dd className="small">
                   {detail.data.choferSalidaNombre != null && detail.data.choferSalidaNombre !== ''
                     ? esc(detail.data.choferSalidaNombre)
                     : '—'}
-                  {detail.data.choferSalidaEmpleadoId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      Empleado id: {detail.data.choferSalidaEmpleadoId}
-                    </span>
-                  ) : null}
                 </dd>
                 <dt>Recepción / validación</dt>
                 <dd className="small">
@@ -688,11 +819,6 @@ export function InventoryPage() {
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
                     ? esc(detail.data.choferValidacionNombre)
                     : '—'}
-                  {detail.data.choferValidacionEmpleadoId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      Empleado id: {detail.data.choferValidacionEmpleadoId}
-                    </span>
-                  ) : null}
                 </dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
@@ -723,8 +849,10 @@ export function InventoryPage() {
           {detail?.tab === 'vehiculos' && detail.data ? (
             <div className="pad">
               <dl className="inv-dl">
-                <dt>ID</dt>
-                <dd>{detail.data.id}</dd>
+                <dt>N° registro</dt>
+                <dd>{formatNumeroRegistro(detail.data.numeroRegistro)}</dd>
+                <dt>Tipo registro</dt>
+                <dd>{tipoRegistroLabel(detail.data.tipoRegistro)}</dd>
                 <dt>Fecha</dt>
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Placa</dt>
@@ -745,15 +873,16 @@ export function InventoryPage() {
                 <dd className="small">{formatDateTime(detail.data.createdAt)}</dd>
               </dl>
               <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
-                Productos transportados
+                Entradas vinculadas
               </h3>
               <ul className="small" style={{ margin: '0.5rem 0 0 1rem' }}>
-                {(detail.data.productos ?? []).length === 0 ? (
-                  <li className="muted">Sin productos en el registro (registros antiguos).</li>
+                {(detail.data.entradas ?? []).length === 0 ? (
+                  <li className="muted">Sin entradas vinculadas a este vehículo.</li>
                 ) : (
-                  (detail.data.productos ?? []).map((p, i) => (
-                    <li key={i}>
-                      {esc(p.materialProducto)} — {esc(p.cantidad)} {esc(p.unidad)}
+                  (detail.data.entradas ?? []).map((e) => (
+                    <li key={e.id}>
+                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(e.ocNumero)} · Guía{' '}
+                      {esc(e.guiaNumero)}
                     </li>
                   ))
                 )}
@@ -768,8 +897,6 @@ export function InventoryPage() {
           {detail?.tab === 'actas' && detail.data ? (
             <div className="pad">
               <dl className="inv-dl">
-                <dt>ID</dt>
-                <dd>{detail.data.id}</dd>
                 <dt>Razón social</dt>
                 <dd>{esc(detail.data.razonSocialNombre)}</dd>
                 <dt>Guía remisión</dt>
@@ -817,15 +944,6 @@ export function InventoryPage() {
       </>
       )}
 
-      <style>{`
-        .inv-dl { display: grid; grid-template-columns: 140px 1fr; gap: 0.35rem 1rem; margin: 0; }
-        .inv-dl dt { margin: 0; color: var(--text-muted, #666); font-size: 0.85rem; }
-        .inv-dl dd { margin: 0; font-size: 0.9rem; }
-        tr.inv-row-selected { background: var(--surface-2, rgba(0,0,0,0.06)); }
-        .inv-photo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-        .inv-photo-row img,
-        .inv-photo-thumb { max-width: 160px; max-height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border, #e5e4e7); }
-      `}</style>
     </div>
   )
 }

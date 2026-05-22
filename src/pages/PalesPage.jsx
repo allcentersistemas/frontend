@@ -430,7 +430,7 @@ export function PalesPage() {
 
       <SplitGrid>
         <GlassCard padding={false} className="overflow-hidden">
-          <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
+          <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
             <GlassCardTitle>Listado de pales</GlassCardTitle>
           </div>
           {loading ? (
@@ -494,13 +494,13 @@ export function PalesPage() {
                   ['Cierre', formatDateTime(header.fechaCierre)],
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-                    <dd className="mt-1 text-sm text-slate-200">{v}</dd>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-500">{k}</dt>
+                    <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{v}</dd>
                   </div>
                 ))}
               </dl>
 
-              <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-4">
+              <div className="flex flex-wrap gap-2 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
                 <CanButton
                   I={ACTION.UPDATE}
                   a={FEATURE.PALES_OPERACIONES}
@@ -511,7 +511,10 @@ export function PalesPage() {
                 </CanButton>
               </div>
               {editOpen ? (
-                <form className="space-y-4 border-t border-white/[0.06] pt-4" onSubmit={(e) => void handleSavePale(e)}>
+                <form
+                  className="space-y-4 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]"
+                  onSubmit={(e) => void handleSavePale(e)}
+                >
                   <FormField label="Notas del pale">
                     <textarea
                       rows={3}
@@ -538,7 +541,7 @@ export function PalesPage() {
               ) : null}
 
               {closed ? (
-                <div className="border-t border-white/[0.06] pt-4">
+                <div className="border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
                   <CanButton
                     I={ACTION.PRINT}
                     a={FEATURE.PALES_PRINT}
@@ -550,17 +553,18 @@ export function PalesPage() {
                   </CanButton>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500">
-                  El resumen imprimible solo está disponible cuando el pale está <strong className="text-slate-300">cerrado</strong>.
+                <p className="text-xs text-slate-600 dark:text-slate-500">
+                  El resumen imprimible solo está disponible cuando el pale está{' '}
+                  <strong className="text-slate-800 dark:text-slate-300">cerrado</strong>.
                 </p>
               )}
 
-              <h3 className="text-sm font-semibold text-white">Líneas ({details.length})</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Líneas ({details.length})</h3>
               <ul className="space-y-2">
                 {details.map((line) => (
                   <li
                     key={line.paleenviodetalleid ?? `${line.piezaId}-${line.partId}`}
-                    className="rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2.5 text-sm"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-white/[0.06] dark:bg-black/20"
                   >
                     <span className="font-mono text-xs text-amber-200/90">
                       {line.partCode ?? line.partId} · pieza {pieceFractionText(line)}

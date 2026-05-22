@@ -244,10 +244,13 @@
     @apply m-0 grid gap-4;
   }
   .inv-dl dt {
-    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
+    @apply text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-500;
   }
   .inv-dl dd {
-    @apply mt-1 text-sm text-slate-200;
+    @apply mt-1 text-sm text-slate-800 dark:text-slate-200;
+  }
+  tr.inv-row-selected {
+    @apply bg-amber-400/12 dark:bg-amber-400/10;
   }
 
   .method {
