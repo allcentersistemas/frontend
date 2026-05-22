@@ -586,37 +586,18 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora</dt>
                 <dd>{esc(detail.data.hora)}</dd>
-                <dt>Vehículo</dt>
-                <dd className="small">
-                  {transporteLabel(transportById, detail.data.transporteId)}
-                  {detail.data.transporteId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      ID flota: {detail.data.transporteId}
-                    </span>
-                  ) : null}
-                  {detail.data.transporteId != null && canViewTransportCatalog ? (
-                    <span className="small" style={{ display: 'block', marginTop: '0.35rem' }}>
-                      <Link to={gestionVehiculoHref(detail.data.transporteId)}>Abrir en Gestión</Link>
-                    </span>
-                  ) : null}
-                </dd>
+                <dt>OC</dt>
+                <dd>{esc(detail.data.ocNumero)}</dd>
+                <dt>Guía</dt>
+                <dd>{esc(detail.data.guiaNumero)}</dd>
+                <dt>Destino</dt>
+                <dd>{esc(detail.data.destino)}</dd>
+                <dt>Registro vehículo</dt>
+                <dd>{detail.data.registroVehiculoId ?? '—'}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
                 <dd className="small">{formatDateTime(detail.data.createdAt)}</dd>
-                <dt>Chofer ingreso</dt>
-                <dd className="small">
-                  {detail.data.choferIngresoNombre != null && detail.data.choferIngresoNombre !== ''
-                    ? esc(detail.data.choferIngresoNombre)
-                    : '—'}
-                  {detail.data.choferIngresoEmpleadoId != null ? (
-                    <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
-                      Empleado id: {detail.data.choferIngresoEmpleadoId}
-                    </span>
-                  ) : null}
-                </dd>
-                <dt>Kilometraje ingreso</dt>
-                <dd>{esc(detail.data.kilometrajeIngreso)}</dd>
                 <dt>Recepción</dt>
                 <dd className="small">
                   {esc(detail.data.recepcionEstado)}
@@ -639,20 +620,16 @@ export function InventoryPage() {
                 </dd>
               </dl>
               <p className="small" style={{ marginTop: '0.75rem' }}>
-                Fotos vehículo (cabecera)
+                Fotos documento
               </p>
-              <RmPhotoRow urls={detail.data.cabeceraVehiculoPhotoUrls} />
+              <RmPhotoRow urls={detail.data.documentoPhotoUrls} />
               <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
                 Líneas
               </h3>
               {(detail.data.detalles ?? []).map((d) => (
                 <div key={d.id} className="card" style={{ marginTop: '0.75rem', padding: '0.75rem' }}>
                   <p className="small">
-                    <strong>{esc(d.proveedor)}</strong> — {esc(d.material)}
-                  </p>
-                  <p className="muted small">
-                    OC: {esc(d.ocNumero)} · Guía: {esc(d.guiaNumero)} · Color/modelo: {esc(d.colorModelo)} · Cant.:{' '}
-                    {esc(d.cantidadRecibida)} · Unidad: {esc(d.unidad)}
+                    <strong>{esc(d.material)}</strong> — {esc(d.cantidad)} {esc(d.unidad)}
                   </p>
                   <RmPhotoRow urls={d.photoUrls} />
                 </div>
@@ -669,6 +646,12 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora cabecera</dt>
                 <dd>{esc(detail.data.horaCabecera)}</dd>
+                <dt>Destino</dt>
+                <dd>{esc(detail.data.destino)}</dd>
+                <dt>N° guía</dt>
+                <dd>{esc(detail.data.numeroGuia)}</dd>
+                <dt>Orden de compra</dt>
+                <dd>{esc(detail.data.ordenCompra)}</dd>
                 <dt>Vehículo</dt>
                 <dd className="small">
                   {transporteLabel(transportById, detail.data.transporteId)}
@@ -724,12 +707,11 @@ export function InventoryPage() {
               {(detail.data.detalles ?? []).map((d) => (
                 <div key={d.id} className="card" style={{ marginTop: '0.75rem', padding: '0.75rem' }}>
                   <p className="small">
-                    <strong>{esc(d.destino)}</strong> — {esc(d.materialProducto)} · {esc(d.cantidad)} {esc(d.unidad)}
+                    <strong>{esc(d.materialProducto)}</strong> — {esc(d.cantidad)} {esc(d.unidad)}
                   </p>
-                  <p className="muted small">
-                    Hora línea: {esc(d.hora)} · RQM: {esc(d.noRqmVale)} · Guía: {esc(d.noGuia)} · Recibe:{' '}
-                    {esc(d.recibeFirma)} · Entrega RCI: {esc(d.entregaRci)}
-                  </p>
+                  {d.hora ? (
+                    <p className="muted small">Hora línea: {esc(d.hora)}</p>
+                  ) : null}
                   <RmPhotoRow urls={d.photoUrls} />
                 </div>
               ))}
