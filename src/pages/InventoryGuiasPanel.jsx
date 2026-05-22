@@ -7,7 +7,7 @@ import { ACTION } from '../access/rolePermissions'
 import { useAuth } from '../auth/AuthContext'
 import { printGuiaDespacho } from '../utils/printGuiaDespacho'
 
-const ESTADOS_GUIA = ['CREADA', 'BORRADOR', 'CERRADA']
+const ESTADOS_GUIA = ['CREADA', 'EN_CAMINO', 'BORRADOR', 'CERRADA']
 const UNIDAD_PIEZAS = 'piezas'
 
 function formatDateTime(value) {
