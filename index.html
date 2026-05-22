@@ -2,17 +2,7 @@
 <html lang="es" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      (function () {
-        var key = 'allcenter-theme'
-        var mode = localStorage.getItem(key) || 'system'
-        var dark =
-          mode === 'dark' ||
-          (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.classList.toggle('dark', dark)
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-      })()
-    </script>
+    <script src="%BASE_URL%theme-init.js"></script>
     <link rel="icon" type="image/svg+xml" href="/allcentericon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
