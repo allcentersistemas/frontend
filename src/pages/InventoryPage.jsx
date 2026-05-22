@@ -646,6 +646,8 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.fecha)}</dd>
                 <dt>Hora cabecera</dt>
                 <dd>{esc(detail.data.horaCabecera)}</dd>
+                <dt>Origen</dt>
+                <dd>{esc(detail.data.origen)}</dd>
                 <dt>Destino</dt>
                 <dd>{esc(detail.data.destino)}</dd>
                 <dt>N° guía</dt>
