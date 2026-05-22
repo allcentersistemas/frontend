@@ -17,10 +17,6 @@ function emptyForm() {
   return {
     code: '',
     estado: 'ABIERTO',
-    branchId: '',
-    originLocationId: '',
-    destinationBranchId: '',
-    destinationLocationId: '',
     notes: '',
   }
 }
@@ -29,18 +25,8 @@ function formFromHeader(header) {
   return {
     code: header?.codigo ?? '',
     estado: header?.estado ?? 'ABIERTO',
-    branchId: header?.sucursalOrigenId != null ? String(header.sucursalOrigenId) : '',
-    originLocationId: header?.ubicacionOrigenId != null ? String(header.ubicacionOrigenId) : '',
-    destinationBranchId: header?.sucursalDestinoId != null ? String(header.sucursalDestinoId) : '',
-    destinationLocationId: header?.ubicacionDestinoId != null ? String(header.ubicacionDestinoId) : '',
     notes: header?.notas ?? '',
   }
-}
-
-function toIdOrNull(value) {
-  if (value == null || String(value).trim() === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
 }
 
 export function PaleEditPage() {
@@ -48,7 +34,6 @@ export function PaleEditPage() {
   const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
   const [form, setForm] = useState(() => emptyForm())
-  const [catalogs, setCatalogs] = useState({ branches: [], locations: [] })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
@@ -61,17 +46,10 @@ export function PaleEditPage() {
       setLoading(true)
       setErr(null)
       try {
-        const [data, catalogData] = await Promise.all([
-          systemApi.getPalletById(paleId),
-          systemApi.getPalletCatalogs().catch(() => ({ branches: [], locations: [] })),
-        ])
+        const data = await systemApi.getPalletById(paleId)
         if (!cancelled) {
           setDetail(data)
           setForm(formFromHeader(data?.pallet))
-          setCatalogs({
-            branches: Array.isArray(catalogData?.branches) ? catalogData.branches : [],
-            locations: Array.isArray(catalogData?.locations) ? catalogData.locations : [],
-          })
         }
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'No se pudo cargar el pale')
@@ -92,8 +70,6 @@ export function PaleEditPage() {
       const data = await systemApi.updatePallet(paleId, {
         code: form.code.trim(),
         estado: form.estado,
-        branchId: toIdOrNull(form.branchId),
-        originLocationId: toIdOrNull(form.originLocationId),
         notes: form.notes,
       })
       setDetail(data)
@@ -122,8 +98,6 @@ export function PaleEditPage() {
   }
 
   const header = detail?.pallet
-  const branches = catalogs.branches
-  const locations = catalogs.locations
   const rows = Array.isArray(detail?.details)
     ? detail.details
     : Array.isArray(detail?.detalles)
@@ -172,40 +146,15 @@ export function PaleEditPage() {
                 ))}
               </select>
             </label>
-            <label className="field">
-              <span>Sucursal origen</span>
-              <select
-                value={form.branchId}
-                onChange={(e) => setForm((s) => ({ ...s, branchId: e.target.value }))}
-                required
-              >
-                <option value="">— Elegir origen —</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Ubicación origen</span>
-              <select
-                value={form.originLocationId}
-                onChange={(e) => setForm((s) => ({ ...s, originLocationId: e.target.value }))}
-              >
-                <option value="">Sin ubicación origen</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
             <p className="muted small">
-              El destino de envío se define en la <strong>guía de despacho</strong> (Inventario → Guías), no en el
-              palé.
+              Origen y destino de envío se definen en la <strong>guía de despacho</strong> (Inventario → Guías). Al
+              cerrar el palé en Android queda listo como <strong>escaneado</strong>.
             </p>
             <dl className="kv">
+              <div>
+                <dt>Estado envío</dt>
+                <dd className="small">{header.estadoEnvio ?? '—'}</dd>
+              </div>
               <div>
                 <dt>Creación</dt>
                 <dd className="small">{formatDateTime(header.fechaCreacion)}</dd>

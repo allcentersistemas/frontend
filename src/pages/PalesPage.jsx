@@ -189,8 +189,7 @@ async function printPalletOrderSummary(header, details) {
   <div class="meta">
     <div><strong>Código</strong> ${esc(header.codigo)}</div>
     <div><strong>Estado</strong> ${esc(header.estado)}</div>
-    <div><strong>Origen</strong> ${esc(header.sucursalOrigenNombre)}</div>
-    <div><strong>Destino</strong> ${esc(header.sucursalDestinoNombre ?? header.ubicacionDestinoNombre)}</div>
+    <div><strong>Estado envío</strong> ${esc(header.estadoEnvio)}</div>
     <div><strong>Piezas / órdenes</strong> ${esc(header.cantidadPiezas)} / ${esc(header.cantidadOrdenes)}</div>
     <div><strong>Creación</strong> ${esc(formatPrintShort(header.fechaCreacion))}</div>
     <div><strong>Resumen</strong> ${esc(header.ordenesResumen)}</div>
@@ -333,9 +332,7 @@ export function PalesPage() {
       return [
         row.codigo,
         row.estado,
-        row.sucursalOrigenNombre,
-        row.sucursalDestinoNombre,
-        row.ubicacionDestinoNombre,
+        row.estadoEnvio,
         row.ordenesResumen,
         row.notas,
         String(palletId(row) ?? ''),
@@ -447,8 +444,6 @@ export function PalesPage() {
                       <Th>Código</Th>
                       <Th>Estado</Th>
                       <Th>Piezas</Th>
-                      <Th>Origen</Th>
-                      <Th>Destino</Th>
                       <Th>Creación</Th>
                     </tr>
                   </Thead>
@@ -466,8 +461,6 @@ export function PalesPage() {
                             <Badge tone="default">{row.estado}</Badge>
                           </Td>
                           <Td className="tabular-nums">{row.cantidadPiezas ?? 0}</Td>
-                          <Td className="text-xs text-slate-400">{row.sucursalOrigenNombre ?? '—'}</Td>
-                          <Td className="text-xs text-slate-400">En guía</Td>
                           <Td className="whitespace-nowrap text-xs text-slate-400">{formatDateTime(row.fechaCreacion)}</Td>
                         </Tr>
                       )
@@ -497,10 +490,6 @@ export function PalesPage() {
                   ['Piezas / órdenes', `${header.cantidadPiezas ?? 0} piezas · ${header.cantidadOrdenes ?? 0} órdenes`],
                   ['Resumen órdenes', header.ordenesResumen || '—'],
                   ['Notas', header.notas || '—'],
-                  [
-                    'Origen → destino',
-                    `${header.sucursalOrigenNombre ?? '—'} → ${header.ubicacionDestinoNombre ?? header.sucursalDestinoNombre ?? '-'}`,
-                  ],
                   ['Creación', formatDateTime(header.fechaCreacion)],
                   ['Cierre', formatDateTime(header.fechaCierre)],
                 ].map(([k, v]) => (

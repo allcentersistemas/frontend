@@ -13,6 +13,12 @@ function formatPrintDate(value) {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('es-PE')
 }
 
+function formatOrigen(guia) {
+  if (!guia) return '—'
+  if (guia.sucursalOrigenNombre) return guia.sucursalOrigenNombre
+  return '—'
+}
+
 function formatDestino(guia) {
   if (!guia) return '—'
   if (guia.ubicacionDestinoNombre) return `Obra: ${guia.ubicacionDestinoNombre}`
@@ -101,6 +107,7 @@ export async function printGuiaDespacho(guia, detalles) {
   </div>
   <div class="meta">
     <div><strong>Estado</strong> ${esc(guia?.estado)}</div>
+    <div><strong>Origen</strong> ${esc(formatOrigen(guia))}</div>
     <div><strong>Destino</strong> ${esc(formatDestino(guia))}</div>
     <div><strong>Líneas</strong> ${lines.length}</div>
     <div><strong>ID guía</strong> ${esc(guia?.guiaId)}</div>

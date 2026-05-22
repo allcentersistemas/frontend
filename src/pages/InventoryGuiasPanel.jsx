@@ -7,13 +7,19 @@ import { ACTION } from '../access/rolePermissions'
 import { useAuth } from '../auth/AuthContext'
 import { printGuiaDespacho } from '../utils/printGuiaDespacho'
 
-const ESTADOS_GUIA = ['BORRADOR', 'CERRADA']
+const ESTADOS_GUIA = ['CREADA', 'BORRADOR', 'CERRADA']
 const UNIDAD_PIEZAS = 'piezas'
 
 function formatDateTime(value) {
   if (!value) return '—'
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
+}
+
+function formatGuiaOrigen(h) {
+  if (!h) return '—'
+  if (h.sucursalOrigenNombre) return h.sucursalOrigenNombre
+  return '—'
 }
 
 function formatGuiaDestino(h) {
@@ -82,7 +88,7 @@ export function InventoryGuiasPanel() {
   const [createRows, setCreateRows] = useState(() => [newCreateRow()])
   const [creatingGuia, setCreatingGuia] = useState(false)
 
-  const [guiaEdit, setGuiaEdit] = useState({ estado: 'BORRADOR', notas: '' })
+  const [guiaEdit, setGuiaEdit] = useState({ estado: 'CREADA', notas: '' })
 
   const [palesEscaneados, setPalesEscaneados] = useState([])
   const [palesLoading, setPalesLoading] = useState(false)
@@ -176,7 +182,7 @@ export function InventoryGuiasPanel() {
       const h = data?.guia
       if (h) {
         setGuiaEdit({
-          estado: h.estado ?? 'BORRADOR',
+          estado: h.estado ?? 'CREADA',
           notas: h.notas ?? '',
         })
       }
@@ -417,8 +423,8 @@ export function InventoryGuiasPanel() {
         <div className="card pad">
           <h2 className="card__title">Nueva guía de despacho</h2>
           <p className="muted small">
-            El número correlativo (G-000001, …) se asigna al guardar. Elija destino y palés escaneados; un solo clic en
-            Crear guarda cabecera y líneas.
+            El número correlativo (G-000001, …) se asigna al guardar. El <strong>origen</strong> es la sucursal del
+            empleado logueado. Elija <strong>destino</strong> y palés con estado de envío escaneado (cerrados en Android).
           </p>
           <form className="form-section" onSubmit={handleCreateGuia} style={{ marginTop: '1rem' }}>
             <fieldset className="field" style={{ border: 'none', padding: 0, margin: 0 }}>
@@ -606,6 +612,7 @@ export function InventoryGuiasPanel() {
                     <tr>
                       <th>ID</th>
                       <th>N° guía</th>
+                      <th>Origen</th>
                       <th>Destino</th>
                       <th>Estado</th>
                       <th>Líneas</th>
@@ -622,6 +629,7 @@ export function InventoryGuiasPanel() {
                             </button>
                           </td>
                           <td className="small">{c.numeroGuia ?? '—'}</td>
+                          <td className="small">{formatGuiaOrigen(c)}</td>
                           <td className="small">{formatGuiaDestino(c)}</td>
                           <td>{c.estado}</td>
                           <td>{c.totalLineas ?? 0}</td>
@@ -658,6 +666,10 @@ export function InventoryGuiasPanel() {
                   <div>
                     <dt>Estado</dt>
                     <dd>{header.estado}</dd>
+                  </div>
+                  <div>
+                    <dt>Origen</dt>
+                    <dd>{formatGuiaOrigen(header)}</dd>
                   </div>
                   <div>
                     <dt>Destino</dt>
