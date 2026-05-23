@@ -1,7 +1,9 @@
 /** Layout compartido al estilo Inventario (clases semánticas en index.css). */
 
+/** Mismo contenedor que Inventario: ancho completo del área principal (sin max-width de `.page`). */
 export function ModulePage({ children, className = '' }) {
-  return <div className={`page ${className}`.trim()}>{children}</div>
+  const extra = className.trim()
+  return <div className={extra || undefined}>{children}</div>
 }
 
 export function ModuleHeader({ title, lead, children }) {

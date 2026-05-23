@@ -1384,5 +1384,5 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
     return <div style={{ marginTop: '0.5rem' }}>{body}</div>
   }
 
-  return <div className="page">{body}</div>
+  return <div>{body}</div>
 }
