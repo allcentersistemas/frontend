@@ -5,7 +5,6 @@ import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
 import {
   ModuleDetailCard,
   ModuleFilterGrid,
-  ModuleHeader,
   ModuleListCard,
   ModulePage,
   ModulePagination,
@@ -190,10 +189,12 @@ export function OrdersPage() {
 
   return (
     <ModulePage>
-      <ModuleHeader
-        title="Órdenes Biesse"
-        lead="Consulta órdenes de producción, avance de escaneo y auditoría de eventos."
-      />
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Órdenes Biesse</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Consulta órdenes de producción, avance de escaneo y auditoría de eventos.
+        </p>
+      </div>
 
       <ModuleTabs
         ariaLabel="Vista órdenes"

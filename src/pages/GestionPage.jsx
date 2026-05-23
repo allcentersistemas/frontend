@@ -6,7 +6,7 @@ import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
-import { ModuleHeader, ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
+import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones', 'audit'])
 
@@ -82,15 +82,16 @@ export function GestionPage() {
 
   return (
     <ModulePage>
-      <ModuleHeader
-        title="Gestión"
-        lead={
-          <>
-            Flota, personal y catálogos del sistema. Las <strong>guías de despacho</strong> están en{' '}
-            <Link to={inventarioGuiasHref}>Inventario → Guías de despacho</Link>.
-          </>
-        }
-      />
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Gestión</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Flota, personal y catálogos del sistema. Las <strong>guías de despacho</strong> están en{' '}
+          <Link to={inventarioGuiasHref} className="linkish">
+            Inventario → Guías de despacho
+          </Link>
+          .
+        </p>
+      </div>
 
       <ModuleTabs
         ariaLabel="Gestión"

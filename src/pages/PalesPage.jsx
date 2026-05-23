@@ -8,7 +8,6 @@ import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
 import {
   ModuleDetailCard,
   ModuleFilterGrid,
-  ModuleHeader,
   ModuleListCard,
   ModulePage,
   ModuleSplit,
@@ -358,15 +357,16 @@ export function PalesPage() {
 
   return (
     <ModulePage>
-      <ModuleHeader
-        title="Pales"
-        lead={
-          <>
-            Para despachar palés escaneados, créalos en una guía en{' '}
-            <Link to={guiasHref}>Inventario → Guías de despacho</Link>.
-          </>
-        }
-      />
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Pales</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Para despachar palés escaneados, créalos en una guía en{' '}
+          <Link to={guiasHref} className="linkish">
+            Inventario → Guías de despacho
+          </Link>
+          . También puedes agregar líneas manuales a la guía.
+        </p>
+      </div>
 
       <ModuleTabs
         ariaLabel="Vista pales"

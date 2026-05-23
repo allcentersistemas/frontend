@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
-import {
-  ModuleFilterGrid,
-  ModuleHeader,
-  ModuleListCard,
-} from '../components/module/ModuleChrome.jsx'
+import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 import { shortUa } from '../utils/auditDisplay.js'
 
 function formatDateTime(value) {
@@ -75,10 +71,12 @@ export function PaleAuditPanel() {
 
   return (
     <>
-      <ModuleHeader
-        title="Auditoría de pales"
-        lead="Trazabilidad contextual de creación, edición, cierre y cambios de detalles del pale."
-      />
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h2 className="card__title">Auditoría de pales</h2>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Trazabilidad contextual de creación, edición, cierre y cambios de detalles del pale.
+        </p>
+      </div>
 
       <ModuleListCard title="Eventos" error={err} loading={loading} toolbar={toolbar}>
         {!loading ? (

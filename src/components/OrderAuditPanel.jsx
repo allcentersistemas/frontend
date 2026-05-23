@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as biesseApi from '../api/biesseApi'
-import {
-  ModuleFilterGrid,
-  ModuleHeader,
-  ModuleListCard,
-} from '../components/module/ModuleChrome.jsx'
+import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 import { auditPick } from '../utils/auditDisplay.js'
 
 function formatDateTime(value) {
@@ -85,10 +81,12 @@ export function OrderAuditPanel() {
 
   return (
     <>
-      <ModuleHeader
-        title="Auditoría de órdenes"
-        lead="Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse."
-      />
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h2 className="card__title">Auditoría de órdenes</h2>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse.
+        </p>
+      </div>
 
       <ModuleListCard title="Eventos" error={err} loading={loading} toolbar={toolbar}>
         {!loading ? (

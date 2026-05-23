@@ -14,7 +14,6 @@ import {
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
-import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -362,27 +361,38 @@ export function InventoryPage() {
 
   if (!canView) {
     return (
-      <ModulePage>
-        <div className="card pad">
-          <h1 className="card__title">Inventario / recepción</h1>
-          <p className="muted">No tienes permiso para ver este módulo.</p>
-        </div>
-      </ModulePage>
+      <div className="card pad">
+        <h1 className="card__title">Inventario / recepción</h1>
+        <p className="muted">No tienes permiso para ver este módulo.</p>
+      </div>
     )
   }
 
   return (
-    <ModulePage>
-      <ModuleTabs
-        ariaLabel="Áreas de inventario"
-        activeId={areaTab}
-        onChange={setAreaTab}
-        tabs={[
-          { id: 'rm', label: 'Recepción Mercaderia' },
-          { id: 'stock', label: 'Almacén' },
-          { id: 'guias', label: 'Guías de despacho' },
-        ]}
-      />
+    <div>
+      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={areaTab === 'rm' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setAreaTab('rm')}
+        >
+          Recepción Mercaderia
+        </button>
+        <button
+          type="button"
+          className={areaTab === 'stock' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setAreaTab('stock')}
+        >
+          Almacén (stock)
+        </button>
+        <button
+          type="button"
+          className={areaTab === 'guias' ? 'btn btn--primary' : 'btn btn--ghost'}
+          onClick={() => setAreaTab('guias')}
+        >
+          Guías de despacho
+        </button>
+      </div>
 
       {areaTab === 'guias' ? (
         <InventoryGuiasPanel />
@@ -400,6 +410,13 @@ export function InventoryPage() {
       ) : (
         <>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Inventario / recepción (module-system)</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Consulta de registros enviados desde la app móvil. RM:{' '}
+          <code className="small">{systemApiBase}</code>
+          {' · '}
+          Flota (vehículos en entradas RM): <code className="small">{systemApiBase}</code>.
+        </p>
         {vehiculoIndexErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
             {vehiculoIndexErr} — el listado puede no mostrar placa/chofer en entradas y salidas.
@@ -410,14 +427,26 @@ export function InventoryPage() {
             {transportCatalogErr} — en salida no se mostrará el vehículo de flota (transporte interno).
           </p>
         ) : null}
+        {canView && !canViewTransportCatalog ? (
+          <p className="muted small" style={{ marginTop: '0.5rem' }}>
+            Sin permiso de flota: en entradas se muestra el ID de vehículo. Pide acceso a «Gestión · vehículos» si
+            necesitas placa y marca.
+          </p>
+        ) : null}
       </div>
 
-      <ModuleTabs
-        ariaLabel="Registros RM"
-        activeId={tab}
-        onChange={setTab}
-        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
-      />
+      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={tab === t.id ? 'btn btn--primary' : 'btn btn--ghost'}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="split">
         <div className="card">
@@ -921,7 +950,7 @@ export function InventoryPage() {
       </>
       )}
 
-    </ModulePage>
+    </div>
   )
 }
 
