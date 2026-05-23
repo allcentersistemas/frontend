@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { CanButton } from '../components/CanButton'
+import { DetailModal } from '../components/DetailModal'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { useAuth } from '../auth/AuthContext'
@@ -600,8 +601,8 @@ export function InventoryGuiasPanel() {
           </form>
         </div>
       ) : (
-        <div className="split" style={{ marginTop: '0' }}>
-          <div className="card card--table">
+        <>
+          <div className="card card--table" style={{ marginTop: 0 }}>
             <h2 className="card__title pad">Listado</h2>
             {guiasLoading ? (
               <p className="muted pad">Cargando…</p>
@@ -648,14 +649,19 @@ export function InventoryGuiasPanel() {
             </div>
           </div>
 
-          <aside className="card detail-panel">
-            <h2 className="card__title">Detalle</h2>
-            {selectedGuiaId == null ? (
-              <p className="muted pad">Selecciona una guía del listado para agregar palés y generar la hoja.</p>
-            ) : guiaDetailLoading ? (
-              <p className="muted pad">Cargando…</p>
+          <DetailModal
+            open={selectedGuiaId != null}
+            title={header?.numeroGuia ? `Guía ${header.numeroGuia}` : `Guía #${selectedGuiaId ?? ''}`}
+            subtitle={header ? `${formatGuiaOrigen(header)} → ${formatGuiaDestino(header)}` : undefined}
+            onClose={() => {
+              setSelectedGuiaId(null)
+              setGuiaDetail(null)
+            }}
+          >
+            {guiaDetailLoading ? (
+              <p className="muted">Cargando…</p>
             ) : header ? (
-              <div className="detail pad">
+              <div className="detail">
                 <dl className="kv">
                   <div>
                     <dt>N° guía</dt>
@@ -817,10 +823,10 @@ export function InventoryGuiasPanel() {
                 </div>
               </div>
             ) : (
-              <p className="text-warn pad">No se pudo cargar el detalle.</p>
+              <p className="text-warn">No se pudo cargar el detalle.</p>
             )}
-          </aside>
-        </div>
+          </DetailModal>
+        </>
       )}
     </div>
   )

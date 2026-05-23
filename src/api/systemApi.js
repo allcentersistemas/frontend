@@ -426,12 +426,16 @@ function qs(params) {
   return s ? `?${s}` : ''
 }
 
+export async function listInventoryCategorias() {
+  return systemJson('/api/inventory/categorias')
+}
+
 export async function listInventoryItems({ page = 0, size = 20, q } = {}) {
   return systemJson(`/api/inventory/items${qs({ page, size, q })}`)
 }
 
-export async function getInventoryItemDetail(id) {
-  return systemJson(`/api/inventory/items/${id}`)
+export async function getInventoryItemDetail(id, { sucursalId } = {}) {
+  return systemJson(`/api/inventory/items/${id}${qs({ sucursalId })}`)
 }
 
 export async function createInventoryItem(body) {

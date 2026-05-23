@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
+import { DetailModal } from '../components/DetailModal.jsx'
+import { categoriaLabel } from '../utils/stockCategoryLabels.js'
 import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
@@ -313,8 +315,8 @@ export function InventoryPage() {
       if (!canView) return
       setDetailLoading(true)
       setDetailErr(null)
-      setDetail(null)
       setDetailVehiculo(null)
+      setDetail({ tab, id, data: null })
       try {
         let data
         if (tab === 'entradas') {
@@ -358,6 +360,27 @@ export function InventoryPage() {
     },
     [canView, tab, vehiculoById],
   )
+
+  const closeDetail = useCallback(() => {
+    setDetail(null)
+    setDetailErr(null)
+    setDetailVehiculo(null)
+    setDetailLoading(false)
+  }, [])
+
+  const detailModalTitle = useMemo(() => {
+    if (!detail?.data) return detail?.id != null ? `Registro #${detail.id}` : 'Detalle'
+    if (detail.tab === 'entradas') {
+      return `Ingreso ${formatNumeroRegistro(detail.data.numeroRegistro)}`
+    }
+    if (detail.tab === 'salidas') {
+      return `Salida ${formatNumeroRegistro(detail.data.numeroRegistro)}`
+    }
+    if (detail.tab === 'vehiculos') {
+      return `Vehículo ${formatNumeroRegistro(detail.data.numeroRegistro)}`
+    }
+    return `Acta NC — ${esc(detail.data.razonSocialNombre)}`
+  }, [detail])
 
   if (!canView) {
     return (
@@ -448,8 +471,7 @@ export function InventoryPage() {
         ))}
       </div>
 
-      <div className="split">
-        <div className="card">
+      <div className="card">
           <div className="pad" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
             <h2 className="card__title" style={{ margin: 0 }}>
               Listado
@@ -709,13 +731,14 @@ export function InventoryPage() {
           </div>
         </div>
 
-        <div className="card detail-panel">
-          <h2 className="card__title pad">Detalle</h2>
-          {detailErr ? <p className="pad" style={{ color: 'var(--danger, #b00020)' }}>{detailErr}</p> : null}
-          {detailLoading ? <p className="muted pad">Cargando detalle…</p> : null}
-          {!detailLoading && !detail && !detailErr ? (
-            <p className="muted pad">Selecciona una fila para ver el detalle y las fotos.</p>
-          ) : null}
+      <DetailModal
+        open={detail != null}
+        title={detailModalTitle}
+        subtitle="Recepción de mercadería (RM)"
+        onClose={closeDetail}
+      >
+        {detailErr ? <p style={{ color: 'var(--danger, #b00020)' }}>{detailErr}</p> : null}
+        {detailLoading ? <p className="muted">Cargando detalle…</p> : null}
 
           {detail?.tab === 'entradas' && detail.data ? (
             <div className="pad">
@@ -758,6 +781,8 @@ export function InventoryPage() {
                     ? esc(detail.data.choferValidacionNombre)
                     : '—'}
                 </dd>
+                <dt>Observaciones</dt>
+                <dd className="small">{esc(detail.data.observaciones)}</dd>
               </dl>
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos documento
@@ -770,7 +795,13 @@ export function InventoryPage() {
                 <div key={d.id} className="card" style={{ marginTop: '0.75rem', padding: '0.75rem' }}>
                   <p className="small">
                     <strong>{esc(d.material)}</strong> — {esc(d.cantidad)} {esc(d.unidad)}
+                    {d.categoriaCodigo ? (
+                      <span className="muted"> · {categoriaLabel(d.categoriaCodigo)}</span>
+                    ) : null}
                   </p>
+                  {d.observaciones ? (
+                    <p className="muted small">Obs.: {esc(d.observaciones)}</p>
+                  ) : null}
                   <RmPhotoRow urls={d.photoUrls} />
                 </div>
               ))}
@@ -830,6 +861,8 @@ export function InventoryPage() {
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
                 <dd className="small">{formatDateTime(detail.data.createdAt)}</dd>
+                <dt>Observaciones</dt>
+                <dd className="small">{esc(detail.data.observaciones)}</dd>
               </dl>
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos cabecera
@@ -842,9 +875,15 @@ export function InventoryPage() {
                 <div key={d.id} className="card" style={{ marginTop: '0.75rem', padding: '0.75rem' }}>
                   <p className="small">
                     <strong>{esc(d.materialProducto)}</strong> — {esc(d.cantidad)} {esc(d.unidad)}
+                    {d.categoriaCodigo ? (
+                      <span className="muted"> · {categoriaLabel(d.categoriaCodigo)}</span>
+                    ) : null}
                   </p>
                   {d.hora ? (
                     <p className="muted small">Hora línea: {esc(d.hora)}</p>
+                  ) : null}
+                  {d.observaciones ? (
+                    <p className="muted small">Obs.: {esc(d.observaciones)}</p>
                   ) : null}
                   <RmPhotoRow urls={d.photoUrls} />
                 </div>
@@ -945,8 +984,7 @@ export function InventoryPage() {
               <RmPhotoRow urls={detail.data.photoUrls} />
             </div>
           ) : null}
-        </div>
-      </div>
+      </DetailModal>
       </>
       )}
 

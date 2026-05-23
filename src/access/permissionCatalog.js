@@ -138,6 +138,7 @@ export const ENDPOINT_CATALOG = [
     domain: 'inventory',
     feature: FEATURE.INVENTORY,
     endpoints: [
+      ['GET', '/api/inventory/categorias'],
       ['GET', '/api/inventory/items'],
       ['GET', '/api/inventory/items/{id}'],
       ['POST', '/api/inventory/items'],
