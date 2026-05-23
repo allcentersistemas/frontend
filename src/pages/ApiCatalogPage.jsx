@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { ENDPOINT_CATALOG, FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
+import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 function MethodBadge({ method }) {
   return <span className={`method method--${method.toLowerCase()}`}>{method}</span>
@@ -44,14 +45,14 @@ export function ApiCatalogPage() {
   }, [ability])
 
   return (
-    <div className="page">
-      <header className="page__head page__head--wide">
-        <h1>Catálogo de endpoints</h1>
-        <p className="page__lead">
-          Mapa de endpoints encontrados en <code className="code-inline">allcenter-system</code> y
-          conectados en el frontend por módulo. CASL limita lo visible según el rol en sesión.
+    <ModulePage>
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Catálogo de endpoints</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Mapa de endpoints encontrados en <code className="code-inline">allcenter-system</code> y conectados en el
+          frontend por módulo. CASL limita lo visible según el rol en sesión.
         </p>
-      </header>
+      </div>
 
       <div className="endpoint-grid">
         {visibleModules.map((group) => (
@@ -96,6 +97,6 @@ export function ApiCatalogPage() {
           )}
         </section>
       ) : null}
-    </div>
+    </ModulePage>
   )
 }

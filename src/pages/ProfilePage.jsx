@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { useAuth } from '../auth/AuthContext'
+import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 const emptyForm = () => ({
   firstName: '',
@@ -171,20 +172,20 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="page">
-        <p className="muted">Cargando perfil…</p>
-      </div>
+      <ModulePage>
+        <p className="muted pad">Cargando perfil…</p>
+      </ModulePage>
     )
   }
 
   return (
-    <div className="page">
-      <header className="page__head">
-        <h1>Mi perfil</h1>
-        <p className="page__lead">
+    <ModulePage>
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Mi perfil</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
           Datos personales y contacto. El correo de acceso no se cambia desde aquí.
         </p>
-      </header>
+      </div>
 
       <form className="card pad profile-form" onSubmit={(e) => void onSubmit(e)}>
         <h2 className="card__title">Identidad</h2>
@@ -399,6 +400,6 @@ export function ProfilePage() {
           </div>
         </div>
       </section>
-    </div>
+    </ModulePage>
   )
 }

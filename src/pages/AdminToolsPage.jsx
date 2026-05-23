@@ -591,22 +591,24 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   const body = (
     <>
       {!embedded ? (
-        <header className="page__head">
-          <h1>Administración</h1>
-          <p className="page__lead">
-            Como <strong>Master</strong> o <strong>Admin</strong> puedes crear roles y empleados desde aquí.
-            El backend valida los mismos permisos en cada petición.
+        <div className="card pad" style={{ marginBottom: '1rem' }}>
+          <h1 className="card__title">Administración</h1>
+          <p className="muted small" style={{ marginTop: '0.35rem' }}>
+            Como <strong>Master</strong> o <strong>Admin</strong> puedes crear roles y empleados desde aquí. El backend
+            valida los mismos permisos en cada petición.
           </p>
-        </header>
+        </div>
       ) : null}
 
       {!embedded ? (
-        <div className="tabs">
+        <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
           {tabs.map(([id, label]) => (
             <button
               key={id}
               type="button"
-              className={'tabs__btn' + (panel === id ? ' tabs__btn--on' : '')}
+              role="tab"
+              aria-selected={panel === id}
+              className={panel === id ? 'btn btn--primary' : 'btn btn--ghost'}
               onClick={() => setPanel(id)}
             >
               {label}

@@ -4,6 +4,7 @@ import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
+import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 const PALE_ESTADOS = ['ABIERTO', 'CERRADO', 'EN_TRANSITO', 'ENTREGADO', 'CANCELADO']
 
@@ -105,19 +106,18 @@ export function PaleEditPage() {
       : []
 
   return (
-    <div className="page">
-      <header className="page__head">
-        <h1>Editar pale</h1>
-        <p className="page__lead">
-          Edita información del pale y administra sus líneas. Todo cambio queda disponible para trazabilidad desde Gestión.
+    <ModulePage>
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Editar pale</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Edita información del pale y administra sus líneas. Todo cambio queda disponible para trazabilidad desde
+          Gestión.
         </p>
-      </header>
-
-      <div className="form-actions" style={{ marginBottom: '1rem' }}>
-        <button type="button" className="btn btn--ghost" onClick={() => navigate(-1)}>
-          Volver
-        </button>
-
+        <div className="form-actions" style={{ marginTop: '1rem', marginBottom: 0 }}>
+          <button type="button" className="btn btn--ghost" onClick={() => navigate(-1)}>
+            Volver
+          </button>
+        </div>
       </div>
 
       {loading ? <p className="muted">Cargando pale...</p> : null}
@@ -227,6 +227,6 @@ export function PaleEditPage() {
 
         </div>
       ) : null}
-    </div>
+    </ModulePage>
   )
 }
