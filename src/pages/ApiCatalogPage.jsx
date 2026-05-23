@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { ENDPOINT_CATALOG, FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
+import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 function MethodBadge({ method }) {
   return <span className={`method method--${method.toLowerCase()}`}>{method}</span>
@@ -44,7 +45,7 @@ export function ApiCatalogPage() {
   }, [ability])
 
   return (
-    <div className="page">
+    <ModulePage>
       <header className="page__head page__head--wide">
         <h1>Catálogo de endpoints</h1>
         <p className="page__lead">
@@ -96,6 +97,6 @@ export function ApiCatalogPage() {
           )}
         </section>
       ) : null}
-    </div>
+    </ModulePage>
   )
 }

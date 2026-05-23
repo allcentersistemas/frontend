@@ -14,6 +14,7 @@ import {
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
+import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -159,9 +160,9 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
 }
 
 const TABS = [
-  { id: 'entradas', label: 'Entradas (MP)' },
+  { id: 'entradas', label: 'Entradas' },
   { id: 'salidas', label: 'Salidas' },
-  { id: 'vehiculos', label: 'Vehículos (RM)' },
+  { id: 'vehiculos', label: 'Vehículos' },
   { id: 'actas', label: 'Actas NC' },
 ]
 
@@ -361,38 +362,27 @@ export function InventoryPage() {
 
   if (!canView) {
     return (
-      <div className="card pad">
-        <h1 className="card__title">Inventario / recepción</h1>
-        <p className="muted">No tienes permiso para ver este módulo.</p>
-      </div>
+      <ModulePage>
+        <div className="card pad">
+          <h1 className="card__title">Inventario / recepción</h1>
+          <p className="muted">No tienes permiso para ver este módulo.</p>
+        </div>
+      </ModulePage>
     )
   }
 
   return (
-    <div>
-      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-        <button
-          type="button"
-          className={areaTab === 'rm' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('rm')}
-        >
-          Recepción Mercaderia
-        </button>
-        <button
-          type="button"
-          className={areaTab === 'stock' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('stock')}
-        >
-          Almacén (stock)
-        </button>
-        <button
-          type="button"
-          className={areaTab === 'guias' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('guias')}
-        >
-          Guías de despacho
-        </button>
-      </div>
+    <ModulePage>
+      <ModuleTabs
+        ariaLabel="Áreas de inventario"
+        activeId={areaTab}
+        onChange={setAreaTab}
+        tabs={[
+          { id: 'rm', label: 'Recepción Mercaderia' },
+          { id: 'stock', label: 'Almacén' },
+          { id: 'guias', label: 'Guías de despacho' },
+        ]}
+      />
 
       {areaTab === 'guias' ? (
         <InventoryGuiasPanel />
@@ -410,13 +400,6 @@ export function InventoryPage() {
       ) : (
         <>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h1 className="card__title">Inventario / recepción (module-system)</h1>
-        <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Consulta de registros enviados desde la app móvil. RM:{' '}
-          <code className="small">{systemApiBase}</code>
-          {' · '}
-          Flota (vehículos en entradas RM): <code className="small">{systemApiBase}</code>.
-        </p>
         {vehiculoIndexErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
             {vehiculoIndexErr} — el listado puede no mostrar placa/chofer en entradas y salidas.
@@ -429,18 +412,12 @@ export function InventoryPage() {
         ) : null}
       </div>
 
-      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={tab === t.id ? 'btn btn--primary' : 'btn btn--ghost'}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <ModuleTabs
+        ariaLabel="Registros RM"
+        activeId={tab}
+        onChange={setTab}
+        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
+      />
 
       <div className="split">
         <div className="card">
@@ -944,7 +921,7 @@ export function InventoryPage() {
       </>
       )}
 
-    </div>
+    </ModulePage>
   )
 }
 

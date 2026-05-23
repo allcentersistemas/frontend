@@ -1,19 +1,14 @@
 import { useEffect, useState } from 'react'
 import * as biesseApi from '../api/biesseApi'
-import { AlertBanner } from '../ui/AlertBanner.jsx'
-import { Button } from '../ui/Button.jsx'
-import { EmptyState } from '../ui/EmptyState.jsx'
-import { FormField } from '../ui/FormField.jsx'
-import { GlassCard, GlassCardTitle } from '../ui/GlassCard.jsx'
-import { inputClass } from '../ui/fields.js'
-import { Spinner } from '../ui/Spinner.jsx'
-import { Table, TableScroll, Td, Th, Thead, Tr } from '../ui/Table.jsx'
-import { Toolbar } from '../ui/Toolbar.jsx'
-
+import {
+  ModuleFilterGrid,
+  ModuleHeader,
+  ModuleListCard,
+} from '../components/module/ModuleChrome.jsx'
 import { auditPick } from '../utils/auditDisplay.js'
 
 function formatDateTime(value) {
-  if (!value) return '-'
+  if (!value) return '—'
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
 }
@@ -49,102 +44,95 @@ export function OrderAuditPanel() {
     }
   }, [filters.orderId, filters.partId, filters.action])
 
+  const toolbar = (
+    <ModuleFilterGrid>
+      <label className="field">
+        <span className="small">Orden</span>
+        <input
+          inputMode="numeric"
+          value={filters.orderId}
+          onChange={(e) => setFilters((s) => ({ ...s, orderId: e.target.value }))}
+          placeholder="orderId"
+        />
+      </label>
+      <label className="field">
+        <span className="small">Parte</span>
+        <input
+          inputMode="numeric"
+          value={filters.partId}
+          onChange={(e) => setFilters((s) => ({ ...s, partId: e.target.value }))}
+          placeholder="partId"
+        />
+      </label>
+      <label className="field">
+        <span className="small">Acción</span>
+        <input
+          value={filters.action}
+          onChange={(e) => setFilters((s) => ({ ...s, action: e.target.value }))}
+          placeholder="ESCANEAR, UPDATE…"
+        />
+      </label>
+      <div className="field" style={{ justifyContent: 'flex-end' }}>
+        <span className="small" style={{ visibility: 'hidden' }}>
+          .
+        </span>
+        <button type="button" className="btn btn--ghost" onClick={() => setFilters({ orderId: '', partId: '', action: '' })}>
+          Limpiar
+        </button>
+      </div>
+    </ModuleFilterGrid>
+  )
+
   return (
     <>
-      <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white/80 px-5 py-4 sm:px-6 dark:border-white/[0.08] dark:bg-white/[0.02]">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Auditoría de órdenes</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse.
-        </p>
-      </div>
+      <ModuleHeader
+        title="Auditoría de órdenes"
+        lead="Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse."
+      />
 
-      <Toolbar>
-        <FormField label="Orden">
-          <input
-            inputMode="numeric"
-            value={filters.orderId}
-            onChange={(e) => setFilters((s) => ({ ...s, orderId: e.target.value }))}
-            placeholder="orderId"
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="Parte">
-          <input
-            inputMode="numeric"
-            value={filters.partId}
-            onChange={(e) => setFilters((s) => ({ ...s, partId: e.target.value }))}
-            placeholder="partId"
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="Acción">
-          <input
-            value={filters.action}
-            onChange={(e) => setFilters((s) => ({ ...s, action: e.target.value }))}
-            placeholder="ESCANEAR, UPDATE..."
-            className={inputClass}
-          />
-        </FormField>
-        <div className="flex flex-1 flex-col justify-end sm:min-w-[100px]">
-          <span className="invisible mb-2 text-xs sm:hidden">—</span>
-          <Button variant="ghost" type="button" onClick={() => setFilters({ orderId: '', partId: '', action: '' })}>
-            Limpiar
-          </Button>
-        </div>
-      </Toolbar>
-
-      {err ? <AlertBanner>{err}</AlertBanner> : null}
-
-      <GlassCard padding={false} className="overflow-hidden">
-        <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
-          <GlassCardTitle>Eventos</GlassCardTitle>
-        </div>
-        {loading ? (
-          <Spinner />
-        ) : (
+      <ModuleListCard title="Eventos" error={err} loading={loading} toolbar={toolbar}>
+        {!loading ? (
           <>
-            <TableScroll>
-              <Table>
-                <Thead>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
                   <tr>
-                    <Th>Fecha</Th>
-                    <Th>Acción</Th>
-                    <Th>Orden</Th>
-                    <Th>Parte</Th>
-                    <Th>Usuario</Th>
-                    <Th>Equipo</Th>
-                    <Th>Método</Th>
+                    <th>Fecha</th>
+                    <th>Acción</th>
+                    <th>Orden</th>
+                    <th>Parte</th>
+                    <th>Usuario</th>
+                    <th>Equipo</th>
+                    <th>Método</th>
                   </tr>
-                </Thead>
+                </thead>
                 <tbody>
                   {rows.map((row, index) => (
-                    <Tr key={row.id ?? `${row.orderid}-${row.partid}-${index}`}>
-                      <Td className="whitespace-nowrap text-xs text-slate-400">
+                    <tr key={row.id ?? `${row.orderid}-${row.partid}-${index}`}>
+                      <td className="small">
                         {formatDateTime(row.occurred_at ?? row.occurredAt ?? row.fecha ?? row.created_at)}
-                      </Td>
-                      <Td>{row.action ?? row.accion ?? '-'}</Td>
-                      <Td className="font-mono text-xs">{row.orderid ?? row.orderId ?? '-'}</Td>
-                      <Td className="font-mono text-xs">{row.partid ?? row.partId ?? '-'}</Td>
-                      <Td className="max-w-[140px] text-xs" title={String(auditPick(row, 'usuarioid', 'usuarioId') ?? '')}>
-                        {auditPick(row, 'usuarioid', 'usuarioId') != null ? `#${auditPick(row, 'usuarioid', 'usuarioId')}` : '—'}
-                      </Td>
-                      <Td className="max-w-[120px] truncate text-xs" title={String(auditPick(row, 'equipo') ?? '')}>
+                      </td>
+                      <td>{row.action ?? row.accion ?? '—'}</td>
+                      <td className="small">{row.orderid ?? row.orderId ?? '—'}</td>
+                      <td className="small">{row.partid ?? row.partId ?? '—'}</td>
+                      <td className="small" title={String(auditPick(row, 'usuarioid', 'usuarioId') ?? '')}>
+                        {auditPick(row, 'usuarioid', 'usuarioId') != null
+                          ? `#${auditPick(row, 'usuarioid', 'usuarioId')}`
+                          : '—'}
+                      </td>
+                      <td className="small" title={String(auditPick(row, 'equipo') ?? '')}>
                         {auditPick(row, 'equipo') ?? '—'}
-                      </Td>
-                      <Td className="max-w-[100px] truncate text-xs">{auditPick(row, 'metodo') ?? '—'}</Td>
-                    </Tr>
+                      </td>
+                      <td className="small">{auditPick(row, 'metodo') ?? '—'}</td>
+                    </tr>
                   ))}
                 </tbody>
-              </Table>
-            </TableScroll>
-            {!rows.length ? (
-              <div className="p-6">
-                <EmptyState title="Sin auditoría" hint="Ajusta los filtros o verifica el rango de datos." />
-              </div>
-            ) : null}
+              </table>
+            </div>
+            {!rows.length ? <p className="muted pad">Sin auditoría para los filtros actuales.</p> : null}
           </>
-        )}
-      </GlassCard>
+        ) : null}
+      </ModuleListCard>
     </>
   )
 }

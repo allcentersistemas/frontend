@@ -6,6 +6,7 @@ import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
+import { ModuleHeader, ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones', 'audit'])
 
@@ -80,29 +81,23 @@ export function GestionPage() {
   ].filter((t) => ability.can('view', t.feature) || ability.can('manage', 'all'))
 
   return (
-    <div className="page">
-      <header className="page__head">
-        <h1>Gestión</h1>
-        <p className="page__lead">
-          Flota, personal y catálogos del sistema. Las <strong>guías de despacho</strong> están en{' '}
-          <Link to={inventarioGuiasHref}>Inventario → Guías de despacho</Link>.
-        </p>
-      </header>
+    <ModulePage>
+      <ModuleHeader
+        title="Gestión"
+        lead={
+          <>
+            Flota, personal y catálogos del sistema. Las <strong>guías de despacho</strong> están en{' '}
+            <Link to={inventarioGuiasHref}>Inventario → Guías de despacho</Link>.
+          </>
+        }
+      />
 
-      <div className="tabs" role="tablist" aria-label="Gestión">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={section === t.id}
-            className={section === t.id ? 'tabs__btn tabs__btn--on' : 'tabs__btn'}
-            onClick={() => selectSection(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <ModuleTabs
+        ariaLabel="Gestión"
+        activeId={section}
+        onChange={selectSection}
+        tabs={tabs.map((t) => ({ id: t.id, label: t.label }))}
+      />
 
       {isAdminPanel ? (
         <AdminToolsPage embedded panel={section} onPanelChange={selectSection} />
@@ -113,6 +108,6 @@ export function GestionPage() {
           onVehiculoConsumed={() => setVehiculoToEdit(null)}
         />
       )}
-    </div>
+    </ModulePage>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { useAuth } from '../auth/AuthContext'
+import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 const emptyForm = () => ({
   firstName: '',
@@ -171,14 +172,14 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="page">
+      <ModulePage>
         <p className="muted">Cargando perfil…</p>
-      </div>
+      </ModulePage>
     )
   }
 
   return (
-    <div className="page">
+    <ModulePage>
       <header className="page__head">
         <h1>Mi perfil</h1>
         <p className="page__lead">
@@ -399,6 +400,6 @@ export function ProfilePage() {
           </div>
         </div>
       </section>
-    </div>
+    </ModulePage>
   )
 }

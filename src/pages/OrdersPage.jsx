@@ -2,27 +2,21 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
+import {
+  ModuleDetailCard,
+  ModuleFilterGrid,
+  ModuleHeader,
+  ModuleListCard,
+  ModulePage,
+  ModulePagination,
+  ModuleSplit,
+  ModuleTabs,
+} from '../components/module/ModuleChrome.jsx'
 import { Can } from '../access/AbilityContext'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { BiesseStickerPrintButton } from '../components/BiesseStickerPrintButton'
 import { CanButton } from '../components/CanButton'
-import { AlertBanner } from '../ui/AlertBanner.jsx'
-import { Badge } from '../ui/Badge.jsx'
-import { Button } from '../ui/Button.jsx'
-import { EmptyState } from '../ui/EmptyState.jsx'
-import { FormField } from '../ui/FormField.jsx'
-import { GlassCard, GlassCardTitle } from '../ui/GlassCard.jsx'
-import { InlineCode } from '../ui/InlineCode.jsx'
-import { inputClass, linkButtonClass, selectClass } from '../ui/fields.js'
-import { PageHeader } from '../ui/PageHeader.jsx'
-import { PageShell } from '../ui/PageShell.jsx'
-import { PagerBar } from '../ui/PagerBar.jsx'
-import { Spinner } from '../ui/Spinner.jsx'
-import { SplitGrid } from '../ui/SplitGrid.jsx'
-import { TabBar, TabButton } from '../ui/TabBar.jsx'
-import { Table, TableScroll, Td, Th, Thead, Tr } from '../ui/Table.jsx'
-import { Toolbar } from '../ui/Toolbar.jsx'
 
 const PAGE_SIZE = 25
 
@@ -117,13 +111,7 @@ export function OrdersPage() {
     }
   }, [selectedId])
 
-  useEffect(() => {
-    if (selectedId == null) return
-    ;(async () => {})()
-    return () => {}
-  }, [selectedId, detail])
-
-  const totalPages = Math.max(0, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   async function handleSaveOrder(e) {
     e.preventDefault()
@@ -143,225 +131,222 @@ export function OrdersPage() {
     }
   }
 
+  function clearFilters() {
+    setSearchInput('')
+    setOrderIdFilter('')
+    setStateFilter('')
+    setFromDateFilter('')
+    setToDateFilter('')
+    setPage(0)
+  }
+
+  const filterToolbar = (
+    <ModuleFilterGrid>
+      <label className="field">
+        <span className="small">Buscar general</span>
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Orden, booking…"
+        />
+      </label>
+      <label className="field">
+        <span className="small">ID exacto</span>
+        <input
+          inputMode="numeric"
+          value={orderIdFilter}
+          onChange={(e) => setOrderIdFilter(e.target.value)}
+          placeholder="orderId"
+        />
+      </label>
+      <label className="field">
+        <span className="small">Estado</span>
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+          <option value="">Todos</option>
+          <option value="PENDIENTE">PENDIENTE</option>
+          <option value="EN_PROCESO">EN_PROCESO</option>
+          <option value="COMPLETADO">COMPLETADO</option>
+        </select>
+      </label>
+      <label className="field">
+        <span className="small">Desde</span>
+        <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} />
+      </label>
+      <label className="field">
+        <span className="small">Hasta</span>
+        <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} />
+      </label>
+      <div className="field" style={{ justifyContent: 'flex-end' }}>
+        <span className="small" style={{ visibility: 'hidden' }}>
+          .
+        </span>
+        <button type="button" className="btn btn--ghost" onClick={clearFilters}>
+          Limpiar filtros
+        </button>
+      </div>
+    </ModuleFilterGrid>
+  )
+
   return (
-    <PageShell>
+    <ModulePage>
+      <ModuleHeader
+        title="Órdenes Biesse"
+        lead="Consulta órdenes de producción, avance de escaneo y auditoría de eventos."
+      />
 
-
-      <TabBar aria-label="Vista órdenes">
-        <TabButton selected={pageTab === 'listado'} onClick={() => selectTab('listado')}>
-          Listado
-        </TabButton>
-        <TabButton selected={pageTab === 'auditoria'} onClick={() => selectTab('auditoria')}>
-          Auditoría
-        </TabButton>
-      </TabBar>
+      <ModuleTabs
+        ariaLabel="Vista órdenes"
+        activeId={pageTab}
+        onChange={selectTab}
+        tabs={[
+          { id: 'listado', label: 'Listado' },
+          { id: 'auditoria', label: 'Auditoría' },
+        ]}
+      />
 
       {pageTab === 'auditoria' ? (
         <OrderAuditPanel />
       ) : (
-        <>
-      <Toolbar>
-        <FormField label="Buscar general">
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Orden, booking, ID…"
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="ID exacto">
-          <input
-            inputMode="numeric"
-            value={orderIdFilter}
-            onChange={(e) => setOrderIdFilter(e.target.value)}
-            placeholder="orderId"
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="Estado">
-          <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} className={selectClass}>
-            <option value="">Todos</option>
-            <option value="PENDIENTE">PENDIENTE</option>
-            <option value="EN_PROCESO">EN_PROCESO</option>
-            <option value="COMPLETADO">COMPLETADO</option>
-          </select>
-        </FormField>
-        <FormField label="Desde">
-          <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} className={inputClass} />
-        </FormField>
-        <FormField label="Hasta">
-          <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} className={inputClass} />
-        </FormField>
-        <div className="flex flex-1 flex-col justify-end sm:min-w-[120px]">
-          <span className="invisible mb-2 text-xs sm:hidden">—</span>
-          <Button
-            variant="ghost"
-            type="button"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              setSearchInput('')
-              setOrderIdFilter('')
-              setStateFilter('')
-              setFromDateFilter('')
-              setToDateFilter('')
-              setPage(0)
-            }}
-          >
-            Limpiar
-          </Button>
-        </div>
-      </Toolbar>
-
-      {err ? <AlertBanner>{err}</AlertBanner> : null}
-
-      <SplitGrid>
-        <GlassCard padding={false} className="overflow-hidden">
-          {loading ? (
-            <Spinner />
-          ) : (
-            <>
-              <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
-                <GlassCardTitle>Órdenes</GlassCardTitle>
-                <p className="mt-1 text-xs text-slate-600 dark:text-slate-500">
-                  {total} registro{total !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <TableScroll>
-                <Table>
-                  <Thead>
-                    <tr>
-                      <Th>ID</Th>
-                      <Th>Orden</Th>
-                      <Th>Estado</Th>
-                    </tr>
-                  </Thead>
-                  <tbody>
-                    {list.map((row) => (
-                      <Tr key={row.orderId} selected={selectedId === row.orderId}>
-                        <Td>
-                          <button type="button" className={linkButtonClass} onClick={() => setSelectedId(row.orderId)}>
-                            {row.orderId}
-                          </button>
-                        </Td>
-                        <Td className="font-medium">{row.orderName}</Td>
-                        <Td>
-                          <Badge tone="default">{row.estadoEscaneo ?? '—'}</Badge>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </TableScroll>
-              {!list.length ? (
-                <div className="p-6">
-                  <EmptyState title="Sin resultados" hint="Prueba otros filtros o amplía el rango de fechas." />
-                </div>
-              ) : null}
-              {!loading && total > 0 ? (
-                <PagerBar
-                  info={`${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total}`}
+        <ModuleSplit>
+          <ModuleListCard
+            title="Órdenes"
+            error={err}
+            loading={loading}
+            toolbar={filterToolbar}
+            footer={
+              !loading && total > 0 ? (
+                <ModulePagination
                   page={page}
                   totalPages={totalPages}
+                  disabled={loading}
+                  info={`${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total}`}
                   onPrev={() => setPage((p) => Math.max(0, p - 1))}
                   onNext={() => setPage((p) => p + 1)}
                 />
-              ) : null}
-            </>
-          )}
-        </GlassCard>
+              ) : null
+            }
+          >
+            {!loading ? (
+              <>
+                <p className="pad small muted" style={{ paddingTop: 0, margin: 0 }}>
+                  {total} registro{total !== 1 ? 's' : ''}
+                </p>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Orden</th>
+                        <th>Nombre</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((row) => (
+                        <tr
+                          key={row.orderId}
+                          className={selectedId === row.orderId ? 'inv-row-selected' : undefined}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedId(row.orderId)}
+                        >
+                          <td>
+                            <button type="button" className="linkish" onClick={() => setSelectedId(row.orderId)}>
+                              {row.orderId}
+                            </button>
+                          </td>
+                          <td>{row.orderName}</td>
+                          <td>
+                            <span className="tag">{row.estadoEscaneo ?? '—'}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!list.length ? (
+                  <p className="muted pad">Sin resultados. Prueba otros filtros o amplía el rango de fechas.</p>
+                ) : null}
+              </>
+            ) : null}
+          </ModuleListCard>
 
-        <GlassCard className="lg:sticky lg:top-8">
-          <GlassCardTitle>Detalle</GlassCardTitle>
-          {selectedId == null ? (
-            <p className="mt-4 text-sm text-slate-500">Selecciona una orden en la tabla.</p>
-          ) : detailLoading ? (
-            <Spinner className="h-6 w-6" />
-          ) : detail ? (
-            <div className="mt-5 space-y-5">
-              <dl className="grid gap-4">
-                {[
-                  ['Nombre', detail.orderName],
-                  [
-                    'Partes',
-                    `${detail.partesEscaneadas} / ${detail.totalPartes} (pend. ${detail.partesPendientes})`,
-                  ],
-                  ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
-                  ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
-                  ['Observaciones', detail.observaciones || '—'],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-500">{k}</dt>
-                    <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{v}</dd>
-                  </div>
-                ))}
-              </dl>
+          <ModuleDetailCard title="Detalle">
+            {selectedId == null ? (
+              <p className="muted pad">Selecciona una orden en la tabla.</p>
+            ) : detailLoading ? (
+              <p className="muted pad">Cargando detalle…</p>
+            ) : detail ? (
+              <div className="pad">
+                <dl className="inv-dl">
+                  {[
+                    ['Nombre', detail.orderName],
+                    [
+                      'Partes',
+                      `${detail.partesEscaneadas} / ${detail.totalPartes} (pend. ${detail.partesPendientes})`,
+                    ],
+                    ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
+                    ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
+                    ['Observaciones', detail.observaciones || '—'],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{k}</dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
 
-              {orderEditOpen ? (
-                <form
-                  className="space-y-4 border-t border-slate-200/80 pt-5 dark:border-white/[0.06]"
-                  onSubmit={(e) => void handleSaveOrder(e)}
-                >
-                  <FormField label="Observaciones de la orden">
-                    <textarea
-                      rows={3}
-                      value={orderEditNotes}
-                      onChange={(e) => setOrderEditNotes(e.target.value)}
-                      className={inputClass + ' min-h-[5rem] resize-y'}
-                    />
-                  </FormField>
-                  <div className="flex flex-wrap gap-2">
-                    <CanButton
-                      I={ACTION.UPDATE}
-                      a={FEATURE.BIESSE_ORDERS}
-                      type="submit"
-                      className="rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/20 transition hover:shadow-amber-400/35 disabled:opacity-50"
-                      disabled={orderEditBusy}
-                    >
-                      {orderEditBusy ? 'Guardando…' : 'Guardar orden'}
-                    </CanButton>
-                    <Button variant="ghost" type="button" onClick={() => setOrderEditOpen(false)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </form>
-              ) : null}
+                {orderEditOpen ? (
+                  <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
+                    <label className="field">
+                      <span>Observaciones de la orden</span>
+                      <textarea
+                        rows={3}
+                        value={orderEditNotes}
+                        onChange={(e) => setOrderEditNotes(e.target.value)}
+                      />
+                    </label>
+                    <div className="form-actions">
+                      <CanButton I={ACTION.UPDATE} a={FEATURE.BIESSE_ORDERS} type="submit" className="btn btn--primary" disabled={orderEditBusy}>
+                        {orderEditBusy ? 'Guardando…' : 'Guardar orden'}
+                      </CanButton>
+                      <button type="button" className="btn btn--ghost" onClick={() => setOrderEditOpen(false)}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Partes</h3>
-                <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
-                  <BiesseStickerPrintButton detail={detail} />
+                <div className="detail__h" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span>Partes</span>
+                  <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
+                    <BiesseStickerPrintButton detail={detail} />
+                  </Can>
+                </div>
+                <ul className="detail-list">
+                  {(detail.partes ?? []).map((p) => (
+                    <li key={p.partId}>
+                      <span className="detail-list__code">{p.partCode ?? p.partId}</span>
+                      <span className={p.escaneado ? 'tag tag--ok' : 'tag'}>{p.escaneado ? 'Escaneado' : 'Pendiente'}</span>
+                      <span className="small muted">{p.piezas?.length ?? 0} piezas</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Can I="view" a={FEATURE.BIESSE_TOOLS}>
+                  {toolErr ? <p className="form-error">{toolErr}</p> : null}
+                  {toolMsg ? (
+                    <p className="muted small" role="status">
+                      {toolMsg}
+                    </p>
+                  ) : null}
                 </Can>
               </div>
-              <ul className="space-y-2">
-                {(detail.partes ?? []).map((p) => (
-                  <li
-                    key={p.partId}
-                    className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-white/[0.06] dark:bg-black/20"
-                  >
-                    <span className="font-mono text-xs text-amber-200/90">{p.partCode ?? p.partId}</span>
-                    <Badge tone={p.escaneado ? 'success' : 'warn'}>{p.escaneado ? 'Escaneado' : 'Pendiente'}</Badge>
-                    <span className="text-xs text-slate-500">{p.piezas?.length ?? 0} piezas</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Can I="view" a={FEATURE.BIESSE_TOOLS}>
-                {toolErr ? <AlertBanner>{toolErr}</AlertBanner> : null}
-                {toolMsg ? (
-                  <p className="text-xs text-slate-500" role="status">
-                    {toolMsg}
-                  </p>
-                ) : null}
-              </Can>
-            </div>
-          ) : (
-            <AlertBanner>No se pudo cargar el detalle.</AlertBanner>
-          )}
-        </GlassCard>
-      </SplitGrid>
-        </>
+            ) : (
+              <p className="pad form-error">No se pudo cargar el detalle.</p>
+            )}
+          </ModuleDetailCard>
+        </ModuleSplit>
       )}
-    </PageShell>
+    </ModulePage>
   )
 }

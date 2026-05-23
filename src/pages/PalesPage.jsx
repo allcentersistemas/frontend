@@ -5,19 +5,15 @@ import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
 import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
-import { AlertBanner } from '../ui/AlertBanner.jsx'
-import { Badge } from '../ui/Badge.jsx'
-import { Button } from '../ui/Button.jsx'
-import { FormField } from '../ui/FormField.jsx'
-import { GlassCard, GlassCardTitle } from '../ui/GlassCard.jsx'
-import { InlineCode } from '../ui/InlineCode.jsx'
-import { inputClass, linkButtonClass } from '../ui/fields.js'
-import { PageHeader } from '../ui/PageHeader.jsx'
-import { PageShell } from '../ui/PageShell.jsx'
-import { SplitGrid } from '../ui/SplitGrid.jsx'
-import { TabBar, TabButton } from '../ui/TabBar.jsx'
-import { Table, TableScroll, Td, Th, Thead, Tr } from '../ui/Table.jsx'
-import { Toolbar } from '../ui/Toolbar.jsx'
+import {
+  ModuleDetailCard,
+  ModuleFilterGrid,
+  ModuleHeader,
+  ModuleListCard,
+  ModulePage,
+  ModuleSplit,
+  ModuleTabs,
+} from '../components/module/ModuleChrome.jsx'
 
 function palletId(row) {
   return row?.paleenvioid ?? row?.id
@@ -361,232 +357,229 @@ export function PalesPage() {
   }
 
   return (
-    <PageShell>
+    <ModulePage>
+      <ModuleHeader
+        title="Pales"
+        lead={
+          <>
+            Para despachar palés escaneados, créalos en una guía en{' '}
+            <Link to={guiasHref}>Inventario → Guías de despacho</Link>.
+          </>
+        }
+      />
 
-
-      <TabBar aria-label="Vista pales">
-        <TabButton selected={pageTab === 'listado'} onClick={() => selectTab('listado')}>
-          Listado
-        </TabButton>
-        <TabButton selected={pageTab === 'auditoria'} onClick={() => selectTab('auditoria')}>
-          Auditoría
-        </TabButton>
-      </TabBar>
+      <ModuleTabs
+        ariaLabel="Vista pales"
+        activeId={pageTab}
+        onChange={selectTab}
+        tabs={[
+          { id: 'listado', label: 'Listado' },
+          { id: 'auditoria', label: 'Auditoría' },
+        ]}
+      />
 
       {pageTab === 'auditoria' ? (
         <PaleAuditPanel />
       ) : (
         <>
-      <GlassCard className="mb-4">
-        <p className="text-sm text-slate-600">
-          Para despachar palés <strong>escaneados</strong>, créalos en una <strong>guía</strong> en Inventario (número
-          automático, sin vehículo ni chofer). También puedes agregar líneas manuales a la guía.
-        </p>
-        <p className="mt-2">
-          <Link to={guiasHref} className={linkButtonClass}>
-            Ir a crear / gestionar guías
-          </Link>
-        </p>
-      </GlassCard>
-      {err ? <AlertBanner>{err}</AlertBanner> : null}
-      {opErr ? <AlertBanner>{opErr}</AlertBanner> : null}
-      {opMsg ? (
-        <p className="mb-4 text-sm text-slate-500" role="status">
-          {opMsg}
-        </p>
-      ) : null}
+          {opMsg ? (
+            <p className="muted small" style={{ marginBottom: '0.75rem' }} role="status">
+              {opMsg}
+            </p>
+          ) : null}
 
-      <Toolbar>
-        <FormField label="Buscar pale">
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Código, estado, destino, orden…"
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="Desde">
-          <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} className={inputClass} />
-        </FormField>
-        <FormField label="Hasta">
-          <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} className={inputClass} />
-        </FormField>
-        <div className="flex flex-1 flex-col justify-end sm:min-w-[100px]">
-          <span className="invisible mb-2 text-xs sm:hidden">—</span>
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={() => {
-              setSearchInput('')
-              setFromDateFilter('')
-              setToDateFilter('')
-            }}
-          >
-            Limpiar
-          </Button>
-        </div>
-      </Toolbar>
-
-      <SplitGrid>
-        <GlassCard padding={false} className="overflow-hidden">
-          <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6 dark:border-white/[0.06]">
-            <GlassCardTitle>Listado de pales</GlassCardTitle>
-          </div>
-          {loading ? (
-            <p className="p-8 text-center text-sm text-slate-500">Cargando…</p>
-          ) : (
-            <>
-              <TableScroll>
-                <Table>
-                  <Thead>
-                    <tr>
-                      <Th>Código</Th>
-                      <Th>Estado</Th>
-                      <Th>Piezas</Th>
-                      <Th>Creación</Th>
-                    </tr>
-                  </Thead>
-                  <tbody>
-                    {filteredPallets.map((row) => {
-                      const id = palletId(row)
-                      return (
-                        <Tr key={id} selected={selectedId === id}>
-                          <Td>
-                            <button type="button" className={linkButtonClass} onClick={() => setSelectedId(id)}>
-                              {row.codigo}
-                            </button>
-                          </Td>
-                          <Td>
-                            <Badge tone="default">{row.estado}</Badge>
-                          </Td>
-                          <Td className="tabular-nums">{row.cantidadPiezas ?? 0}</Td>
-                          <Td className="whitespace-nowrap text-xs text-slate-400">{formatDateTime(row.fechaCreacion)}</Td>
-                        </Tr>
-                      )
-                    })}
-                  </tbody>
-                </Table>
-              </TableScroll>
-              {!filteredPallets.length ? (
-                <p className="p-6 text-center text-sm text-slate-500">No hay pales para la búsqueda actual.</p>
-              ) : null}
-            </>
-          )}
-        </GlassCard>
-
-        <GlassCard className="lg:sticky lg:top-8">
-          <GlassCardTitle>Detalle del pale</GlassCardTitle>
-          {selectedId == null ? (
-            <p className="mt-4 text-sm text-slate-500">Selecciona un pale en la tabla.</p>
-          ) : detailLoading ? (
-            <p className="mt-4 text-sm text-slate-500">Cargando…</p>
-          ) : header ? (
-            <div className="mt-5 space-y-5">
-              <dl className="grid gap-4">
-                {[
-                  ['Código', header.codigo],
-                  ['Estado', header.estado],
-                  ['Piezas / órdenes', `${header.cantidadPiezas ?? 0} piezas · ${header.cantidadOrdenes ?? 0} órdenes`],
-                  ['Resumen órdenes', header.ordenesResumen || '—'],
-                  ['Notas', header.notas || '—'],
-                  ['Creación', formatDateTime(header.fechaCreacion)],
-                  ['Cierre', formatDateTime(header.fechaCierre)],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-500">{k}</dt>
-                    <dd className="mt-1 text-sm text-slate-800 dark:text-slate-200">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="flex flex-wrap gap-2 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
-                <CanButton
-                  I={ACTION.UPDATE}
-                  a={FEATURE.PALES_OPERACIONES}
-                  className="rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/20 transition hover:shadow-amber-400/35"
-                  onClick={() => navigate(`${selectedId}/editar`)}
-                >
-                  Abrir página de edición
-                </CanButton>
-              </div>
-              {editOpen ? (
-                <form
-                  className="space-y-4 border-t border-slate-200/80 pt-4 dark:border-white/[0.06]"
-                  onSubmit={(e) => void handleSavePale(e)}
-                >
-                  <FormField label="Notas del pale">
-                    <textarea
-                      rows={3}
-                      value={editNotes}
-                      onChange={(e) => setEditNotes(e.target.value)}
-                      className={inputClass + ' min-h-[5rem] resize-y'}
+          <ModuleSplit>
+            <ModuleListCard
+              title="Listado de pales"
+              error={err || opErr}
+              loading={loading}
+              toolbar={
+                <ModuleFilterGrid>
+                  <label className="field">
+                    <span className="small">Buscar pale</span>
+                    <input
+                      type="search"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Código, estado, orden…"
                     />
-                  </FormField>
-                  <div className="flex flex-wrap gap-2">
+                  </label>
+                  <label className="field">
+                    <span className="small">Desde</span>
+                    <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span className="small">Hasta</span>
+                    <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} />
+                  </label>
+                  <div className="field" style={{ justifyContent: 'flex-end' }}>
+                    <span className="small" style={{ visibility: 'hidden' }}>
+                      .
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => {
+                        setSearchInput('')
+                        setFromDateFilter('')
+                        setToDateFilter('')
+                      }}
+                    >
+                      Limpiar filtros
+                    </button>
+                  </div>
+                </ModuleFilterGrid>
+              }
+            >
+              {!loading ? (
+                <>
+                  <p className="pad small muted" style={{ paddingTop: 0, margin: 0 }}>
+                    {filteredPallets.length} pale{filteredPallets.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Estado</th>
+                          <th>Piezas</th>
+                          <th>Creación</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPallets.map((row) => {
+                          const id = palletId(row)
+                          return (
+                            <tr
+                              key={id}
+                              className={selectedId === id ? 'inv-row-selected' : undefined}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setSelectedId(id)}
+                            >
+                              <td>
+                                <button type="button" className="linkish" onClick={() => setSelectedId(id)}>
+                                  {row.codigo}
+                                </button>
+                              </td>
+                              <td>
+                                <span className="tag">{row.estado}</span>
+                              </td>
+                              <td>{row.cantidadPiezas ?? 0}</td>
+                              <td className="small">{formatDateTime(row.fechaCreacion)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!filteredPallets.length ? (
+                    <p className="muted pad">No hay pales para la búsqueda actual.</p>
+                  ) : null}
+                </>
+              ) : null}
+            </ModuleListCard>
+
+            <ModuleDetailCard title="Detalle del pale">
+              {selectedId == null ? (
+                <p className="muted pad">Selecciona un pale en la tabla.</p>
+              ) : detailLoading ? (
+                <p className="muted pad">Cargando…</p>
+              ) : header ? (
+                <div className="pad">
+                  <dl className="inv-dl">
+                    {[
+                      ['Código', header.codigo],
+                      ['Estado', header.estado],
+                      ['Piezas / órdenes', `${header.cantidadPiezas ?? 0} piezas · ${header.cantidadOrdenes ?? 0} órdenes`],
+                      ['Resumen órdenes', header.ordenesResumen || '—'],
+                      ['Notas', header.notas || '—'],
+                      ['Creación', formatDateTime(header.fechaCreacion)],
+                      ['Cierre', formatDateTime(header.fechaCierre)],
+                    ].map(([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="form-actions">
                     <CanButton
                       I={ACTION.UPDATE}
                       a={FEATURE.PALES_OPERACIONES}
-                      type="submit"
-                      className="rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/20 transition hover:shadow-amber-400/35 disabled:opacity-50"
-                      disabled={editBusy}
+                      className="btn btn--primary"
+                      onClick={() => navigate(`${selectedId}/editar`)}
                     >
-                      {editBusy ? 'Guardando…' : 'Guardar pale'}
+                      Abrir página de edición
                     </CanButton>
-                    <Button variant="ghost" type="button" onClick={() => setEditOpen(false)}>
-                      Cancelar
-                    </Button>
                   </div>
-                </form>
-              ) : null}
 
-              {closed ? (
-                <div className="border-t border-slate-200/80 pt-4 dark:border-white/[0.06]">
-                  <CanButton
-                    I={ACTION.PRINT}
-                    a={FEATURE.PALES_PRINT}
-                    type="button"
-                    className="rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/20 transition hover:shadow-amber-400/35"
-                    onClick={() => void printPalletOrderSummary(header, details)}
-                  >
-                    Imprimir resumen (orden de envío)
-                  </CanButton>
+                  {editOpen ? (
+                    <form className="form-section" onSubmit={(e) => void handleSavePale(e)}>
+                      <label className="field">
+                        <span>Notas del pale</span>
+                        <textarea rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+                      </label>
+                      <div className="form-actions">
+                        <CanButton
+                          I={ACTION.UPDATE}
+                          a={FEATURE.PALES_OPERACIONES}
+                          type="submit"
+                          className="btn btn--primary"
+                          disabled={editBusy}
+                        >
+                          {editBusy ? 'Guardando…' : 'Guardar pale'}
+                        </CanButton>
+                        <button type="button" className="btn btn--ghost" onClick={() => setEditOpen(false)}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
+
+                  {closed ? (
+                    <div className="form-actions">
+                      <CanButton
+                        I={ACTION.PRINT}
+                        a={FEATURE.PALES_PRINT}
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={() => void printPalletOrderSummary(header, details)}
+                      >
+                        Imprimir resumen (orden de envío)
+                      </CanButton>
+                    </div>
+                  ) : (
+                    <p className="muted small">
+                      El resumen imprimible solo está disponible cuando el pale está <strong>cerrado</strong>.
+                    </p>
+                  )}
+
+                  <h3 className="detail__h">Líneas ({details.length})</h3>
+                  <ul className="detail-list">
+                    {details.map((line) => (
+                      <li key={line.paleenviodetalleid ?? `${line.piezaId}-${line.partId}`}>
+                        <span className="detail-list__code">
+                          {line.partCode ?? line.partId} · pieza {pieceFractionText(line)}
+                        </span>
+                        <span className="small muted block mt-1">
+                          {line.orderName ?? line.orderId}
+                          {partDescripcion0(line) ? ` · ${partDescripcion0(line)}` : ''}
+                          {partDescripcion1(line) ? ` · ${partDescripcion1(line)}` : ''}
+                          {partMedida(line) ? ` · ${partMedida(line)}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {!details.length ? <p className="muted small">Sin líneas en este pale.</p> : null}
                 </div>
               ) : (
-                <p className="text-xs text-slate-600 dark:text-slate-500">
-                  El resumen imprimible solo está disponible cuando el pale está{' '}
-                  <strong className="text-slate-800 dark:text-slate-300">cerrado</strong>.
-                </p>
+                <p className="pad form-error">No se pudo cargar el detalle.</p>
               )}
-
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Líneas ({details.length})</h3>
-              <ul className="space-y-2">
-                {details.map((line) => (
-                  <li
-                    key={line.paleenviodetalleid ?? `${line.piezaId}-${line.partId}`}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-white/[0.06] dark:bg-black/20"
-                  >
-                    <span className="font-mono text-xs text-amber-200/90">
-                      {line.partCode ?? line.partId} · pieza {pieceFractionText(line)}
-                    </span>
-                    <span className="mt-1 block text-xs text-slate-500">
-                      {line.orderName ?? line.orderId}
-                      {partDescripcion0(line) ? ` · ${partDescripcion0(line)}` : ''}
-                      {partDescripcion1(line) ? ` · ${partDescripcion1(line)}` : ''}
-                      {partMedida(line) ? ` · ${partMedida(line)}` : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {!details.length ? <p className="text-xs text-slate-500">Sin líneas en este pale.</p> : null}
-            </div>
-          ) : (
-            <AlertBanner>No se pudo cargar el detalle.</AlertBanner>
-          )}
-        </GlassCard>
-      </SplitGrid>
+            </ModuleDetailCard>
+          </ModuleSplit>
         </>
       )}
-    </PageShell>
+    </ModulePage>
   )
 }
