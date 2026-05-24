@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
 import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
+import { DetailModal } from '../components/DetailModal'
 import {
-  ModuleDetailCard,
   ModuleFilterGrid,
   ModuleListCard,
   ModulePage,
-  ModuleSplit,
   ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
+
+const PALE_ESTADOS = ['ABIERTO', 'CERRADO', 'EN_TRANSITO', 'ENTREGADO', 'CANCELADO']
 
 function palletId(row) {
   return row?.paleenvioid ?? row?.id
@@ -24,7 +25,6 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
 }
 
-/** Fecha/hora corta para impresión compacta. */
 function formatPrintShort(value) {
   if (!value) return '—'
   const d = new Date(value)
@@ -46,7 +46,6 @@ function esc(s) {
     .replace(/"/g, '&quot;')
 }
 
-/** Descripciones de la tabla {@code partes} (database_schema.py). Compat. API antigua: orderDescripcion. */
 function partDescripcion0(line) {
   return (
     line.partDescripcion ??
@@ -75,7 +74,6 @@ function partMedida(line) {
   return line.medida ?? null
 }
 
-/** Solo orderName + descripciones de parte + medida (L×A desde partes). Sin booking. */
 function orderCellHtml(line) {
   const name = line.orderName ?? line.orderId
   const d0 = partDescripcion0(line)
@@ -93,7 +91,6 @@ function orderCellHtml(line) {
   return bits.length ? bits.join('') : '—'
 }
 
-/** p.ej. 2/7 = pieza 2 de total programado en partes.cantidad */
 function pieceFractionText(line) {
   const n = line.numeroPieza
   const total = piezasPlanParte(line)
@@ -104,9 +101,14 @@ function pieceFractionText(line) {
   return '—'
 }
 
-/**
- * Ventana de impresión: resumen del pale cerrado (cabecera + líneas + QR del código de pale).
- */
+function formFromHeader(header) {
+  return {
+    code: header?.codigo ?? '',
+    estado: header?.estado ?? 'ABIERTO',
+    notes: header?.notas ?? '',
+  }
+}
+
 async function printPalletOrderSummary(header, details) {
   const codigoPale = String(header.codigo ?? header.paleenvioid ?? '').trim()
   let qrBlock = ''
@@ -221,7 +223,6 @@ async function printPalletOrderSummary(header, details) {
 
 export function PalesPage() {
   const location = useLocation()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
 
@@ -245,19 +246,23 @@ export function PalesPage() {
   const [selectedId, setSelectedId] = useState(null)
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [editNotes, setEditNotes] = useState('')
+  const [editForm, setEditForm] = useState(() => formFromHeader(null))
   const [editBusy, setEditBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const [opMsg, setOpMsg] = useState(null)
   const [opErr, setOpErr] = useState(null)
 
+  useEffect(() => {
+    const fromUrl = searchParams.get('id')
+    if (fromUrl && /^\d+$/.test(fromUrl)) {
+      setSelectedId(Number(fromUrl))
+    }
+  }, [searchParams])
 
-
-
-
-
-
-
+  async function refreshList() {
+    const list = await systemApi.listPallets()
+    setPallets(Array.isArray(list) ? list : [])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -286,9 +291,13 @@ export function PalesPage() {
     let cancelled = false
     ;(async () => {
       setDetailLoading(true)
+      setOpErr(null)
       try {
         const d = await systemApi.getPalletById(selectedId)
-        if (!cancelled) setDetail(d)
+        if (!cancelled) {
+          setDetail(d)
+          setEditForm(formFromHeader(d?.pallet))
+        }
       } catch {
         if (!cancelled) setDetail(null)
       } finally {
@@ -300,19 +309,10 @@ export function PalesPage() {
     }
   }, [selectedId])
 
-  useEffect(() => {
-    if (selectedId == null) return
-    ;(async () => {
-
-    })()
-    return () => {
-    }
-  }, [selectedId, detail])
-
-
   const header = detail?.pallet ?? null
   const details = Array.isArray(detail?.details) ? detail.details : []
   const closed = header ? isPalletClosed(header.estado) : false
+
   const filteredPallets = useMemo(() => {
     const needle = searchInput.trim().toLowerCase()
     const fromTime = fromDateFilter ? new Date(`${fromDateFilter}T00:00:00`).getTime() : null
@@ -330,11 +330,17 @@ export function PalesPage() {
         row.estadoEnvio,
         row.ordenesResumen,
         row.notas,
+        row.guiaNumero,
         String(palletId(row) ?? ''),
       ].some((value) => String(value ?? '').toLowerCase().includes(needle))
     })
   }, [pallets, searchInput, fromDateFilter, toDateFilter])
 
+  function closeDetail() {
+    setSelectedId(null)
+    setDetail(null)
+    setOpErr(null)
+  }
 
   async function handleSavePale(e) {
     e.preventDefault()
@@ -342,11 +348,14 @@ export function PalesPage() {
     setEditBusy(true)
     setOpErr(null)
     try {
-      const updated = await systemApi.updatePallet(selectedId, { notes: editNotes })
+      const updated = await systemApi.updatePallet(selectedId, {
+        code: editForm.code.trim(),
+        estado: editForm.estado,
+        notes: editForm.notes,
+      })
       setDetail(updated)
-      const list = await systemApi.listPallets()
-      setPallets(Array.isArray(list) ? list : [])
-      setEditOpen(false)
+      setEditForm(formFromHeader(updated?.pallet))
+      await refreshList()
       setOpMsg('Pale actualizado.')
     } catch (ex) {
       setOpErr(ex instanceof Error ? ex.message : 'No se pudo editar el pale')
@@ -354,6 +363,28 @@ export function PalesPage() {
       setEditBusy(false)
     }
   }
+
+  async function handleDeleteDetail(detailId) {
+    if (selectedId == null || !window.confirm('¿Eliminar esta línea del pale?')) return
+    setDeletingId(detailId)
+    setOpErr(null)
+    try {
+      const updated = await systemApi.deletePalletDetail(selectedId, detailId)
+      setDetail(updated)
+      setEditForm(formFromHeader(updated?.pallet))
+      await refreshList()
+      setOpMsg('Línea eliminada.')
+    } catch (ex) {
+      setOpErr(ex instanceof Error ? ex.message : 'No se pudo eliminar la línea')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const guiaLink =
+    header?.guiaInventarioId != null
+      ? `${location.pathname.replace(/\/pales\/?$/, '/inventario')}?area=guias`
+      : null
 
   return (
     <ModulePage>
@@ -388,177 +419,206 @@ export function PalesPage() {
             </p>
           ) : null}
 
-          <ModuleSplit>
-            <ModuleListCard
-              title="Listado de pales"
-              error={err || opErr}
-              loading={loading}
-              toolbar={
-                <ModuleFilterGrid>
+          <ModuleListCard
+            title="Listado de pales"
+            error={err || opErr}
+            loading={loading}
+            toolbar={
+              <ModuleFilterGrid>
+                <label className="field">
+                  <span className="small">Buscar pale</span>
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Código, estado, guía, orden…"
+                  />
+                </label>
+                <label className="field">
+                  <span className="small">Desde</span>
+                  <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span className="small">Hasta</span>
+                  <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} />
+                </label>
+                <div className="field" style={{ justifyContent: 'flex-end' }}>
+                  <span className="small" style={{ visibility: 'hidden' }}>
+                    .
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => {
+                      setSearchInput('')
+                      setFromDateFilter('')
+                      setToDateFilter('')
+                    }}
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
+              </ModuleFilterGrid>
+            }
+          >
+            {!loading ? (
+              <>
+                <p className="pad small muted" style={{ paddingTop: 0, margin: 0 }}>
+                  {filteredPallets.length} pale{filteredPallets.length !== 1 ? 's' : ''}
+                </p>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Estado</th>
+                        <th>En guía</th>
+                        <th>Guía</th>
+                        <th>Piezas</th>
+                        <th>Creación</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPallets.map((row) => {
+                        const id = palletId(row)
+                        return (
+                          <tr
+                            key={id}
+                            className={selectedId === id ? 'inv-row-selected' : undefined}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedId(id)}
+                          >
+                            <td>
+                              <button type="button" className="linkish" onClick={() => setSelectedId(id)}>
+                                {row.codigo}
+                              </button>
+                            </td>
+                            <td>
+                              <span className="tag">{row.estado}</span>
+                            </td>
+                            <td>{row.enGuia ? 'Sí' : 'No'}</td>
+                            <td className="small">{row.guiaNumero ?? '—'}</td>
+                            <td>{row.cantidadPiezas ?? 0}</td>
+                            <td className="small">{formatDateTime(row.fechaCreacion)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {!filteredPallets.length ? (
+                  <p className="muted pad">No hay pales para la búsqueda actual.</p>
+                ) : null}
+              </>
+            ) : null}
+          </ModuleListCard>
+
+          <DetailModal
+            open={selectedId != null}
+            title={header?.codigo ? `Palé ${header.codigo}` : `Palé #${selectedId ?? ''}`}
+            subtitle={header?.sucursalOrigenNombre ? `Sucursal: ${header.sucursalOrigenNombre}` : undefined}
+            onClose={closeDetail}
+          >
+            {detailLoading ? <p className="muted pad">Cargando…</p> : null}
+            {!detailLoading && !header ? <p className="pad form-error">No se pudo cargar el detalle.</p> : null}
+            {header ? (
+              <div className="pad">
+                <dl className="inv-dl">
+                  <dt>Piezas / órdenes</dt>
+                  <dd>
+                    {header.cantidadPiezas ?? 0} piezas · {header.cantidadOrdenes ?? 0} órdenes
+                  </dd>
+                  <dt>Resumen órdenes</dt>
+                  <dd>{header.ordenesResumen || '—'}</dd>
+                  <dt>Estado envío</dt>
+                  <dd>{header.estadoEnvio ?? '—'}</dd>
+                  <dt>En guía</dt>
+                  <dd>{header.enGuia ? 'Sí' : 'No'}</dd>
+                  <dt>Guía de despacho</dt>
+                  <dd>
+                    {header.guiaNumero ? (
+                      guiaLink ? (
+                        <Link to={guiaLink} className="linkish">
+                          {header.guiaNumero}
+                        </Link>
+                      ) : (
+                        header.guiaNumero
+                      )
+                    ) : (
+                      '—'
+                    )}
+                  </dd>
+                  <dt>Creación</dt>
+                  <dd>{formatDateTime(header.fechaCreacion)}</dd>
+                  <dt>Cierre</dt>
+                  <dd>{formatDateTime(header.fechaCierre)}</dd>
+                </dl>
+
+                <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSavePale(e)}>
+                  <h3 className="card__title" style={{ fontSize: '1rem' }}>
+                    Editar pale
+                  </h3>
                   <label className="field">
-                    <span className="small">Buscar pale</span>
+                    <span>Código</span>
                     <input
-                      type="search"
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Código, estado, orden…"
+                      value={editForm.code}
+                      onChange={(e) => setEditForm((s) => ({ ...s, code: e.target.value }))}
+                      required
                     />
                   </label>
                   <label className="field">
-                    <span className="small">Desde</span>
-                    <input type="date" value={fromDateFilter} onChange={(e) => setFromDateFilter(e.target.value)} />
+                    <span>Estado</span>
+                    <select value={editForm.estado} onChange={(e) => setEditForm((s) => ({ ...s, estado: e.target.value }))}>
+                      {PALE_ESTADOS.map((estado) => (
+                        <option key={estado} value={estado}>
+                          {estado}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="field">
-                    <span className="small">Hasta</span>
-                    <input type="date" value={toDateFilter} onChange={(e) => setToDateFilter(e.target.value)} />
+                    <span>Notas</span>
+                    <textarea rows={3} value={editForm.notes} onChange={(e) => setEditForm((s) => ({ ...s, notes: e.target.value }))} />
                   </label>
-                  <div className="field" style={{ justifyContent: 'flex-end' }}>
-                    <span className="small" style={{ visibility: 'hidden' }}>
-                      .
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => {
-                        setSearchInput('')
-                        setFromDateFilter('')
-                        setToDateFilter('')
-                      }}
-                    >
-                      Limpiar filtros
-                    </button>
-                  </div>
-                </ModuleFilterGrid>
-              }
-            >
-              {!loading ? (
-                <>
-                  <p className="pad small muted" style={{ paddingTop: 0, margin: 0 }}>
-                    {filteredPallets.length} pale{filteredPallets.length !== 1 ? 's' : ''}
-                  </p>
-                  <div className="table-wrap">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Código</th>
-                          <th>Estado</th>
-                          <th>Piezas</th>
-                          <th>Creación</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredPallets.map((row) => {
-                          const id = palletId(row)
-                          return (
-                            <tr
-                              key={id}
-                              className={selectedId === id ? 'inv-row-selected' : undefined}
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => setSelectedId(id)}
-                            >
-                              <td>
-                                <button type="button" className="linkish" onClick={() => setSelectedId(id)}>
-                                  {row.codigo}
-                                </button>
-                              </td>
-                              <td>
-                                <span className="tag">{row.estado}</span>
-                              </td>
-                              <td>{row.cantidadPiezas ?? 0}</td>
-                              <td className="small">{formatDateTime(row.fechaCreacion)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {!filteredPallets.length ? (
-                    <p className="muted pad">No hay pales para la búsqueda actual.</p>
-                  ) : null}
-                </>
-              ) : null}
-            </ModuleListCard>
-
-            <ModuleDetailCard title="Detalle del pale">
-              {selectedId == null ? (
-                <p className="muted pad">Selecciona un pale en la tabla.</p>
-              ) : detailLoading ? (
-                <p className="muted pad">Cargando…</p>
-              ) : header ? (
-                <div className="pad">
-                  <dl className="inv-dl">
-                    {[
-                      ['Código', header.codigo],
-                      ['Estado', header.estado],
-                      ['Piezas / órdenes', `${header.cantidadPiezas ?? 0} piezas · ${header.cantidadOrdenes ?? 0} órdenes`],
-                      ['Resumen órdenes', header.ordenesResumen || '—'],
-                      ['Notas', header.notas || '—'],
-                      ['Creación', formatDateTime(header.fechaCreacion)],
-                      ['Cierre', formatDateTime(header.fechaCierre)],
-                    ].map(([k, v]) => (
-                      <div key={k}>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-
                   <div className="form-actions">
                     <CanButton
                       I={ACTION.UPDATE}
                       a={FEATURE.PALES_OPERACIONES}
+                      type="submit"
                       className="btn btn--primary"
-                      onClick={() => navigate(`${selectedId}/editar`)}
+                      disabled={editBusy}
                     >
-                      Abrir página de edición
+                      {editBusy ? 'Guardando…' : 'Guardar cambios'}
                     </CanButton>
                   </div>
+                </form>
 
-                  {editOpen ? (
-                    <form className="form-section" onSubmit={(e) => void handleSavePale(e)}>
-                      <label className="field">
-                        <span>Notas del pale</span>
-                        <textarea rows={3} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
-                      </label>
-                      <div className="form-actions">
-                        <CanButton
-                          I={ACTION.UPDATE}
-                          a={FEATURE.PALES_OPERACIONES}
-                          type="submit"
-                          className="btn btn--primary"
-                          disabled={editBusy}
-                        >
-                          {editBusy ? 'Guardando…' : 'Guardar pale'}
-                        </CanButton>
-                        <button type="button" className="btn btn--ghost" onClick={() => setEditOpen(false)}>
-                          Cancelar
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
+                {closed ? (
+                  <div className="form-actions">
+                    <CanButton
+                      I={ACTION.PRINT}
+                      a={FEATURE.PALES_PRINT}
+                      type="button"
+                      className="btn btn--primary"
+                      onClick={() => void printPalletOrderSummary(header, details)}
+                    >
+                      Imprimir resumen (orden de envío)
+                    </CanButton>
+                  </div>
+                ) : (
+                  <p className="muted small">
+                    El resumen imprimible solo está disponible cuando el pale está <strong>cerrado</strong>.
+                  </p>
+                )}
 
-                  {closed ? (
-                    <div className="form-actions">
-                      <CanButton
-                        I={ACTION.PRINT}
-                        a={FEATURE.PALES_PRINT}
-                        type="button"
-                        className="btn btn--primary"
-                        onClick={() => void printPalletOrderSummary(header, details)}
-                      >
-                        Imprimir resumen (orden de envío)
-                      </CanButton>
-                    </div>
-                  ) : (
-                    <p className="muted small">
-                      El resumen imprimible solo está disponible cuando el pale está <strong>cerrado</strong>.
-                    </p>
-                  )}
-
-                  <h3 className="detail__h">Líneas ({details.length})</h3>
-                  <ul className="detail-list">
-                    {details.map((line) => (
-                      <li key={line.paleenviodetalleid ?? `${line.piezaId}-${line.partId}`}>
+                <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
+                  Líneas ({details.length})
+                </h3>
+                <ul className="detail-list">
+                  {details.map((line) => {
+                    const lineId = line.paleenviodetalleid ?? line.id
+                    return (
+                      <li key={lineId ?? `${line.piezaId}-${line.partId}`}>
                         <span className="detail-list__code">
                           {line.partCode ?? line.partId} · pieza {pieceFractionText(line)}
                         </span>
@@ -568,16 +628,27 @@ export function PalesPage() {
                           {partDescripcion1(line) ? ` · ${partDescripcion1(line)}` : ''}
                           {partMedida(line) ? ` · ${partMedida(line)}` : ''}
                         </span>
+                        {lineId != null ? (
+                          <CanButton
+                            I={ACTION.DELETE}
+                            a={FEATURE.PALES_OPERACIONES}
+                            type="button"
+                            className="linkish small"
+                            style={{ marginTop: '0.35rem' }}
+                            disabled={deletingId === lineId}
+                            onClick={() => void handleDeleteDetail(lineId)}
+                          >
+                            {deletingId === lineId ? 'Eliminando…' : 'Quitar línea'}
+                          </CanButton>
+                        ) : null}
                       </li>
-                    ))}
-                  </ul>
-                  {!details.length ? <p className="muted small">Sin líneas en este pale.</p> : null}
-                </div>
-              ) : (
-                <p className="pad form-error">No se pudo cargar el detalle.</p>
-              )}
-            </ModuleDetailCard>
-          </ModuleSplit>
+                    )
+                  })}
+                </ul>
+                {!details.length ? <p className="muted small">Sin líneas en este pale.</p> : null}
+              </div>
+            ) : null}
+          </DetailModal>
         </>
       )}
     </ModulePage>

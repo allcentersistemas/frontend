@@ -3,8 +3,8 @@ import * as systemApi from '../api/systemApi'
 import { Can } from '../access/AbilityContext'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
-import { useAppAbility } from '../access/useAppAbility'
 import { CanButton } from '../components/CanButton'
+import { DetailModal } from '../components/DetailModal'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -32,17 +32,30 @@ function toNumOrNull(s) {
   return Number.isFinite(n) ? n : null
 }
 
+function vehiclePayload(form) {
+  return {
+    placa: form.placa.trim(),
+    numeroSerie: form.numeroSerie.trim() || undefined,
+    modelo: form.modelo.trim() || undefined,
+    marca: form.marca.trim() || undefined,
+    color: form.color.trim() || undefined,
+    descripcion: form.descripcion.trim() || undefined,
+    tipoVehiculo: form.tipoVehiculo.trim() || undefined,
+    capacidad: toNumOrNull(form.capacidad) ?? undefined,
+    activo: form.activo,
+  }
+}
+
 /** Pestaña vehículos o auditoría de flota (sin cabecera de página). */
 export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoConsumed }) {
-  const ability = useAppAbility()
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
 
   const [vehiculos, setVehiculos] = useState([])
   const [vehiculosLoading, setVehiculosLoading] = useState(false)
-  const [newVehiculo, setNewVehiculo] = useState(() => emptyVehicleForm())
-  const [editingVehiculoId, setEditingVehiculoId] = useState(null)
-  const [editVehiculo, setEditVehiculo] = useState(() => emptyVehicleForm())
+  const [vehicleModal, setVehicleModal] = useState(null)
+  const [vehicleForm, setVehicleForm] = useState(() => emptyVehicleForm())
+  const [vehicleBusy, setVehicleBusy] = useState(false)
 
   const [auditFilters, setAuditFilters] = useState({ entityType: '', entityId: '', correlationId: '' })
   const [auditPage, setAuditPage] = useState(0)
@@ -100,36 +113,19 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
     }
   }, [tab, loadAuditoria])
 
-  async function handleCreateVehiculo(e) {
-    e.preventDefault()
+  function openCreateModal() {
+    setVehicleForm(emptyVehicleForm())
+    setVehicleModal({ mode: 'create' })
     setErr(null)
-    try {
-      await systemApi.createVehiculo({
-        placa: newVehiculo.placa.trim(),
-        numeroSerie: newVehiculo.numeroSerie.trim() || undefined,
-        modelo: newVehiculo.modelo.trim() || undefined,
-        marca: newVehiculo.marca.trim() || undefined,
-        color: newVehiculo.color.trim() || undefined,
-        descripcion: newVehiculo.descripcion.trim() || undefined,
-        tipoVehiculo: newVehiculo.tipoVehiculo.trim() || undefined,
-        capacidad: toNumOrNull(newVehiculo.capacidad) ?? undefined,
-        activo: newVehiculo.activo,
-      })
-      setNewVehiculo(emptyVehicleForm())
-      showMsg('Vehículo registrado.')
-      await loadVehiculos()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo crear el vehículo')
-    }
   }
 
-  async function startEditVehiculo(row) {
+  async function openEditModal(row) {
     const id = row.transporteId ?? row.id
-    setEditingVehiculoId(id)
+    setVehicleModal({ mode: 'edit', id })
     setErr(null)
     try {
       const fresh = await systemApi.getVehiculo(id)
-      setEditVehiculo({
+      setVehicleForm({
         placa: fresh.placa ?? '',
         numeroSerie: fresh.numeroSerie ?? '',
         modelo: fresh.modelo ?? '',
@@ -141,7 +137,7 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
         activo: fresh.activo !== false,
       })
     } catch {
-      setEditVehiculo({
+      setVehicleForm({
         placa: row.placa ?? '',
         numeroSerie: row.numeroSerie ?? '',
         modelo: row.modelo ?? '',
@@ -162,38 +158,48 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
     void (async () => {
       try {
         const fresh = await systemApi.getVehiculo(initialVehiculoId)
-        await startEditVehiculo(fresh)
+        await openEditModal(fresh)
       } catch {
-        await startEditVehiculo({ transporteId: initialVehiculoId, placa: '', marca: '' })
+        await openEditModal({ transporteId: initialVehiculoId, placa: '', marca: '' })
       } finally {
         onVehiculoConsumed?.()
       }
     })()
   }, [initialVehiculoId, onVehiculoConsumed])
 
-  async function handleSaveVehiculo(e) {
+  function closeVehicleModal() {
+    setVehicleModal(null)
+    setVehicleForm(emptyVehicleForm())
+  }
+
+  async function handleSubmitVehicle(e) {
     e.preventDefault()
-    if (editingVehiculoId == null) return
+    if (!vehicleModal) return
+    setVehicleBusy(true)
     setErr(null)
     try {
-      await systemApi.updateVehiculo(editingVehiculoId, {
-        placa: editVehiculo.placa.trim() || undefined,
-        numeroSerie: editVehiculo.numeroSerie.trim() || undefined,
-        modelo: editVehiculo.modelo.trim() || undefined,
-        marca: editVehiculo.marca.trim() || undefined,
-        color: editVehiculo.color.trim() || undefined,
-        descripcion: editVehiculo.descripcion.trim() || undefined,
-        tipoVehiculo: editVehiculo.tipoVehiculo.trim() || undefined,
-        capacidad: toNumOrNull(editVehiculo.capacidad) ?? undefined,
-        activo: editVehiculo.activo,
-      })
-      setEditingVehiculoId(null)
-      showMsg('Vehículo actualizado.')
+      if (vehicleModal.mode === 'create') {
+        await systemApi.createVehiculo(vehiclePayload(vehicleForm))
+        showMsg('Vehículo registrado.')
+      } else {
+        await systemApi.updateVehiculo(vehicleModal.id, vehiclePayload(vehicleForm))
+        showMsg('Vehículo actualizado.')
+      }
+      closeVehicleModal()
       await loadVehiculos()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'No se pudo actualizar')
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : 'No se pudo guardar el vehículo')
+    } finally {
+      setVehicleBusy(false)
     }
   }
+
+  const vehicleModalTitle =
+    vehicleModal?.mode === 'create'
+      ? 'Nuevo vehículo'
+      : vehicleModal?.mode === 'edit'
+        ? `Editar vehículo #${vehicleModal.id}`
+        : ''
 
   return (
     <>
@@ -201,9 +207,16 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
       {err ? <p className="text-warn" role="alert">{err}</p> : null}
 
       {tab === 'vehiculos' ? (
-        <div className="split" style={{ marginTop: '0.5rem' }}>
-          <div className="card">
-            <h2 className="card__title pad">Flota</h2>
+        <>
+          <div className="card" style={{ marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '1rem' }}>
+              <h2 className="card__title" style={{ margin: 0 }}>
+                Flota
+              </h2>
+              <CanButton I={ACTION.CREATE} a={FEATURE.TRANSPORT_VEHICLES} type="button" className="btn btn--primary" onClick={openCreateModal}>
+                + Nuevo vehículo
+              </CanButton>
+            </div>
             {vehiculosLoading ? (
               <p className="muted pad">Cargando…</p>
             ) : (
@@ -230,7 +243,13 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
                           <td className="small">{v.tipoVehiculo ?? '—'}</td>
                           <td>{v.activo === false ? 'No' : 'Sí'}</td>
                           <td>
-                            <CanButton I={ACTION.UPDATE} a={FEATURE.TRANSPORT_VEHICLES} type="button" className="linkish" onClick={() => void startEditVehiculo(v)}>
+                            <CanButton
+                              I={ACTION.UPDATE}
+                              a={FEATURE.TRANSPORT_VEHICLES}
+                              type="button"
+                              className="linkish"
+                              onClick={() => void openEditModal(v)}
+                            >
                               Editar
                             </CanButton>
                           </td>
@@ -243,86 +262,90 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
               </div>
             )}
           </div>
-          <div className="card detail-panel">
-            <h2 className="card__title">Nuevo vehículo</h2>
-            <form className="form-section pad" onSubmit={handleCreateVehiculo}>
+
+          <DetailModal open={vehicleModal != null} title={vehicleModalTitle} subtitle="Gestión de flota" onClose={closeVehicleModal}>
+            <form className="form-section pad" onSubmit={(e) => void handleSubmitVehicle(e)}>
               <label className="field">
                 <span>Placa *</span>
-                <input value={newVehiculo.placa} onChange={(e) => setNewVehiculo((s) => ({ ...s, placa: e.target.value }))} required />
+                <input
+                  value={vehicleForm.placa}
+                  onChange={(e) => setVehicleForm((s) => ({ ...s, placa: e.target.value }))}
+                  required
+                />
               </label>
+              {vehicleModal?.mode === 'edit' ? (
+                <label className="field">
+                  <span>N.º serie</span>
+                  <input
+                    value={vehicleForm.numeroSerie}
+                    onChange={(e) => setVehicleForm((s) => ({ ...s, numeroSerie: e.target.value }))}
+                  />
+                </label>
+              ) : null}
               <label className="field">
                 <span>Modelo</span>
-                <input value={newVehiculo.modelo} onChange={(e) => setNewVehiculo((s) => ({ ...s, modelo: e.target.value }))} />
+                <input value={vehicleForm.modelo} onChange={(e) => setVehicleForm((s) => ({ ...s, modelo: e.target.value }))} />
               </label>
               <label className="field">
                 <span>Marca</span>
-                <input value={newVehiculo.marca} onChange={(e) => setNewVehiculo((s) => ({ ...s, marca: e.target.value }))} />
+                <input value={vehicleForm.marca} onChange={(e) => setVehicleForm((s) => ({ ...s, marca: e.target.value }))} />
               </label>
-              <label className="field">
-                <span>Tipo vehículo</span>
-                <input value={newVehiculo.tipoVehiculo} onChange={(e) => setNewVehiculo((s) => ({ ...s, tipoVehiculo: e.target.value }))} />
-              </label>
-              <label className="field field--inline">
-                <input type="checkbox" checked={newVehiculo.activo} onChange={(e) => setNewVehiculo((s) => ({ ...s, activo: e.target.checked }))} />
-                <span>Activo</span>
-              </label>
-              <div className="form-actions">
-                <CanButton I={ACTION.CREATE} a={FEATURE.TRANSPORT_VEHICLES} type="submit" className="btn btn--primary">
-                  Registrar
-                </CanButton>
-              </div>
-            </form>
-            {editingVehiculoId != null ? (
-              <>
-                <h2 className="card__title" style={{ marginTop: '1.25rem' }}>
-                  Editar vehículo #{editingVehiculoId}
-                </h2>
-                <form className="form-section pad" onSubmit={handleSaveVehiculo}>
-                  <label className="field">
-                    <span>Placa</span>
-                    <input value={editVehiculo.placa} onChange={(e) => setEditVehiculo((s) => ({ ...s, placa: e.target.value }))} />
-                  </label>
-                  <label className="field">
-                    <span>N.º serie</span>
-                    <input value={editVehiculo.numeroSerie} onChange={(e) => setEditVehiculo((s) => ({ ...s, numeroSerie: e.target.value }))} />
-                  </label>
-                  <label className="field">
-                    <span>Modelo</span>
-                    <input value={editVehiculo.modelo} onChange={(e) => setEditVehiculo((s) => ({ ...s, modelo: e.target.value }))} />
-                  </label>
-                  <label className="field">
-                    <span>Marca</span>
-                    <input value={editVehiculo.marca} onChange={(e) => setEditVehiculo((s) => ({ ...s, marca: e.target.value }))} />
-                  </label>
+              {vehicleModal?.mode === 'edit' ? (
+                <>
                   <label className="field">
                     <span>Color</span>
-                    <input value={editVehiculo.color} onChange={(e) => setEditVehiculo((s) => ({ ...s, color: e.target.value }))} />
+                    <input value={vehicleForm.color} onChange={(e) => setVehicleForm((s) => ({ ...s, color: e.target.value }))} />
                   </label>
                   <label className="field">
                     <span>Descripción</span>
-                    <textarea rows={2} value={editVehiculo.descripcion} onChange={(e) => setEditVehiculo((s) => ({ ...s, descripcion: e.target.value }))} />
+                    <textarea
+                      rows={2}
+                      value={vehicleForm.descripcion}
+                      onChange={(e) => setVehicleForm((s) => ({ ...s, descripcion: e.target.value }))}
+                    />
                   </label>
                   <label className="field">
                     <span>Capacidad</span>
-                    <input inputMode="decimal" value={editVehiculo.capacidad} onChange={(e) => setEditVehiculo((s) => ({ ...s, capacidad: e.target.value }))} />
+                    <input
+                      inputMode="decimal"
+                      value={vehicleForm.capacidad}
+                      onChange={(e) => setVehicleForm((s) => ({ ...s, capacidad: e.target.value }))}
+                    />
                   </label>
-                  <label className="field field--inline">
-                    <input type="checkbox" checked={editVehiculo.activo} onChange={(e) => setEditVehiculo((s) => ({ ...s, activo: e.target.checked }))} />
-                    <span>Activo</span>
-                  </label>
-                  <div className="form-actions">
-                    <CanButton I={ACTION.UPDATE} a={FEATURE.TRANSPORT_VEHICLES} type="submit" className="btn btn--primary">
-                      Guardar cambios
-                    </CanButton>
-                    <button type="button" className="btn" onClick={() => setEditingVehiculoId(null)}>
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : null}
-          </div>
-        </div>
+                </>
+              ) : null}
+              <label className="field">
+                <span>Tipo vehículo</span>
+                <input
+                  value={vehicleForm.tipoVehiculo}
+                  onChange={(e) => setVehicleForm((s) => ({ ...s, tipoVehiculo: e.target.value }))}
+                />
+              </label>
+              <label className="field field--inline">
+                <input
+                  type="checkbox"
+                  checked={vehicleForm.activo}
+                  onChange={(e) => setVehicleForm((s) => ({ ...s, activo: e.target.checked }))}
+                />
+                <span>Activo</span>
+              </label>
+              <div className="form-actions">
+                <CanButton
+                  I={vehicleModal?.mode === 'create' ? ACTION.CREATE : ACTION.UPDATE}
+                  a={FEATURE.TRANSPORT_VEHICLES}
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={vehicleBusy}
+                >
+                  {vehicleBusy ? 'Guardando…' : vehicleModal?.mode === 'create' ? 'Registrar' : 'Guardar cambios'}
+                </CanButton>
+                <button type="button" className="btn btn--ghost" onClick={closeVehicleModal}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </DetailModal>
+        </>
       ) : (
         <Can I="view" a={FEATURE.TRANSPORT_AUDIT}>
           <div className="card card--table pad" style={{ marginTop: '0.5rem' }}>

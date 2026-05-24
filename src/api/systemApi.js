@@ -275,6 +275,10 @@ export async function createPallet(body) {
   })
 }
 
+export async function listPalletsByOrder(orderId) {
+  return systemJson(`/api/pallets/by-order/${orderId}`)
+}
+
 export async function getPalletById(id) {
   return systemJson(`/api/pallets/${id}`)
 }

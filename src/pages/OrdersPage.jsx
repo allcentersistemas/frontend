@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
+import * as systemApi from '../api/systemApi'
 import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
+import { DetailModal } from '../components/DetailModal'
 import {
-  ModuleDetailCard,
   ModuleFilterGrid,
   ModuleListCard,
   ModulePage,
   ModulePagination,
-  ModuleSplit,
   ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
 import { Can } from '../access/AbilityContext'
@@ -40,12 +40,13 @@ export function OrdersPage() {
   const [selectedId, setSelectedId] = useState(null)
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [orderPallets, setOrderPallets] = useState([])
+  const [palletsLoading, setPalletsLoading] = useState(false)
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
 
   const [toolErr, setToolErr] = useState(null)
   const [toolMsg, setToolMsg] = useState(null)
-  const [orderEditOpen, setOrderEditOpen] = useState(false)
   const [orderEditNotes, setOrderEditNotes] = useState('')
   const [orderEditBusy, setOrderEditBusy] = useState(false)
 
@@ -91,14 +92,19 @@ export function OrdersPage() {
   useEffect(() => {
     if (selectedId == null) {
       setDetail(null)
+      setOrderPallets([])
       return
     }
     let cancelled = false
     ;(async () => {
       setDetailLoading(true)
+      setToolErr(null)
       try {
         const d = await biesseApi.orderDetail(selectedId)
-        if (!cancelled) setDetail(d)
+        if (!cancelled) {
+          setDetail(d)
+          setOrderEditNotes(d?.observaciones ?? '')
+        }
       } catch {
         if (!cancelled) setDetail(null)
       } finally {
@@ -110,7 +116,36 @@ export function OrdersPage() {
     }
   }, [selectedId])
 
+  useEffect(() => {
+    if (selectedId == null) {
+      setOrderPallets([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setPalletsLoading(true)
+      try {
+        const pales = await systemApi.listPalletsByOrder(selectedId)
+        if (!cancelled) setOrderPallets(Array.isArray(pales) ? pales : [])
+      } catch {
+        if (!cancelled) setOrderPallets([])
+      } finally {
+        if (!cancelled) setPalletsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId])
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  function closeDetail() {
+    setSelectedId(null)
+    setDetail(null)
+    setOrderPallets([])
+    setToolErr(null)
+  }
 
   async function handleSaveOrder(e) {
     e.preventDefault()
@@ -121,7 +156,7 @@ export function OrdersPage() {
       await biesseApi.updateOrder(selectedId, { observaciones: orderEditNotes })
       const fresh = await biesseApi.orderDetail(selectedId)
       setDetail(fresh)
-      setOrderEditOpen(false)
+      setOrderEditNotes(fresh?.observaciones ?? '')
       setToolMsg('Orden actualizada.')
     } catch (ex) {
       setToolErr(ex instanceof Error ? ex.message : 'No se pudo editar la orden')
@@ -209,7 +244,7 @@ export function OrdersPage() {
       {pageTab === 'auditoria' ? (
         <OrderAuditPanel />
       ) : (
-        <ModuleSplit>
+        <>
           <ModuleListCard
             title="Órdenes"
             error={err}
@@ -271,23 +306,25 @@ export function OrdersPage() {
             ) : null}
           </ModuleListCard>
 
-          <ModuleDetailCard title="Detalle">
-            {selectedId == null ? (
-              <p className="muted pad">Selecciona una orden en la tabla.</p>
-            ) : detailLoading ? (
-              <p className="muted pad">Cargando detalle…</p>
-            ) : detail ? (
+          <DetailModal
+            open={selectedId != null}
+            title={detail?.orderName ? `Orden ${detail.orderName}` : `Orden #${selectedId ?? ''}`}
+            subtitle="Producción Biesse"
+            onClose={closeDetail}
+          >
+            {detailLoading ? <p className="muted pad">Cargando detalle…</p> : null}
+            {!detailLoading && !detail ? <p className="pad form-error">No se pudo cargar el detalle.</p> : null}
+            {detail ? (
               <div className="pad">
                 <dl className="inv-dl">
                   {[
-                    ['Nombre', detail.orderName],
+                    ['ID', detail.orderId],
                     [
                       'Partes',
                       `${detail.partesEscaneadas} / ${detail.totalPartes} (pend. ${detail.partesPendientes})`,
                     ],
                     ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
                     ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
-                    ['Observaciones', detail.observaciones || '—'],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <dt>{k}</dt>
@@ -296,28 +333,54 @@ export function OrdersPage() {
                   ))}
                 </dl>
 
-                {orderEditOpen ? (
-                  <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
-                    <label className="field">
-                      <span>Observaciones de la orden</span>
-                      <textarea
-                        rows={3}
-                        value={orderEditNotes}
-                        onChange={(e) => setOrderEditNotes(e.target.value)}
-                      />
-                    </label>
-                    <div className="form-actions">
-                      <CanButton I={ACTION.UPDATE} a={FEATURE.BIESSE_ORDERS} type="submit" className="btn btn--primary" disabled={orderEditBusy}>
-                        {orderEditBusy ? 'Guardando…' : 'Guardar orden'}
-                      </CanButton>
-                      <button type="button" className="btn btn--ghost" onClick={() => setOrderEditOpen(false)}>
-                        Cancelar
-                      </button>
-                    </div>
-                  </form>
+                <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
+                  <h3 className="card__title" style={{ fontSize: '1rem' }}>
+                    Editar orden
+                  </h3>
+                  <label className="field">
+                    <span>Observaciones</span>
+                    <textarea rows={3} value={orderEditNotes} onChange={(e) => setOrderEditNotes(e.target.value)} />
+                  </label>
+                  <div className="form-actions">
+                    <CanButton
+                      I={ACTION.UPDATE}
+                      a={FEATURE.BIESSE_ORDERS}
+                      type="submit"
+                      className="btn btn--primary"
+                      disabled={orderEditBusy}
+                    >
+                      {orderEditBusy ? 'Guardando…' : 'Guardar cambios'}
+                    </CanButton>
+                  </div>
+                </form>
+
+                <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
+                  Palés con esta orden
+                </h3>
+                {palletsLoading ? <p className="muted small">Cargando palés…</p> : null}
+                {!palletsLoading && !orderPallets.length ? (
+                  <p className="muted small">Esta orden no figura en ningún palé.</p>
+                ) : null}
+                {!palletsLoading && orderPallets.length > 0 ? (
+                  <ul className="detail-list">
+                    {orderPallets.map((p) => (
+                      <li key={p.paleId ?? p.id}>
+                        <Link to={`/pales`} className="detail-list__code linkish" onClick={closeDetail}>
+                          {p.codigo ?? `#${p.paleId}`}
+                        </Link>
+                        <span className="tag">{p.estado}</span>
+                        <span className="small muted">
+                          {p.enGuia ? `En guía ${p.guiaNumero ?? ''}`.trim() : 'Sin guía'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
 
-                <div className="detail__h" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div
+                  className="detail__h"
+                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: '1rem' }}
+                >
                   <span>Partes</span>
                   <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
                     <BiesseStickerPrintButton detail={detail} />
@@ -342,11 +405,9 @@ export function OrdersPage() {
                   ) : null}
                 </Can>
               </div>
-            ) : (
-              <p className="pad form-error">No se pudo cargar el detalle.</p>
-            )}
-          </ModuleDetailCard>
-        </ModuleSplit>
+            ) : null}
+          </DetailModal>
+        </>
       )}
     </ModulePage>
   )

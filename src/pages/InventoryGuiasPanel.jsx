@@ -83,13 +83,14 @@ export function InventoryGuiasPanel() {
   const [destinoEsObra, setDestinoEsObra] = useState(false)
   const [newGuia, setNewGuia] = useState({
     notas: '',
+    ordenCompra: '',
     destinationBranchId: '',
     destinationLocationId: '',
   })
   const [createRows, setCreateRows] = useState(() => [newCreateRow()])
   const [creatingGuia, setCreatingGuia] = useState(false)
 
-  const [guiaEdit, setGuiaEdit] = useState({ estado: 'CREADA', notas: '' })
+  const [guiaEdit, setGuiaEdit] = useState({ estado: 'CREADA', notas: '', ordenCompra: '' })
 
   const [palesEscaneados, setPalesEscaneados] = useState([])
   const [palesLoading, setPalesLoading] = useState(false)
@@ -185,6 +186,7 @@ export function InventoryGuiasPanel() {
         setGuiaEdit({
           estado: h.estado ?? 'CREADA',
           notas: h.notas ?? '',
+          ordenCompra: h.ordenCompra ?? '',
         })
       }
     } catch (e) {
@@ -268,6 +270,7 @@ export function InventoryGuiasPanel() {
     }
     const body = {
       notas: newGuia.notas.trim() || undefined,
+      ordenCompra: newGuia.ordenCompra.trim() || undefined,
       creadoPor: creadoPor ?? undefined,
       paleIds,
     }
@@ -285,7 +288,7 @@ export function InventoryGuiasPanel() {
     setCreatingGuia(true)
     try {
       const created = await systemApi.createGuia(body)
-      setNewGuia({ notas: '', destinationBranchId: '', destinationLocationId: '' })
+      setNewGuia({ notas: '', ordenCompra: '', destinationBranchId: '', destinationLocationId: '' })
       setDestinoEsObra(false)
       setCreateRows([newCreateRow()])
       const newId = created?.guia?.guiaId
@@ -311,6 +314,7 @@ export function InventoryGuiasPanel() {
       await systemApi.updateGuia(selectedGuiaId, {
         estado: guiaEdit.estado,
         notas: guiaEdit.notas.trim() || undefined,
+        ordenCompra: guiaEdit.ordenCompra.trim() || undefined,
       })
       showMsg('Guía actualizada.')
       await loadGuias()
@@ -580,6 +584,15 @@ export function InventoryGuiasPanel() {
               )}
             </div>
 
+            <label className="field" style={{ maxWidth: '24rem', marginTop: '1rem' }}>
+              <span>Orden de compra</span>
+              <input
+                value={newGuia.ordenCompra}
+                onChange={(e) => setNewGuia((s) => ({ ...s, ordenCompra: e.target.value }))}
+                placeholder="N° OC (opcional)"
+              />
+            </label>
+
             <label className="field" style={{ maxWidth: '36rem', marginTop: '1rem' }}>
               <span>Notas (opcional)</span>
               <textarea rows={2} value={newGuia.notas} onChange={(e) => setNewGuia((s) => ({ ...s, notas: e.target.value }))} />
@@ -613,6 +626,7 @@ export function InventoryGuiasPanel() {
                     <tr>
                       <th>ID</th>
                       <th>N° guía</th>
+                      <th>OC</th>
                       <th>Origen</th>
                       <th>Destino</th>
                       <th>Estado</th>
@@ -630,6 +644,7 @@ export function InventoryGuiasPanel() {
                             </button>
                           </td>
                           <td className="small">{c.numeroGuia ?? '—'}</td>
+                          <td className="small">{c.ordenCompra ?? '—'}</td>
                           <td className="small">{formatGuiaOrigen(c)}</td>
                           <td className="small">{formatGuiaDestino(c)}</td>
                           <td>{c.estado}</td>
@@ -682,6 +697,10 @@ export function InventoryGuiasPanel() {
                     <dd>{formatGuiaDestino(header)}</dd>
                   </div>
                   <div>
+                    <dt>Orden de compra</dt>
+                    <dd>{header.ordenCompra ?? '—'}</dd>
+                  </div>
+                  <div>
                     <dt>Creada</dt>
                     <dd>{formatDateTime(header.fechaCreacion)}</dd>
                   </div>
@@ -698,6 +717,14 @@ export function InventoryGuiasPanel() {
                           </option>
                         ))}
                       </select>
+                    </label>
+                    <label className="field">
+                      <span>Orden de compra</span>
+                      <input
+                        value={guiaEdit.ordenCompra}
+                        onChange={(e) => setGuiaEdit((s) => ({ ...s, ordenCompra: e.target.value }))}
+                        placeholder="N° OC"
+                      />
                     </label>
                     <label className="field">
                       <span>Notas</span>
