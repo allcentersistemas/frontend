@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
-import { systemApiBase } from '../config/env'
 import { useAuth } from '../auth/AuthContext'
-import { CanButton } from '../components/CanButton'
 import { DetailModal } from '../components/DetailModal'
-import { FEATURE } from '../access/permissionCatalog'
-import { ACTION } from '../access/rolePermissions'
-import { categoriaLabel, STOCK_CATEGORIES } from '../utils/stockCategoryLabels'
+import { categoriaLabel } from '../utils/stockCategoryLabels'
 
 function esc(s) {
   if (s == null || s === '') return '—'
@@ -46,17 +42,6 @@ export function StockAlmacenPanel() {
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailErr, setDetailErr] = useState(null)
-
-  const [newSku, setNewSku] = useState('')
-  const [newName, setNewName] = useState('')
-  const [newUnit, setNewUnit] = useState('UN')
-  const [createMsg, setCreateMsg] = useState(null)
-
-  const [movQty, setMovQty] = useState('')
-  const [movReason, setMovReason] = useState('')
-  const [movRef, setMovRef] = useState('')
-  const [movCategoria, setMovCategoria] = useState('DISPONIBLE')
-  const [movObservaciones, setMovObservaciones] = useState('')
 
   const rows = useMemo(() => systemApi.pageContent(listBody), [listBody])
   const meta = useMemo(() => systemApi.pageMeta(listBody), [listBody])
@@ -144,58 +129,6 @@ export function StockAlmacenPanel() {
     downloadCsv(`inventario-stock-pag${page + 1}.csv`, lines)
   }
 
-  async function handleCreate(e) {
-    e.preventDefault()
-    setCreateMsg(null)
-    try {
-      await systemApi.createInventoryItem({
-        sku: newSku.trim(),
-        name: newName.trim(),
-        unit: newUnit.trim() || 'UN',
-      })
-      setNewSku('')
-      setNewName('')
-      setNewUnit('UN')
-      setCreateMsg('Artículo creado.')
-      await loadList()
-    } catch (err) {
-      setCreateMsg(err instanceof Error ? err.message : 'No se pudo crear')
-    }
-  }
-
-  async function handleMovement(e) {
-    e.preventDefault()
-    if (selectedId == null) return
-    if (sucursalIdForDetail == null) {
-      setDetailErr('Selecciona una sucursal (almacén) para registrar el movimiento.')
-      return
-    }
-    setDetailErr(null)
-    try {
-      const qty = Number(String(movQty).replace(',', '.'))
-      if (!Number.isFinite(qty) || qty === 0) {
-        setDetailErr('Cantidad inválida (use negativo para salida).')
-        return
-      }
-      await systemApi.addInventoryMovement(selectedId, {
-        quantityChange: qty,
-        reason: movReason.trim(),
-        externalRef: movRef.trim() || undefined,
-        sucursalId: sucursalIdForDetail,
-        categoriaCodigo: movCategoria,
-        observaciones: movObservaciones.trim() || undefined,
-      })
-      setMovQty('')
-      setMovReason('')
-      setMovRef('')
-      setMovObservaciones('')
-      await fetchDetail(selectedId)
-      await loadList()
-    } catch (err) {
-      setDetailErr(err instanceof Error ? err.message : 'No se pudo registrar movimiento')
-    }
-  }
-
   const detailTitle = detail?.item
     ? `${detail.item.sku} — ${detail.item.name}`
     : selectedId
@@ -206,8 +139,9 @@ export function StockAlmacenPanel() {
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <p className="muted small" style={{ margin: 0 }}>
-          Stock por sucursal (almacén). Ingresos RM, salidas, palés y movimientos manuales usan la sucursal del
-          empleado. API: <code>{systemApiBase}</code>.
+          Consulta de kardex por sucursal. El stock se actualiza automáticamente al crear palés, al cerrarlos con piezas
+          escaneadas y al validar salidas RM vinculadas a una guía con palés. Por ahora no hay ingreso ni ajustes
+          manuales de artículos.
         </p>
       </div>
 
@@ -295,29 +229,6 @@ export function StockAlmacenPanel() {
           </button>
         </div>
 
-        <h3 className="card__title pad" style={{ marginTop: '1rem' }}>
-          Nuevo artículo
-        </h3>
-        <form className="form-section pad" onSubmit={handleCreate}>
-          <label className="field">
-            <span>SKU *</span>
-            <input value={newSku} onChange={(e) => setNewSku(e.target.value)} required maxLength={64} />
-          </label>
-          <label className="field">
-            <span>Nombre *</span>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={512} />
-          </label>
-          <label className="field">
-            <span>Unidad</span>
-            <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)} maxLength={32} />
-          </label>
-          <div className="form-actions">
-            <CanButton I={ACTION.CREATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
-              Crear artículo
-            </CanButton>
-          </div>
-          {createMsg ? <p className="small muted">{createMsg}</p> : null}
-        </form>
       </div>
 
       <DetailModal
@@ -343,7 +254,7 @@ export function StockAlmacenPanel() {
               <dd>{esc(detail.item.name)}</dd>
               <dt>Unidad</dt>
               <dd>{esc(detail.item.unit)}</dd>
-              <dt>Saldo {sucursalIdForDetail ? 'en sucursal' : 'global'}</dt>
+              <dt>Saldo disponible {sucursalIdForDetail ? 'en sucursal' : 'global'}</dt>
               <dd>{esc(detail.balanceOnHand)}</dd>
             </dl>
             {(detail.balancesByCategoria ?? []).length > 0 ? (
@@ -360,59 +271,12 @@ export function StockAlmacenPanel() {
                 </ul>
               </>
             ) : null}
-            <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
-              Registrar movimiento manual
-            </h3>
-            {sucursalIdForDetail == null ? (
-              <p className="muted small">Selecciona una sucursal en el listado para poder mover stock.</p>
-            ) : (
-              <form className="form-section" onSubmit={handleMovement}>
-                <label className="field">
-                  <span>Cantidad (+ / −) *</span>
-                  <input
-                    inputMode="decimal"
-                    value={movQty}
-                    onChange={(e) => setMovQty(e.target.value)}
-                    placeholder="ej. 10 o -2"
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>Categoría</span>
-                  <select value={movCategoria} onChange={(e) => setMovCategoria(e.target.value)}>
-                    {STOCK_CATEGORIES.map((c) => (
-                      <option key={c.codigo} value={c.codigo}>
-                        {c.etiqueta}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Motivo *</span>
-                  <input value={movReason} onChange={(e) => setMovReason(e.target.value)} required maxLength={256} />
-                </label>
-                <label className="field">
-                  <span>Observaciones</span>
-                  <textarea
-                    rows={2}
-                    value={movObservaciones}
-                    onChange={(e) => setMovObservaciones(e.target.value)}
-                    placeholder="Ej. pieza rota, merca…"
-                  />
-                </label>
-                <label className="field">
-                  <span>Referencia externa</span>
-                  <input value={movRef} onChange={(e) => setMovRef(e.target.value)} maxLength={128} />
-                </label>
-                <div className="form-actions">
-                  <CanButton I={ACTION.CREATE} a={FEATURE.INVENTORY} type="submit" className="btn btn--primary">
-                    Guardar movimiento
-                  </CanButton>
-                </div>
-              </form>
-            )}
-            <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
-              Últimos movimientos
+            <p className="muted small pad" style={{ marginTop: '1rem' }}>
+              Los movimientos aparecen al registrar palés en almacén, al cerrar palés con piezas y al despachar guías con
+              palés. No se registran ajustes manuales ni materiales sueltos en ingreso/salida RM.
+            </p>
+            <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem', paddingLeft: '1rem' }}>
+              Últimos movimientos (kardex)
             </h3>
             <div className="table-wrap">
               <table className="table table--compact">

@@ -4,6 +4,8 @@ import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { CanButton } from '../components/CanButton'
+import { useAuth } from '../auth/AuthContext'
+import { isPaleSystemAdmin } from '../utils/paleRoles'
 import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
 import { DetailModal } from '../components/DetailModal'
 import {
@@ -223,6 +225,8 @@ async function printPalletOrderSummary(header, details) {
 
 export function PalesPage() {
   const location = useLocation()
+  const { employee } = useAuth()
+  const paleAdmin = isPaleSystemAdmin(employee)
   const [searchParams, setSearchParams] = useSearchParams()
   const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
 
@@ -244,6 +248,7 @@ export function PalesPage() {
   const [toDateFilter, setToDateFilter] = useState('')
 
   const [selectedId, setSelectedId] = useState(null)
+  const [modalMode, setModalMode] = useState(null)
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [editForm, setEditForm] = useState(() => formFromHeader(null))
@@ -256,6 +261,7 @@ export function PalesPage() {
     const fromUrl = searchParams.get('id')
     if (fromUrl && /^\d+$/.test(fromUrl)) {
       setSelectedId(Number(fromUrl))
+      setModalMode('view')
     }
   }, [searchParams])
 
@@ -336,10 +342,30 @@ export function PalesPage() {
     })
   }, [pallets, searchInput, fromDateFilter, toDateFilter])
 
+  function openDetail(id, mode) {
+    setSelectedId(id)
+    setModalMode(mode)
+    setOpErr(null)
+  }
+
   function closeDetail() {
     setSelectedId(null)
+    setModalMode(null)
     setDetail(null)
     setOpErr(null)
+  }
+
+  async function handleDeletePale(id, codigo) {
+    if (!window.confirm(`¿Eliminar el pale ${codigo ?? id}? Esta acción no se puede deshacer.`)) return
+    setOpErr(null)
+    try {
+      await systemApi.deletePallet(id)
+      if (selectedId === id) closeDetail()
+      await refreshList()
+      setOpMsg('Pale eliminado.')
+    } catch (ex) {
+      setOpErr(ex instanceof Error ? ex.message : 'No se pudo eliminar el pale')
+    }
   }
 
   async function handleSavePale(e) {
@@ -357,6 +383,7 @@ export function PalesPage() {
       setEditForm(formFromHeader(updated?.pallet))
       await refreshList()
       setOpMsg('Pale actualizado.')
+      setModalMode('view')
     } catch (ex) {
       setOpErr(ex instanceof Error ? ex.message : 'No se pudo editar el pale')
     } finally {
@@ -476,23 +503,15 @@ export function PalesPage() {
                         <th>Guía</th>
                         <th>Piezas</th>
                         <th>Creación</th>
+                        <th>Opciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredPallets.map((row) => {
                         const id = palletId(row)
                         return (
-                          <tr
-                            key={id}
-                            className={selectedId === id ? 'inv-row-selected' : undefined}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedId(id)}
-                          >
-                            <td>
-                              <button type="button" className="linkish" onClick={() => setSelectedId(id)}>
-                                {row.codigo}
-                              </button>
-                            </td>
+                          <tr key={id} className={selectedId === id ? 'inv-row-selected' : undefined}>
+                            <td>{row.codigo}</td>
                             <td>
                               <span className="tag">{row.estado}</span>
                             </td>
@@ -500,6 +519,37 @@ export function PalesPage() {
                             <td className="small">{row.guiaNumero ?? '—'}</td>
                             <td>{row.cantidadPiezas ?? 0}</td>
                             <td className="small">{formatDateTime(row.fechaCreacion)}</td>
+                            <td>
+                              <div className="table-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                <CanButton
+                                  I={ACTION.VIEW}
+                                  a={FEATURE.PALES_LIST}
+                                  type="button"
+                                  className="linkish small"
+                                  onClick={() => openDetail(id, 'view')}
+                                >
+                                  Ver detalle
+                                </CanButton>
+                                {paleAdmin ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="linkish small"
+                                      onClick={() => openDetail(id, 'edit')}
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="linkish small text-warn"
+                                      onClick={() => void handleDeletePale(id, row.codigo)}
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </td>
                           </tr>
                         )
                       })}
@@ -514,8 +564,14 @@ export function PalesPage() {
           </ModuleListCard>
 
           <DetailModal
-            open={selectedId != null}
-            title={header?.codigo ? `Palé ${header.codigo}` : `Palé #${selectedId ?? ''}`}
+            open={selectedId != null && modalMode != null}
+            title={
+              modalMode === 'edit'
+                ? `Editar pale ${header?.codigo ?? selectedId ?? ''}`
+                : header?.codigo
+                  ? `Palé ${header.codigo}`
+                  : `Palé #${selectedId ?? ''}`
+            }
             subtitle={header?.sucursalOrigenNombre ? `Sucursal: ${header.sucursalOrigenNombre}` : undefined}
             onClose={closeDetail}
           >
@@ -554,10 +610,11 @@ export function PalesPage() {
                   <dd>{formatDateTime(header.fechaCierre)}</dd>
                 </dl>
 
-                <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSavePale(e)}>
-                  <h3 className="card__title" style={{ fontSize: '1rem' }}>
-                    Editar pale
-                  </h3>
+                {modalMode === 'edit' && paleAdmin ? (
+                  <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSavePale(e)}>
+                    <h3 className="card__title" style={{ fontSize: '1rem' }}>
+                      Editar pale
+                    </h3>
                   <label className="field">
                     <span>Código</span>
                     <input
@@ -590,8 +647,9 @@ export function PalesPage() {
                     >
                       {editBusy ? 'Guardando…' : 'Guardar cambios'}
                     </CanButton>
-                  </div>
-                </form>
+                    </div>
+                  </form>
+                ) : null}
 
                 {closed ? (
                   <div className="form-actions">
@@ -628,7 +686,7 @@ export function PalesPage() {
                           {partDescripcion1(line) ? ` · ${partDescripcion1(line)}` : ''}
                           {partMedida(line) ? ` · ${partMedida(line)}` : ''}
                         </span>
-                        {lineId != null ? (
+                        {lineId != null && modalMode === 'edit' && paleAdmin ? (
                           <CanButton
                             I={ACTION.DELETE}
                             a={FEATURE.PALES_OPERACIONES}

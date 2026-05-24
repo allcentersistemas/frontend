@@ -314,6 +314,12 @@ export async function deletePalletDetail(palletId, detailId) {
   })
 }
 
+export async function deletePallet(palletId) {
+  return systemJson(`/api/pallets/${palletId}`, {
+    method: 'DELETE',
+  })
+}
+
 /* ——— Gestión (flota / vehículos) ——— */
 
 export async function listVehiculos() {
