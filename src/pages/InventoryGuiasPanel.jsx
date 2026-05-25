@@ -600,7 +600,7 @@ export function InventoryGuiasPanel() {
             <div className="form-actions">
               <CanButton
                 I={ACTION.CREATE}
-                a={FEATURE.INVENTORY}
+                a={FEATURE.INVENTORY_GUIAS}
                 type="submit"
                 className="btn btn--primary"
                 disabled={creatingGuia}
@@ -731,7 +731,7 @@ export function InventoryGuiasPanel() {
                       <textarea rows={2} value={guiaEdit.notas} onChange={(e) => setGuiaEdit((s) => ({ ...s, notas: e.target.value }))} />
                     </label>
                     <div className="form-actions">
-                      <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY} type="submit" className="btn">
+                      <CanButton I={ACTION.UPDATE} a={FEATURE.INVENTORY_GUIAS} type="submit" className="btn">
                         Guardar cabecera
                       </CanButton>
                     </div>
@@ -749,7 +749,7 @@ export function InventoryGuiasPanel() {
                     </h3>
                     <CanButton
                       I={ACTION.VIEW}
-                      a={FEATURE.INVENTORY}
+                      a={FEATURE.INVENTORY_GUIAS}
                       type="button"
                       className="btn btn--primary small"
                       disabled={!detalles.length}
@@ -783,7 +783,7 @@ export function InventoryGuiasPanel() {
                               <td>
                                 <CanButton
                                   I={ACTION.DELETE}
-                                  a={FEATURE.INVENTORY}
+                                  a={FEATURE.INVENTORY_GUIAS}
                                   type="button"
                                   className="linkish small"
                                   onClick={() => void handleRemoveDetalle(d.id)}
@@ -828,7 +828,7 @@ export function InventoryGuiasPanel() {
                             <td>
                               <CanButton
                                 I={ACTION.CREATE}
-                                a={FEATURE.INVENTORY}
+                                a={FEATURE.INVENTORY_GUIAS}
                                 type="button"
                                 className="btn btn--ghost small"
                                 disabled={!draftPreview || addingPale}

@@ -443,4 +443,36 @@
   .dash-table-footer {
     @apply border-t border-slate-200 px-4 py-3 dark:border-white/10;
   }
+
+  /* ——— Detalle órdenes Biesse (partes / piezas) ——— */
+  .order-parts-list {
+    @apply m-0 flex list-none flex-col gap-3 p-0;
+  }
+  .order-part {
+    @apply rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/[0.03];
+  }
+  .order-part--partial {
+    @apply border-amber-400/40 bg-amber-50/50 dark:border-amber-400/25 dark:bg-amber-400/5;
+  }
+  .order-part--done {
+    @apply border-emerald-500/35 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/10;
+  }
+  .order-part__head {
+    @apply flex flex-wrap items-center justify-between gap-2;
+  }
+  .order-part__code {
+    @apply font-semibold text-slate-900 dark:text-white;
+  }
+  .order-part__meta {
+    @apply mt-2 flex flex-col gap-1 text-slate-600 dark:text-slate-400;
+  }
+  .order-pieces-grid {
+    @apply mt-3 flex flex-wrap gap-2;
+  }
+  .order-piece {
+    @apply inline-flex min-w-[2.5rem] items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-300;
+  }
+  .order-piece--ok {
+    @apply border-emerald-500/50 bg-emerald-100 font-semibold text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-100;
+  }
 }

@@ -16,8 +16,16 @@ import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { BiesseStickerPrintButton } from '../components/BiesseStickerPrintButton'
 import { CanButton } from '../components/CanButton'
+import { OrderPartsDetail } from '../components/OrderPartsDetail'
 
 const PAGE_SIZE = 25
+
+function orderEstadoTagClass(estado) {
+  const e = String(estado ?? '').toUpperCase()
+  if (e === 'COMPLETADA') return 'tag tag--ok'
+  if (e === 'EN_PROCESO') return 'tag'
+  return 'tag'
+}
 
 export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -101,9 +109,21 @@ export function OrdersPage() {
       setToolErr(null)
       try {
         const d = await biesseApi.orderDetail(selectedId)
-        if (!cancelled) {
+        if (!cancelled && d) {
           setDetail(d)
           setOrderEditNotes(d?.observaciones ?? '')
+          setList((prev) =>
+            prev.map((row) =>
+              row.orderId === selectedId
+                ? {
+                    ...row,
+                    estadoEscaneo: d.estadoEscaneo ?? row.estadoEscaneo,
+                    partesEscaneadas: d.partesEscaneadas ?? row.partesEscaneadas,
+                    totalPartes: d.totalPartes ?? row.totalPartes,
+                  }
+                : row,
+            ),
+          )
         }
       } catch {
         if (!cancelled) setDetail(null)
@@ -292,7 +312,7 @@ export function OrdersPage() {
                           </td>
                           <td>{row.orderName}</td>
                           <td>
-                            <span className="tag">{row.estadoEscaneo ?? '—'}</span>
+                            <span className={orderEstadoTagClass(row.estadoEscaneo)}>{row.estadoEscaneo ?? '—'}</span>
                           </td>
                         </tr>
                       ))}
@@ -325,6 +345,7 @@ export function OrdersPage() {
                     ],
                     ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
                     ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
+                    ['Estado', detail.estadoEscaneo ?? '—'],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <dt>{k}</dt>
@@ -386,15 +407,7 @@ export function OrdersPage() {
                     <BiesseStickerPrintButton detail={detail} />
                   </Can>
                 </div>
-                <ul className="detail-list">
-                  {(detail.partes ?? []).map((p) => (
-                    <li key={p.partId}>
-                      <span className="detail-list__code">{p.partCode ?? p.partId}</span>
-                      <span className={p.escaneado ? 'tag tag--ok' : 'tag'}>{p.escaneado ? 'Escaneado' : 'Pendiente'}</span>
-                      <span className="small muted">{p.piezas?.length ?? 0} piezas</span>
-                    </li>
-                  ))}
-                </ul>
+                <OrderPartsDetail partes={detail.partes ?? []} />
 
                 <Can I="view" a={FEATURE.BIESSE_TOOLS}>
                   {toolErr ? <p className="form-error">{toolErr}</p> : null}

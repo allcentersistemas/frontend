@@ -22,6 +22,16 @@ export function canManageEmployees(employee) {
   return canAccessFeature(employee, FEATURE.EMPLOYEE_ADMIN, ACTION.VIEW)
 }
 
+/** Al menos una pestaña del hub Inventario. */
+export function canViewInventoryHub(employee) {
+  return (
+    canAccessFeature(employee, FEATURE.INVENTORY_GUIAS) ||
+    canAccessFeature(employee, FEATURE.INVENTORY_STOCK) ||
+    canAccessFeature(employee, FEATURE.INVENTORY_RM) ||
+    canAccessFeature(employee, FEATURE.PALES_LIST)
+  )
+}
+
 /** Ruta inicial tras login (CASL: resumen vs órdenes). */
 export function defaultDashboardPath(dashboardRole, employee) {
   const base = dashboardPath(dashboardRole)

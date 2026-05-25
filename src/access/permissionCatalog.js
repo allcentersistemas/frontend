@@ -16,7 +16,11 @@ export const FEATURE = {
   TRANSPORT_LOADS: 'transport.loads',
   TRANSPORT_AUDIT: 'transport.audit',
   API_CATALOG: 'api.catalog',
+  /** @deprecated Usar INVENTORY_GUIAS | INVENTORY_STOCK | INVENTORY_RM */
   INVENTORY: 'inventory',
+  INVENTORY_GUIAS: 'inventory.guias',
+  INVENTORY_STOCK: 'inventory.stock',
+  INVENTORY_RM: 'inventory.rm',
   PROJECT_LIST: 'project.list',
   DASHBOARD_RESUMEN: 'dashboard.resumen',
 }
@@ -117,7 +121,7 @@ export const ENDPOINT_CATALOG = [
   {
     module: 'module-system',
     domain: 'rm',
-    feature: FEATURE.INVENTORY,
+    feature: FEATURE.INVENTORY_RM,
     endpoints: [
       ['POST', '/api/rm/registros-entrada'],
       ['GET', '/api/rm/registros-entrada'],
@@ -137,13 +141,9 @@ export const ENDPOINT_CATALOG = [
   {
     module: 'module-system',
     domain: 'inventory',
-    feature: FEATURE.INVENTORY,
+    feature: FEATURE.INVENTORY_GUIAS,
     endpoints: [
       ['GET', '/api/inventory/categorias'],
-      ['GET', '/api/inventory/items'],
-      ['GET', '/api/inventory/items/{id}'],
-      ['POST', '/api/inventory/items'],
-      ['POST', '/api/inventory/items/{id}/movements'],
       ['GET', '/api/inventory/guias'],
       ['GET', '/api/inventory/guias/pales-escaneados'],
       ['GET', '/api/inventory/guias/{id}'],
@@ -152,6 +152,17 @@ export const ENDPOINT_CATALOG = [
       ['POST', '/api/inventory/guias/{id}/detalles'],
       ['POST', '/api/inventory/guias/{id}/detalles/pale'],
       ['DELETE', '/api/inventory/guias/{id}/detalles/{detalleId}'],
+    ],
+  },
+  {
+    module: 'module-system',
+    domain: 'inventory',
+    feature: FEATURE.INVENTORY_STOCK,
+    endpoints: [
+      ['GET', '/api/inventory/items'],
+      ['GET', '/api/inventory/items/{id}'],
+      ['POST', '/api/inventory/items'],
+      ['POST', '/api/inventory/items/{id}/movements'],
     ],
   },
 ]

@@ -6,7 +6,9 @@ import { DetailModal } from '../components/DetailModal.jsx'
 import { categoriaLabel } from '../utils/stockCategoryLabels.js'
 import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
+import { ACTION } from '../access/rolePermissions'
 import { useAppAbility } from '../access/useAppAbility'
+import { PalesPage } from './PalesPage'
 import {
   buildRmVehiculoMap,
   formatNumeroRegistro,
@@ -167,18 +169,41 @@ const TABS = [
   { id: 'actas', label: 'Actas NC' },
 ]
 
-function resolveAreaTab(raw) {
-  if (raw === 'guias' || raw === 'stock' || raw === 'rm') return raw
-  return 'rm'
+const INVENTORY_AREAS = [
+  { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
+  { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
+  { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
+  { id: 'rm', label: 'Recepción mercadería', feature: FEATURE.INVENTORY_RM },
+]
+
+function resolveAreaTab(raw, allowedIds) {
+  if (raw && allowedIds.includes(raw)) return raw
+  return allowedIds[0] ?? 'stock'
+}
+
+function canViewArea(ability, feature) {
+  return ability.can(ACTION.VIEW, feature) || ability.can(ACTION.MANAGE, 'all')
 }
 
 export function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const ability = useAppAbility()
-  const canView = ability.can('view', FEATURE.INVENTORY)
+  const allowedAreas = useMemo(
+    () => INVENTORY_AREAS.filter((a) => canViewArea(ability, a.feature)),
+    [ability],
+  )
+  const canView = allowedAreas.length > 0
+  const canViewRm = canViewArea(ability, FEATURE.INVENTORY_RM)
+  const canViewGuias = canViewArea(ability, FEATURE.INVENTORY_GUIAS)
+  const canViewStock = canViewArea(ability, FEATURE.INVENTORY_STOCK)
+  const canViewPales = canViewArea(ability, FEATURE.PALES_LIST)
   const canViewTransportCatalog = ability.can('view', FEATURE.TRANSPORT_VEHICLES)
 
-  const [areaTab, setAreaTabState] = useState(() => resolveAreaTab(searchParams.get('area')))
+  const allowedIds = useMemo(() => allowedAreas.map((a) => a.id), [allowedAreas])
+
+  const [areaTab, setAreaTabState] = useState(() =>
+    resolveAreaTab(searchParams.get('area'), allowedIds.length ? allowedIds : ['stock']),
+  )
 
   const setAreaTab = useCallback(
     (next) => {
@@ -230,12 +255,12 @@ export function InventoryPage() {
   }, [filteredRows, clientPage])
 
   useEffect(() => {
-    const fromUrl = resolveAreaTab(searchParams.get('area'))
+    const fromUrl = resolveAreaTab(searchParams.get('area'), allowedIds)
     setAreaTabState((current) => (current === fromUrl ? current : fromUrl))
-  }, [searchParams])
+  }, [searchParams, allowedIds])
 
   const loadVehiculoIndex = useCallback(async () => {
-    if (!canView || areaTab !== 'rm') return
+    if (!canViewRm || areaTab !== 'rm') return
     setVehiculoIndexErr(null)
     try {
       const { items } = await systemApi.fetchAllPaged(
@@ -247,10 +272,10 @@ export function InventoryPage() {
       setVehiculoById(new Map())
       setVehiculoIndexErr(e instanceof Error ? e.message : 'No se pudo cargar vehículos RM')
     }
-  }, [canView, areaTab])
+  }, [canViewRm, areaTab])
 
   const loadList = useCallback(async () => {
-    if (!canView || areaTab !== 'rm') return
+    if (!canViewRm || areaTab !== 'rm') return
     setListLoading(true)
     setListErr(null)
     try {
@@ -268,10 +293,10 @@ export function InventoryPage() {
     } finally {
       setListLoading(false)
     }
-  }, [canView, areaTab, tab])
+  }, [canViewRm, areaTab, tab])
 
   const loadTransportCatalog = useCallback(async () => {
-    if (!canView || areaTab !== 'rm' || !canViewTransportCatalog) {
+    if (!canViewRm || areaTab !== 'rm' || !canViewTransportCatalog) {
       setTransportById(new Map())
       setTransportCatalogErr(null)
       return
@@ -284,7 +309,7 @@ export function InventoryPage() {
       setTransportById(new Map())
       setTransportCatalogErr(e instanceof Error ? e.message : 'No se pudo cargar la flota')
     }
-  }, [canView, areaTab, canViewTransportCatalog])
+  }, [canViewRm, areaTab, canViewTransportCatalog])
 
   useEffect(() => {
     void loadList()
@@ -312,7 +337,7 @@ export function InventoryPage() {
 
   const openDetail = useCallback(
     async (id) => {
-      if (!canView) return
+      if (!canViewRm) return
       setDetailLoading(true)
       setDetailErr(null)
       setDetailVehiculo(null)
@@ -358,7 +383,7 @@ export function InventoryPage() {
         setDetailLoading(false)
       }
     },
-    [canView, tab, vehiculoById],
+    [canViewRm, tab, vehiculoById],
   )
 
   const closeDetail = useCallback(() => {
@@ -385,41 +410,39 @@ export function InventoryPage() {
   if (!canView) {
     return (
       <div className="card pad">
-        <h1 className="card__title">Inventario / recepción</h1>
-        <p className="muted">No tienes permiso para ver este módulo.</p>
+        <h1 className="card__title">Inventario</h1>
+        <p className="muted">No tienes permiso para ver ninguna sección de inventario.</p>
       </div>
     )
   }
 
   return (
     <div>
-      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-        <button
-          type="button"
-          className={areaTab === 'rm' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('rm')}
-        >
-          Recepción Mercaderia
-        </button>
-        <button
-          type="button"
-          className={areaTab === 'stock' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('stock')}
-        >
-          Almacén (stock)
-        </button>
-        <button
-          type="button"
-          className={areaTab === 'guias' ? 'btn btn--primary' : 'btn btn--ghost'}
-          onClick={() => setAreaTab('guias')}
-        >
-          Guías de despacho
-        </button>
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h1 className="card__title">Inventario</h1>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Guías de despacho, palés, stock de almacén y recepción de mercadería según tu rol.
+        </p>
       </div>
 
-      {areaTab === 'guias' ? (
+      <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+        {allowedAreas.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            className={areaTab === a.id ? 'btn btn--primary' : 'btn btn--ghost'}
+            onClick={() => setAreaTab(a.id)}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      {areaTab === 'pales' && canViewPales ? (
+        <PalesPage embedded />
+      ) : areaTab === 'guias' && canViewGuias ? (
         <InventoryGuiasPanel />
-      ) : areaTab === 'stock' ? (
+      ) : areaTab === 'stock' && canViewStock ? (
         <>
           <div className="card pad" style={{ marginBottom: '1rem' }}>
             <h1 className="card__title">Inventario · almacén</h1>
@@ -450,7 +473,7 @@ export function InventoryPage() {
             {transportCatalogErr} — en salida no se mostrará el vehículo de flota (transporte interno).
           </p>
         ) : null}
-        {canView && !canViewTransportCatalog ? (
+        {canViewRm && !canViewTransportCatalog ? (
           <p className="muted small" style={{ marginTop: '0.5rem' }}>
             Sin permiso de flota: en entradas se muestra el ID de vehículo. Pide acceso a «Gestión · vehículos» si
             necesitas placa y marca.

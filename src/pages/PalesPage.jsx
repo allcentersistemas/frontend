@@ -222,7 +222,10 @@ async function printPalletOrderSummary(header, details) {
   w.document.close()
 }
 
-export function PalesPage() {
+/**
+ * @param {{ embedded?: boolean }} props — dentro de Inventario (sin cabecera duplicada)
+ */
+export function PalesPage({ embedded = false }) {
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
@@ -410,18 +413,28 @@ export function PalesPage() {
       ? `${location.pathname.replace(/\/pales\/?$/, '/inventario')}?area=guias`
       : null
 
-  return (
-    <ModulePage>
-      <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h1 className="card__title">Pales</h1>
-        <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Para despachar palés escaneados, créalos en una guía en{' '}
+  const body = (
+    <>
+      {!embedded ? (
+        <div className="card pad" style={{ marginBottom: '1rem' }}>
+          <h1 className="card__title">Pales</h1>
+          <p className="muted small" style={{ marginTop: '0.35rem' }}>
+            Para despachar palés escaneados, créalos en una guía en{' '}
+            <Link to={guiasHref} className="linkish">
+              Inventario → Guías de despacho
+            </Link>
+            . También puedes agregar líneas manuales a la guía.
+          </p>
+        </div>
+      ) : (
+        <p className="muted small" style={{ marginBottom: '1rem' }}>
+          Palés escaneados y asignación a{' '}
           <Link to={guiasHref} className="linkish">
-            Inventario → Guías de despacho
+            guías de despacho
           </Link>
-          . También puedes agregar líneas manuales a la guía.
+          .
         </p>
-      </div>
+      )}
 
       <ModuleTabs
         ariaLabel="Vista pales"
@@ -708,6 +721,8 @@ export function PalesPage() {
           </DetailModal>
         </>
       )}
-    </ModulePage>
+    </>
   )
+
+  return embedded ? body : <ModulePage>{body}</ModulePage>
 }

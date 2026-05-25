@@ -5,7 +5,17 @@ export const SIDEBAR_MENU = [
   { id: 'home', segment: '', label: 'Resumen', end: true, feature: FEATURE.DASHBOARD_RESUMEN },
   { id: 'orders', segment: 'ordenes', label: 'Órdenes', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', segment: 'pales', label: 'Pales', feature: FEATURE.PALES_LIST },
-  { id: 'inventario', segment: 'inventario', label: 'Inventario', feature: FEATURE.INVENTORY },
+  {
+    id: 'inventario',
+    segment: 'inventario',
+    label: 'Inventario',
+    features: [
+      FEATURE.INVENTORY_GUIAS,
+      FEATURE.INVENTORY_STOCK,
+      FEATURE.INVENTORY_RM,
+      FEATURE.PALES_LIST,
+    ],
+  },
   {
     id: 'gestion',
     segment: 'gestion',

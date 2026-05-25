@@ -123,6 +123,7 @@ export async function orderDetail(orderId) {
       longitud: toDimNumber(part.longitud),
       ancho: toDimNumber(part.ancho),
       cantidad: scheduled,
+      cantidadEscaneada: scanned,
       escaneado: Boolean(part.escaneado),
       piezas,
     }
