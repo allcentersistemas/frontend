@@ -1,3 +1,4 @@
+import { sessionClientHeaders } from '../auth/clientSession'
 import { isAccessTokenExpired } from '../auth/jwtUtils'
 import { biesseApiBase, systemApiBase } from '../config/env'
 
@@ -123,6 +124,9 @@ async function backendJson(apiBase, path, init, { mergeSystemHeaders = false } =
     for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
       headers.set(k, v)
     }
+    for (const [k, v] of Object.entries(sessionClientHeaders())) {
+      headers.set(k, v)
+    }
   }
   if (!skipAuth) {
     const t = getStoredTokens()
@@ -180,6 +184,7 @@ export async function refreshSessionRequest(body) {
     method: 'POST',
     body: JSON.stringify(body),
     skipAuth: true,
+    headers: sessionClientHeaders(),
   })
 }
 

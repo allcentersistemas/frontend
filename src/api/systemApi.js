@@ -1,3 +1,4 @@
+import { sessionClientHeaders } from '../auth/clientSession'
 import { systemJson } from './http'
 
 /* ——— Auth ——— */
@@ -7,6 +8,7 @@ export async function login(body) {
     method: 'POST',
     body: JSON.stringify(body),
     skipAuth: true,
+    headers: sessionClientHeaders(),
   })
 }
 
