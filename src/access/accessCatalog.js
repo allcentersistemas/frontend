@@ -1,0 +1,172 @@
+import { FEATURE } from './permissionCatalog'
+import { ACTION } from './rolePermissions'
+import {
+  ROLE_ADMIN,
+  ROLE_ADMIN_PRODUCCION,
+  ROLE_DESPACHO,
+  ROLE_MASTER,
+  ROLE_PRODUCCION,
+} from '../auth/roles'
+
+/**
+ * Módulos visibles al crear/editar empleado.
+ * Cada módulo agrupa features CASL; suggestedRoles indica qué rol(es) suelen concederlo.
+ */
+export const PORTAL_ACCESS_MODULES = [
+  {
+    id: 'resumen',
+    label: 'Resumen ejecutivo',
+    description: 'Panel KPI (solo administración)',
+    features: [FEATURE.DASHBOARD_RESUMEN],
+    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN],
+  },
+  {
+    id: 'ordenes',
+    label: 'Órdenes de producción',
+    description: 'Listado, detalle y edición Biesse',
+    features: [FEATURE.BIESSE_ORDERS],
+    suggestedRoles: [ROLE_PRODUCCION, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'pales',
+    label: 'Palés',
+    description: 'Listado, escaneo, edición y eliminación',
+    features: [FEATURE.PALES_LIST, FEATURE.PALES_OPERACIONES],
+    suggestedRoles: [ROLE_PRODUCCION, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'guias',
+    label: 'Inventario · Guías de despacho',
+    description: 'Crear y gestionar guías',
+    features: [FEATURE.INVENTORY_GUIAS],
+    suggestedRoles: [ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'stock',
+    label: 'Inventario · Stock almacén',
+    description: 'Consulta kardex (palés/piezas)',
+    features: [FEATURE.INVENTORY_STOCK],
+    suggestedRoles: [ROLE_DESPACHO, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'rm',
+    label: 'Inventario · Recepción mercadería (RM)',
+    description: 'Entradas, salidas y actas',
+    features: [FEATURE.INVENTORY_RM],
+    suggestedRoles: [ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'gestion_flota',
+    label: 'Gestión · Vehículos y flota',
+    description: 'Alta y edición de vehículos',
+    features: [FEATURE.TRANSPORT_VEHICLES, FEATURE.TRANSPORT_LOADS],
+    suggestedRoles: [ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'gestion_admin',
+    label: 'Gestión · Empleados y roles',
+    description: 'Alta de usuarios, roles, auditoría (administradores)',
+    features: [FEATURE.EMPLOYEE_ADMIN],
+    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'proyectos',
+    label: 'Proyectos',
+    description: 'Módulo proyectos',
+    features: [FEATURE.PROJECT_LIST],
+    suggestedRoles: [ROLE_DESPACHO],
+  },
+  {
+    id: 'api',
+    label: 'Catálogo API',
+    description: 'Documentación de endpoints',
+    features: [FEATURE.API_CATALOG],
+    suggestedRoles: [ROLE_ADMIN_PRODUCCION],
+  },
+]
+
+/** Plantillas rápidas al crear cuenta */
+export const ACCESS_TEMPLATES = [
+  {
+    id: 'produccion',
+    label: 'Operario producción',
+    description: 'Órdenes y palés (sin guías ni admin)',
+    moduleIds: ['ordenes', 'pales', 'stock'],
+    roleNames: [ROLE_PRODUCCION],
+  },
+  {
+    id: 'despacho',
+    label: 'Operario despacho',
+    description: 'Órdenes, palés, guías, stock y flota',
+    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'gestion_flota', 'proyectos'],
+    roleNames: [ROLE_DESPACHO],
+  },
+  {
+    id: 'admin_prod',
+    label: 'Admin producción',
+    description: 'Operación completa sin gestión de usuarios',
+    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'rm', 'gestion_flota', 'api'],
+    roleNames: [ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'admin_sistema',
+    label: 'Administrador sistema',
+    description: 'Acceso total + empleados y resumen',
+    moduleIds: PORTAL_ACCESS_MODULES.map((m) => m.id),
+    roleNames: [ROLE_ADMIN],
+  },
+  {
+    id: 'master',
+    label: 'Master',
+    description: 'Control total del portal',
+    moduleIds: PORTAL_ACCESS_MODULES.map((m) => m.id),
+    roleNames: [ROLE_MASTER],
+  },
+]
+
+const ADMIN_ROLE_NAMES = new Set([ROLE_MASTER, ROLE_ADMIN])
+
+export function isAdminRoleName(name) {
+  return ADMIN_ROLE_NAMES.has(String(name ?? '').trim().toUpperCase().replace(/-/g, '_'))
+}
+
+/** Roles sugeridos para un conjunto de módulos marcados */
+export function roleNamesForModules(moduleIds) {
+  const set = new Set()
+  for (const mod of PORTAL_ACCESS_MODULES) {
+    if (!moduleIds.includes(mod.id)) continue
+    for (const r of mod.suggestedRoles) set.add(r)
+  }
+  return [...set]
+}
+
+/** Módulos que cubren los roles seleccionados (aproximado) */
+export function moduleIdsForRoleNames(roleNames) {
+  const names = new Set(roleNames.map((n) => String(n).trim().toUpperCase().replace(/-/g, '_')))
+  if (names.has(ROLE_MASTER) || names.has(ROLE_ADMIN)) {
+    return PORTAL_ACCESS_MODULES.map((m) => m.id)
+  }
+  const ids = []
+  for (const mod of PORTAL_ACCESS_MODULES) {
+    if (mod.suggestedRoles.some((r) => names.has(r))) ids.push(mod.id)
+  }
+  return ids
+}
+
+export function roleIdsFromNames(roleOptions, roleNames) {
+  const wanted = new Set(roleNames.map((n) => String(n).trim().toUpperCase().replace(/-/g, '_')))
+  return roleOptions.filter((r) => wanted.has(String(r.name).trim().toUpperCase().replace(/-/g, '_'))).map((r) => r.id)
+}
+
+/** Acciones resumidas para vista previa */
+export const ACTION_LABELS = {
+  [ACTION.VIEW]: 'Ver',
+  [ACTION.CREATE]: 'Crear',
+  [ACTION.UPDATE]: 'Editar',
+  [ACTION.DELETE]: 'Eliminar',
+  [ACTION.SCAN]: 'Escanear',
+  [ACTION.CLOSE]: 'Cerrar',
+  [ACTION.PRINT]: 'Imprimir',
+  [ACTION.AUDIT]: 'Auditoría',
+  [ACTION.MANAGE]: 'Todo',
+}

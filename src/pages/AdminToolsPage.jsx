@@ -4,6 +4,7 @@ import * as biesseApi from '../api/biesseApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
+import { EmployeeAccessPicker } from '../components/EmployeeAccessPicker'
 import { normalizeRoleName } from '../auth/roles'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
@@ -660,25 +661,18 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   </label>
                 </div>
                 <div className="field">
-                  <span>Roles *</span>
-                  <p className="muted small form-hint">Marca uno o más roles para el usuario.</p>
+                  <span>Accesos al portal *</span>
                   {roleOptions.length === 0 ? (
                     <p className="form-inline-error">
                       No hay roles en el sistema. Crea roles en la pestaña «Roles» y vuelve aquí.
                     </p>
                   ) : (
-                    <div className="role-checks">
-                      {roleOptions.map((r) => (
-                        <label key={r.id}>
-                          <input
-                            type="checkbox"
-                            checked={ceRoleIds.has(r.id)}
-                            onChange={() => toggleCeRole(r.id)}
-                          />
-                          {r.name}
-                        </label>
-                      ))}
-                    </div>
+                    <EmployeeAccessPicker
+                      roleOptions={roleOptions}
+                      roleIds={ceRoleIds}
+                      onRoleIdsChange={setCeRoleIds}
+                      disabled={ceBusy}
+                    />
                   )}
                 </div>
                 <div className="form-row-2">
@@ -937,20 +931,13 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   </label>
                 </div>
                 <div className="field">
-                  <span>Roles *</span>
-                  <p className="muted small form-hint">Modifica los permisos del usuario.</p>
-                  <div className="role-checks">
-                    {roleOptions.map((r) => (
-                      <label key={r.id}>
-                        <input
-                          type="checkbox"
-                          checked={eeRoleIds.has(r.id)}
-                          onChange={() => toggleEeRole(r.id)}
-                        />
-                        {r.name}
-                      </label>
-                    ))}
-                  </div>
+                  <span>Accesos al portal *</span>
+                  <EmployeeAccessPicker
+                    roleOptions={roleOptions}
+                    roleIds={eeRoleIds}
+                    onRoleIdsChange={setEeRoleIds}
+                    disabled={eeBusy}
+                  />
                 </div>
                 <div className="field" style={{ marginTop: '1rem' }}>
                   <span>Restablecer contraseña (admin)</span>

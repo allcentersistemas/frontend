@@ -475,4 +475,20 @@
   .order-piece--ok {
     @apply border-emerald-500/50 bg-emerald-100 font-semibold text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-100;
   }
+
+  .employee-access-picker__templates {
+    @apply mb-4 flex flex-col gap-2;
+  }
+  .employee-access-picker__template-btns {
+    @apply flex flex-wrap gap-2;
+  }
+  .employee-access-picker__modules {
+    @apply grid gap-2 sm:grid-cols-2;
+  }
+  .employee-access-picker__module {
+    @apply flex items-start gap-2 rounded-lg border border-slate-200 p-2 dark:border-white/10;
+  }
+  .employee-access-picker__preview summary {
+    @apply cursor-pointer list-none;
+  }
 }
