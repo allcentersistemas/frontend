@@ -3,9 +3,8 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
+import { Can } from '../access/AbilityContext'
 import { CanButton } from '../components/CanButton'
-import { useAuth } from '../auth/AuthContext'
-import { isPaleSystemAdmin } from '../utils/paleRoles'
 import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
 import { DetailModal } from '../components/DetailModal'
 import {
@@ -225,8 +224,6 @@ async function printPalletOrderSummary(header, details) {
 
 export function PalesPage() {
   const location = useLocation()
-  const { employee } = useAuth()
-  const paleAdmin = isPaleSystemAdmin(employee)
   const [searchParams, setSearchParams] = useSearchParams()
   const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
 
@@ -530,24 +527,24 @@ export function PalesPage() {
                                 >
                                   Ver detalle
                                 </CanButton>
-                                {paleAdmin ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="linkish small"
-                                      onClick={() => openDetail(id, 'edit')}
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="linkish small text-warn"
-                                      onClick={() => void handleDeletePale(id, row.codigo)}
-                                    >
-                                      Eliminar
-                                    </button>
-                                  </>
-                                ) : null}
+                                <CanButton
+                                  I={ACTION.UPDATE}
+                                  a={FEATURE.PALES_OPERACIONES}
+                                  type="button"
+                                  className="linkish small"
+                                  onClick={() => openDetail(id, 'edit')}
+                                >
+                                  Editar
+                                </CanButton>
+                                <CanButton
+                                  I={ACTION.DELETE}
+                                  a={FEATURE.PALES_OPERACIONES}
+                                  type="button"
+                                  className="linkish small text-warn"
+                                  onClick={() => void handleDeletePale(id, row.codigo)}
+                                >
+                                  Eliminar
+                                </CanButton>
                               </div>
                             </td>
                           </tr>
@@ -610,7 +607,8 @@ export function PalesPage() {
                   <dd>{formatDateTime(header.fechaCierre)}</dd>
                 </dl>
 
-                {modalMode === 'edit' && paleAdmin ? (
+                {modalMode === 'edit' ? (
+                  <Can I={ACTION.UPDATE} a={FEATURE.PALES_OPERACIONES}>
                   <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSavePale(e)}>
                     <h3 className="card__title" style={{ fontSize: '1rem' }}>
                       Editar pale
@@ -649,6 +647,7 @@ export function PalesPage() {
                     </CanButton>
                     </div>
                   </form>
+                  </Can>
                 ) : null}
 
                 {closed ? (
@@ -686,7 +685,7 @@ export function PalesPage() {
                           {partDescripcion1(line) ? ` · ${partDescripcion1(line)}` : ''}
                           {partMedida(line) ? ` · ${partMedida(line)}` : ''}
                         </span>
-                        {lineId != null && modalMode === 'edit' && paleAdmin ? (
+                        {lineId != null && modalMode === 'edit' ? (
                           <CanButton
                             I={ACTION.DELETE}
                             a={FEATURE.PALES_OPERACIONES}

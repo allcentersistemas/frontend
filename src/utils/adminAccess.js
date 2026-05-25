@@ -1,11 +1,4 @@
-import { ROLE_ADMIN, ROLE_MASTER, normalizeRoleName } from '../auth/roles'
-
-/** Administración del sistema (MASTER / ADMIN). No incluye admin producción ni despacho. */
-export function isSystemAdmin(employee) {
-  const roles = employee?.roles ?? []
-  const set = new Set(roles.map((r) => normalizeRoleName(r.name ?? r)))
-  return set.has(ROLE_ADMIN) || set.has(ROLE_MASTER)
-}
+import { normalizeRoleName } from '../auth/roles'
 
 const ROLE_LABELS = {
   MASTER: 'Master',

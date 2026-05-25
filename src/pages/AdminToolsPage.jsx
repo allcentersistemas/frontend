@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import * as biesseApi from '../api/biesseApi'
+import { FEATURE } from '../access/permissionCatalog'
+import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
-import {
-  normalizeRoleName,
-  ROLE_ADMIN,
-  ROLE_ADMIN_PRODUCCION,
-  ROLE_MASTER,
-} from '../auth/roles'
+import { normalizeRoleName } from '../auth/roles'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
 
@@ -72,12 +69,9 @@ function normalizeAuditRows(source, payload) {
  * @param {(id: string) => void} [props.onPanelChange]
  */
 export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChange }) {
-  const { employee } = useAuth()
-  const canManage =
-    employee?.roles.some((r) => {
-      const n = normalizeRoleName(r.name)
-      return n === ROLE_MASTER || n === ROLE_ADMIN || n === ROLE_ADMIN_PRODUCCION
-    }) ?? false
+  useAuth()
+  const ability = useAppAbility()
+  const canManage = ability.can('view', FEATURE.EMPLOYEE_ADMIN) || ability.can('manage', 'all')
 
   const [panelInternal, setPanelInternal] = useState('employees')
   const panel = panelProp ?? panelInternal

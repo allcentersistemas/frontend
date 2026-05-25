@@ -1,3 +1,7 @@
+/**
+ * Matriz rol → permisos (CASL). Resumen visual: ./PERMISSIONS_MATRIX.md
+ * Menú lateral: navigationConfig.js · Botones: CanButton / useAppAbility()
+ */
 import {
   ROLE_ADMIN,
   ROLE_ADMIN_PRODUCCION,

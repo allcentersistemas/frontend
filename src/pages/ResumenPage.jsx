@@ -2,15 +2,22 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
+import { ACTION } from '../access/rolePermissions'
+import { FEATURE } from '../access/permissionCatalog'
+import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { ResumenDashboard } from '../components/resumen/ResumenDashboard'
-import { isSystemAdmin, roleDisplayName } from '../utils/adminAccess'
+import { roleDisplayName } from '../utils/adminAccess'
 import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 export function ResumenPage() {
   const { role } = useParams()
   const { employee } = useAuth()
+  const ability = useAppAbility()
   const base = `/dashboard/${role ?? 'admin-produccion'}`
+
+  const canViewResumen =
+    ability.can(ACTION.VIEW, FEATURE.DASHBOARD_RESUMEN) || ability.can(ACTION.MANAGE, 'all')
 
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
@@ -18,15 +25,13 @@ export function ResumenPage() {
   const [guias, setGuias] = useState([])
   const [scanStats, setScanStats] = useState(null)
 
-  const admin = isSystemAdmin(employee)
-
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
     [employee?.roles],
   )
 
   useEffect(() => {
-    if (!admin) return
+    if (!canViewResumen) return
     let cancelled = false
     ;(async () => {
       setLoading(true)
@@ -51,9 +56,9 @@ export function ResumenPage() {
     return () => {
       cancelled = true
     }
-  }, [admin])
+  }, [canViewResumen])
 
-  if (!admin) {
+  if (!canViewResumen) {
     return <Navigate to={`${base}/ordenes`} replace />
   }
 

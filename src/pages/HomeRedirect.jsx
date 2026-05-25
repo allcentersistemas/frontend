@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { defaultDashboardPath } from '../auth/roles'
+import { defaultDashboardPath } from '../access/permissions'
 
 export function HomeRedirect() {
   const { ready, employee, allowedDashboard } = useAuth()

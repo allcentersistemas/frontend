@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, Mail } from 'lucide-react'
 
 import { useAuth } from '../auth/AuthContext'
-import { defaultDashboardPath } from '../auth/roles'
+import { defaultDashboardPath } from '../access/permissions'
 import {
   AuthField,
   AuthShell,

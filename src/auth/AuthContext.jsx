@@ -18,7 +18,8 @@ import {
 } from '../api/http'
 import { isAccessTokenExpired } from './jwtUtils'
 import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './tokenStorage'
-import { dashboardForRoles, defaultDashboardPath } from './roles'
+import { defaultDashboardPath } from '../access/permissions'
+import { dashboardForRoles } from './roles'
 
 /** Si el usuario está inactivo más de este tiempo, no renovamos token (se cerrará sesión al caducar). */
 const IDLE_BEFORE_NO_REFRESH_MS = 15 * 60 * 1000
