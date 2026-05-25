@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { InventarioLegacyRedirect } from './components/InventarioLegacyRedirect'
 import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
@@ -11,8 +12,6 @@ import { LoginPage } from './pages/LoginPage'
 import { PaleEditPage } from './pages/PaleEditPage'
 import { PaleAuditPage } from './pages/PaleAuditPage'
 import { OrderAuditPage } from './pages/OrderAuditPage'
-import { OrdersPage } from './pages/OrdersPage'
-import { PalesPage } from './pages/PalesPage'
 import { GestionPage } from './pages/GestionPage'
 import { InventoryPage } from './pages/InventoryPage.jsx'
 import { ResumenPage } from './pages/ResumenPage.jsx'
@@ -28,9 +27,9 @@ export default function App() {
           <Route element={<RequireAuth role="produccion" />}>
             <Route path="/dashboard/produccion" element={<AppShell role="produccion" />}>
               <Route index element={<ResumenPage />} />
-              <Route path="ordenes" element={<OrdersPage />} />
+              <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
-              <Route path="pales" element={<PalesPage />} />
+              <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               <Route path="gestion" element={<GestionPage />} />
@@ -43,9 +42,9 @@ export default function App() {
           <Route element={<RequireAuth role="admin-produccion" />}>
             <Route path="/dashboard/admin-produccion" element={<AppShell role="admin-produccion" />}>
               <Route index element={<ResumenPage />} />
-              <Route path="ordenes" element={<OrdersPage />} />
+              <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
-              <Route path="pales" element={<PalesPage />} />
+              <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               <Route path="gestion" element={<GestionPage />} />
@@ -65,9 +64,9 @@ export default function App() {
           <Route element={<RequireAuth role="despacho" />}>
             <Route path="/dashboard/despacho" element={<AppShell role="despacho" />}>
               <Route index element={<ResumenPage />} />
-              <Route path="ordenes" element={<OrdersPage />} />
+              <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
-              <Route path="pales" element={<PalesPage />} />
+              <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               <Route path="gestion" element={<GestionPage />} />

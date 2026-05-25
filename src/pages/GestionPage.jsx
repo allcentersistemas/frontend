@@ -5,13 +5,15 @@ import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { AdminToolsPage } from './AdminToolsPage'
+import { GestionAuditoriaPanel } from './GestionAuditoriaPanel.jsx'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
 import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
-const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones', 'audit'])
+const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
 
 function resolveGestionTab(raw) {
-  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'audit']
+  if (raw === 'audit') return 'auditoria'
+  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones']
   if (raw && valid.includes(raw)) {
     return raw
   }
@@ -73,19 +75,26 @@ export function GestionPage() {
 
   const tabs = [
     { id: 'vehiculos', label: 'Vehículos', feature: FEATURE.TRANSPORT_VEHICLES },
-    { id: 'auditoria', label: 'Auditoría flota', feature: FEATURE.TRANSPORT_AUDIT },
+    {
+      id: 'auditoria',
+      label: 'Auditoría',
+      features: [FEATURE.BIESSE_AUDIT, FEATURE.PALES_AUDIT, FEATURE.TRANSPORT_AUDIT, FEATURE.EMPLOYEE_ADMIN],
+    },
     { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
     { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
     { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
-    { id: 'audit', label: 'Auditoría sistema', feature: FEATURE.EMPLOYEE_ADMIN },
-  ].filter((t) => ability.can('view', t.feature) || ability.can('manage', 'all'))
+  ].filter((t) => {
+    if (ability.can('manage', 'all')) return true
+    if (t.features?.length) return t.features.some((f) => ability.can('view', f))
+    return ability.can('view', t.feature)
+  })
 
   return (
     <ModulePage>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h1 className="card__title">Gestión</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Flota, personal y catálogos del sistema. Las <strong>guías de despacho</strong> están en{' '}
+          Flota, personal, <strong>auditoría centralizada</strong> y catálogos. Las <strong>guías de despacho</strong> están en{' '}
           <Link to={inventarioGuiasHref} className="linkish">
             Inventario → Guías de despacho
           </Link>
@@ -100,11 +109,12 @@ export function GestionPage() {
         tabs={tabs.map((t) => ({ id: t.id, label: t.label }))}
       />
 
-      {isAdminPanel ? (
+      {section === 'auditoria' ? (
+        <GestionAuditoriaPanel />
+      ) : isAdminPanel ? (
         <AdminToolsPage embedded panel={section} onPanelChange={selectSection} />
       ) : (
         <GestionFlotaPanel
-          tab={section}
           initialVehiculoId={vehiculoToEdit}
           onVehiculoConsumed={() => setVehiculoToEdit(null)}
         />

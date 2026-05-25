@@ -8,6 +8,7 @@ import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { useAppAbility } from '../access/useAppAbility'
+import { OrdersPage } from './OrdersPage'
 import { PalesPage } from './PalesPage'
 import {
   buildRmVehiculoMap,
@@ -170,8 +171,9 @@ const TABS = [
 ]
 
 const INVENTORY_AREAS = [
-  { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
+  { id: 'ordenes', label: 'Órdenes Biesse', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
+  { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
   { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
   { id: 'rm', label: 'Recepción mercadería', feature: FEATURE.INVENTORY_RM },
 ]
@@ -196,6 +198,7 @@ export function InventoryPage() {
   const canViewRm = canViewArea(ability, FEATURE.INVENTORY_RM)
   const canViewGuias = canViewArea(ability, FEATURE.INVENTORY_GUIAS)
   const canViewStock = canViewArea(ability, FEATURE.INVENTORY_STOCK)
+  const canViewOrders = canViewArea(ability, FEATURE.BIESSE_ORDERS)
   const canViewPales = canViewArea(ability, FEATURE.PALES_LIST)
   const canViewTransportCatalog = ability.can('view', FEATURE.TRANSPORT_VEHICLES)
 
@@ -215,6 +218,10 @@ export function InventoryPage() {
             p.delete('area')
           } else {
             p.set('area', next)
+          }
+          if (next !== 'pales') {
+            p.delete('id')
+            p.delete('mode')
           }
           return p
         },
@@ -438,7 +445,9 @@ export function InventoryPage() {
         ))}
       </div>
 
-      {areaTab === 'pales' && canViewPales ? (
+      {areaTab === 'ordenes' && canViewOrders ? (
+        <OrdersPage embedded />
+      ) : areaTab === 'pales' && canViewPales ? (
         <PalesPage embedded />
       ) : areaTab === 'guias' && canViewGuias ? (
         <InventoryGuiasPanel />

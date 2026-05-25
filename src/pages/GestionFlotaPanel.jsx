@@ -46,8 +46,8 @@ function vehiclePayload(form) {
   }
 }
 
-/** Pestaña vehículos o auditoría de flota (sin cabecera de página). */
-export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoConsumed }) {
+/** Listado y alta/edición de vehículos (sin cabecera de página). */
+export function GestionFlotaPanel({ initialVehiculoId = null, onVehiculoConsumed }) {
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
 
@@ -56,11 +56,6 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
   const [vehicleModal, setVehicleModal] = useState(null)
   const [vehicleForm, setVehicleForm] = useState(() => emptyVehicleForm())
   const [vehicleBusy, setVehicleBusy] = useState(false)
-
-  const [auditFilters, setAuditFilters] = useState({ entityType: '', entityId: '', correlationId: '' })
-  const [auditPage, setAuditPage] = useState(0)
-  const [auditData, setAuditData] = useState(null)
-  const [auditLoading, setAuditLoading] = useState(false)
 
   const showMsg = useCallback((text) => {
     setErr(null)
@@ -82,36 +77,8 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
   }, [])
 
   useEffect(() => {
-    if (tab === 'vehiculos') {
-      void loadVehiculos()
-    }
-  }, [tab, loadVehiculos])
-
-  const loadAuditoria = useCallback(async () => {
-    setAuditLoading(true)
-    setErr(null)
-    try {
-      const data = await systemApi.listTransportAuditoria({
-        entityType: auditFilters.entityType.trim() || undefined,
-        entityId: auditFilters.entityId.trim() || undefined,
-        correlationId: auditFilters.correlationId.trim() || undefined,
-        page: auditPage,
-        size: 30,
-      })
-      setAuditData(data && typeof data === 'object' ? data : null)
-    } catch (e) {
-      setAuditData(null)
-      setErr(e instanceof Error ? e.message : 'Error al cargar auditoría')
-    } finally {
-      setAuditLoading(false)
-    }
-  }, [auditFilters.entityType, auditFilters.entityId, auditFilters.correlationId, auditPage])
-
-  useEffect(() => {
-    if (tab === 'auditoria') {
-      void loadAuditoria()
-    }
-  }, [tab, loadAuditoria])
+    void loadVehiculos()
+  }, [loadVehiculos])
 
   function openCreateModal() {
     setVehicleForm(emptyVehicleForm())
@@ -206,8 +173,7 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
       {msg ? <p className="muted" role="status">{msg}</p> : null}
       {err ? <p className="text-warn" role="alert">{err}</p> : null}
 
-      {tab === 'vehiculos' ? (
-        <>
+      <>
           <div className="card" style={{ marginTop: '0.5rem' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '1rem' }}>
               <h2 className="card__title" style={{ margin: 0 }}>
@@ -345,72 +311,7 @@ export function GestionFlotaPanel({ tab, initialVehiculoId = null, onVehiculoCon
               </div>
             </form>
           </DetailModal>
-        </>
-      ) : (
-        <Can I="view" a={FEATURE.TRANSPORT_AUDIT}>
-          <div className="card card--table pad" style={{ marginTop: '0.5rem' }}>
-            <h2 className="card__title">Auditoría de flota</h2>
-            <form
-              className="form-row-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                setAuditPage(0)
-                void loadAuditoria()
-              }}
-            >
-              <label className="field">
-                <span>Tipo entidad</span>
-                <select value={auditFilters.entityType} onChange={(e) => setAuditFilters((f) => ({ ...f, entityType: e.target.value }))}>
-                  <option value="">(todos)</option>
-                  <option value="Transporte">Vehículo / flota</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>Entity ID</span>
-                <input value={auditFilters.entityId} onChange={(e) => setAuditFilters((f) => ({ ...f, entityId: e.target.value }))} />
-              </label>
-              <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-                <CanButton I={ACTION.AUDIT} a={FEATURE.TRANSPORT_AUDIT} type="submit" className="btn btn--primary">
-                  Buscar
-                </CanButton>
-                <CanButton I={ACTION.AUDIT} a={FEATURE.TRANSPORT_AUDIT} type="button" className="btn" onClick={() => void loadAuditoria()}>
-                  Actualizar
-                </CanButton>
-              </div>
-            </form>
-            {auditLoading ? (
-              <p className="muted pad">Cargando…</p>
-            ) : (
-              <div className="table-wrap" style={{ marginTop: '1rem' }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Acción</th>
-                      <th>Entidad</th>
-                      <th>ID</th>
-                      <th>Actor</th>
-                      <th>Detalle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(Array.isArray(auditData?.content) ? auditData.content : []).map((row) => (
-                      <tr key={row.id}>
-                        <td className="small">{formatDateTime(row.occurredAt)}</td>
-                        <td>{row.action}</td>
-                        <td className="small">{row.entityType}</td>
-                        <td className="small">{row.entityId ?? '—'}</td>
-                        <td className="small">{row.actorEmail ?? '—'}</td>
-                        <td className="small">{row.details ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </Can>
-      )}
+      </>
     </>
   )
 }

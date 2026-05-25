@@ -59,7 +59,7 @@ export function ResumenPage() {
   }, [canViewResumen])
 
   if (!canViewResumen) {
-    return <Navigate to={`${base}/ordenes`} replace />
+    return <Navigate to={`${base}/inventario?area=ordenes`} replace />
   }
 
   return (

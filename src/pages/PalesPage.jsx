@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { Can } from '../access/AbilityContext'
 import { CanButton } from '../components/CanButton'
-import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
 import { DetailModal } from '../components/DetailModal'
 import {
   ModuleFilterGrid,
   ModuleListCard,
   ModulePage,
-  ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
 
 const PALE_ESTADOS = ['ABIERTO', 'CERRADO', 'EN_TRANSITO', 'ENTREGADO', 'CANCELADO']
@@ -226,19 +225,33 @@ async function printPalletOrderSummary(header, details) {
  * @param {{ embedded?: boolean }} props — dentro de Inventario (sin cabecera duplicada)
  */
 export function PalesPage({ embedded = false }) {
+  const { allowedDashboard } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
 
-  function selectTab(tab) {
-    if (tab === 'auditoria') setSearchParams({ tab: 'auditoria' })
-    else setSearchParams({})
-  }
-
-  const guiasHref = useMemo(
-    () => `${location.pathname.replace(/\/pales\/?$/, '/inventario')}?area=guias`,
-    [location.pathname],
+  const inventarioBase = useMemo(
+    () =>
+      allowedDashboard
+        ? `/dashboard/${allowedDashboard}/inventario`
+        : location.pathname.replace(/\/pales\/?$/, '/inventario'),
+    [allowedDashboard, location.pathname],
   )
+
+  const guiasHref = `${inventarioBase}?area=guias`
+  const gestionAuditoriaHref = useMemo(
+    () =>
+      allowedDashboard
+        ? `/dashboard/${allowedDashboard}/gestion?tab=auditoria&audit=pales`
+        : '/gestion?tab=auditoria&audit=pales',
+    [allowedDashboard],
+  )
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'auditoria') {
+      navigate(gestionAuditoriaHref, { replace: true })
+    }
+  }, [searchParams, navigate, gestionAuditoriaHref])
 
   const [pallets, setPallets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -261,7 +274,12 @@ export function PalesPage({ embedded = false }) {
     const fromUrl = searchParams.get('id')
     if (fromUrl && /^\d+$/.test(fromUrl)) {
       setSelectedId(Number(fromUrl))
-      setModalMode('view')
+      setModalMode(searchParams.get('mode') === 'edit' ? 'edit' : 'view')
+      return
+    }
+    if (!searchParams.get('id')) {
+      setSelectedId(null)
+      setModalMode(null)
     }
   }, [searchParams])
 
@@ -342,10 +360,27 @@ export function PalesPage({ embedded = false }) {
     })
   }, [pallets, searchInput, fromDateFilter, toDateFilter])
 
+  function patchPaleParams(patch) {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('area', 'pales')
+        p.delete('tab')
+        if (patch.id != null) p.set('id', String(patch.id))
+        else p.delete('id')
+        if (patch.mode === 'edit') p.set('mode', 'edit')
+        else p.delete('mode')
+        return p
+      },
+      { replace: true },
+    )
+  }
+
   function openDetail(id, mode) {
     setSelectedId(id)
     setModalMode(mode)
     setOpErr(null)
+    patchPaleParams({ id, mode: mode === 'edit' ? 'edit' : null })
   }
 
   function closeDetail() {
@@ -353,6 +388,7 @@ export function PalesPage({ embedded = false }) {
     setModalMode(null)
     setDetail(null)
     setOpErr(null)
+    patchPaleParams({ id: null, mode: null })
   }
 
   async function handleDeletePale(id, codigo) {
@@ -408,10 +444,7 @@ export function PalesPage({ embedded = false }) {
     }
   }
 
-  const guiaLink =
-    header?.guiaInventarioId != null
-      ? `${location.pathname.replace(/\/pales\/?$/, '/inventario')}?area=guias`
-      : null
+  const guiaLink = header?.guiaInventarioId != null ? `${inventarioBase}?area=guias` : null
 
   const body = (
     <>
@@ -423,7 +456,11 @@ export function PalesPage({ embedded = false }) {
             <Link to={guiasHref} className="linkish">
               Inventario → Guías de despacho
             </Link>
-            . También puedes agregar líneas manuales a la guía.
+            . También puedes agregar líneas manuales a la guía. La{' '}
+            <Link to={gestionAuditoriaHref} className="linkish">
+              auditoría
+            </Link>{' '}
+            está en Gestión.
           </p>
         </div>
       ) : (
@@ -432,25 +469,15 @@ export function PalesPage({ embedded = false }) {
           <Link to={guiasHref} className="linkish">
             guías de despacho
           </Link>
+          .{' '}
+          <Link to={gestionAuditoriaHref} className="linkish">
+            Ver auditoría
+          </Link>
           .
         </p>
       )}
 
-      <ModuleTabs
-        ariaLabel="Vista pales"
-        activeId={pageTab}
-        onChange={selectTab}
-        tabs={[
-          { id: 'listado', label: 'Listado' },
-          { id: 'auditoria', label: 'Auditoría' },
-        ]}
-      />
-
-      {pageTab === 'auditoria' ? (
-        <PaleAuditPanel />
-      ) : (
-        <>
-          {opMsg ? (
+      {opMsg ? (
             <p className="muted small" style={{ marginBottom: '0.75rem' }} role="status">
               {opMsg}
             </p>
@@ -719,8 +746,6 @@ export function PalesPage({ embedded = false }) {
               </div>
             ) : null}
           </DetailModal>
-        </>
-      )}
     </>
   )
 

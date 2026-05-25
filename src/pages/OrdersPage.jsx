@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
-import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
+import { useAuth } from '../auth/AuthContext'
 import { DetailModal } from '../components/DetailModal'
 import {
   ModuleFilterGrid,
   ModuleListCard,
   ModulePage,
   ModulePagination,
-  ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
 import { Can } from '../access/AbilityContext'
 import { FEATURE } from '../access/permissionCatalog'
@@ -27,14 +26,31 @@ function orderEstadoTagClass(estado) {
   return 'tag'
 }
 
-export function OrdersPage() {
+/**
+ * @param {{ embedded?: boolean }} props — dentro de Inventario (sin cabecera duplicada)
+ */
+export function OrdersPage({ embedded = false }) {
+  const { allowedDashboard } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageTab = searchParams.get('tab') === 'auditoria' ? 'auditoria' : 'listado'
 
-  function selectTab(tab) {
-    if (tab === 'auditoria') setSearchParams({ tab: 'auditoria' })
-    else setSearchParams({})
-  }
+  const inventarioBase = useMemo(
+    () => (allowedDashboard ? `/dashboard/${allowedDashboard}/inventario` : '/inventario'),
+    [allowedDashboard],
+  )
+  const gestionAuditoriaHref = useMemo(
+    () =>
+      allowedDashboard
+        ? `/dashboard/${allowedDashboard}/gestion?tab=auditoria&audit=ordenes`
+        : '/gestion?tab=auditoria&audit=ordenes',
+    [allowedDashboard],
+  )
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'auditoria') {
+      navigate(gestionAuditoriaHref, { replace: true })
+    }
+  }, [searchParams, navigate, gestionAuditoriaHref])
 
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
@@ -242,30 +258,30 @@ export function OrdersPage() {
     </ModuleFilterGrid>
   )
 
-  return (
-    <ModulePage>
-      <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h1 className="card__title">Órdenes Biesse</h1>
-        <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Consulta órdenes de producción, avance de escaneo y auditoría de eventos.
-        </p>
-      </div>
-
-      <ModuleTabs
-        ariaLabel="Vista órdenes"
-        activeId={pageTab}
-        onChange={selectTab}
-        tabs={[
-          { id: 'listado', label: 'Listado' },
-          { id: 'auditoria', label: 'Auditoría' },
-        ]}
-      />
-
-      {pageTab === 'auditoria' ? (
-        <OrderAuditPanel />
+  const body = (
+    <>
+      {!embedded ? (
+        <div className="card pad" style={{ marginBottom: '1rem' }}>
+          <h1 className="card__title">Órdenes Biesse</h1>
+          <p className="muted small" style={{ marginTop: '0.35rem' }}>
+            Consulta órdenes de producción y avance de escaneo. La{' '}
+            <Link to={gestionAuditoriaHref} className="linkish">
+              auditoría
+            </Link>{' '}
+            está en Gestión.
+          </p>
+        </div>
       ) : (
-        <>
-          <ModuleListCard
+        <p className="muted small" style={{ marginBottom: '1rem' }}>
+          Órdenes de producción Biesse.{' '}
+          <Link to={gestionAuditoriaHref} className="linkish">
+            Ver auditoría
+          </Link>
+          .
+        </p>
+      )}
+
+      <ModuleListCard
             title="Órdenes"
             error={err}
             loading={loading}
@@ -386,7 +402,11 @@ export function OrdersPage() {
                   <ul className="detail-list">
                     {orderPallets.map((p) => (
                       <li key={p.paleId ?? p.id}>
-                        <Link to={`/pales`} className="detail-list__code linkish" onClick={closeDetail}>
+                        <Link
+                          to={`${inventarioBase}?area=pales&id=${p.paleId ?? p.id}`}
+                          className="detail-list__code linkish"
+                          onClick={closeDetail}
+                        >
                           {p.codigo ?? `#${p.paleId}`}
                         </Link>
                         <span className="tag">{p.estado}</span>
@@ -420,8 +440,8 @@ export function OrdersPage() {
               </div>
             ) : null}
           </DetailModal>
-        </>
-      )}
-    </ModulePage>
+    </>
   )
+
+  return embedded ? body : <ModulePage>{body}</ModulePage>
 }

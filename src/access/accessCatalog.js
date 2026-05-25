@@ -22,15 +22,15 @@ export const PORTAL_ACCESS_MODULES = [
   },
   {
     id: 'ordenes',
-    label: 'Órdenes de producción',
-    description: 'Listado, detalle y edición Biesse',
+    label: 'Inventario · Órdenes Biesse',
+    description: 'Listado, detalle y edición de órdenes de producción',
     features: [FEATURE.BIESSE_ORDERS],
     suggestedRoles: [ROLE_PRODUCCION, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
   },
   {
     id: 'pales',
-    label: 'Palés',
-    description: 'Listado, escaneo, edición y eliminación',
+    label: 'Inventario · Palés',
+    description: 'Listado, escaneo, edición y eliminación de palés',
     features: [FEATURE.PALES_LIST, FEATURE.PALES_OPERACIONES],
     suggestedRoles: [ROLE_PRODUCCION, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
   },
@@ -64,9 +64,9 @@ export const PORTAL_ACCESS_MODULES = [
   },
   {
     id: 'gestion_admin',
-    label: 'Gestión · Empleados y roles',
-    description: 'Alta de usuarios, roles, auditoría (administradores)',
-    features: [FEATURE.EMPLOYEE_ADMIN],
+    label: 'Gestión · Empleados, roles y auditoría',
+    description: 'Alta de usuarios, roles y auditoría centralizada',
+    features: [FEATURE.EMPLOYEE_ADMIN, FEATURE.BIESSE_AUDIT, FEATURE.PALES_AUDIT, FEATURE.TRANSPORT_AUDIT],
     suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMIN_PRODUCCION],
   },
   {

@@ -434,7 +434,7 @@ export function ResumenDashboard({ pallets = [], guias = [], scanStats = null, e
                 tableRows.map((p) => (
                   <tr key={p.id ?? p.codigo}>
                     <td>
-                      <Link to={`${basePath}/pales`} className="linkish">
+                      <Link to={`${basePath}/inventario?area=pales`} className="linkish">
                         {p.codigo}
                       </Link>
                     </td>
@@ -463,7 +463,7 @@ export function ResumenDashboard({ pallets = [], guias = [], scanStats = null, e
         </div>
         <p className="dash-table-footer muted small">
           Mostrando {tableRows.length} de {filteredPales.length} palés filtrados ·{' '}
-          <Link to={`${basePath}/pales`} className="linkish">
+          <Link to={`${basePath}/inventario?area=pales`} className="linkish">
             Ver todos los palés
           </Link>
           {' · '}

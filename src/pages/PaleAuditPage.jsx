@@ -1,8 +1,11 @@
 import { Navigate, useLocation } from 'react-router-dom'
 
-/** Compatibilidad: enlaces antiguos a …/pales/auditoria abren Pales con pestaña Auditoría. */
+/** Enlaces antiguos …/pales/auditoria → Gestión → Auditoría → Palés. */
 export function PaleAuditPage() {
-  const { pathname } = useLocation()
-  const target = pathname.replace(/\/auditoria\/?$/, '') || pathname
-  return <Navigate to={`${target}?tab=auditoria`} replace />
+  const location = useLocation()
+  const target = location.pathname.replace(/\/pales\/auditoria\/?$/, '/gestion')
+  const p = new URLSearchParams()
+  p.set('tab', 'auditoria')
+  p.set('audit', 'pales')
+  return <Navigate to={`${target}?${p}`} replace />
 }

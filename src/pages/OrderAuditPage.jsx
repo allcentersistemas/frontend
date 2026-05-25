@@ -1,8 +1,11 @@
 import { Navigate, useLocation } from 'react-router-dom'
 
-/** Compatibilidad: enlaces antiguos a …/ordenes/auditoria abren Órdenes con pestaña Auditoría. */
+/** Enlaces antiguos …/ordenes/auditoria → Gestión → Auditoría → Órdenes. */
 export function OrderAuditPage() {
-  const { pathname } = useLocation()
-  const target = pathname.replace(/\/auditoria\/?$/, '') || pathname
-  return <Navigate to={`${target}?tab=auditoria`} replace />
+  const location = useLocation()
+  const target = location.pathname.replace(/\/ordenes\/auditoria\/?$/, '/gestion')
+  const p = new URLSearchParams()
+  p.set('tab', 'auditoria')
+  p.set('audit', 'ordenes')
+  return <Navigate to={`${target}?${p}`} replace />
 }

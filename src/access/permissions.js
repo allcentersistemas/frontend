@@ -25,18 +25,27 @@ export function canManageEmployees(employee) {
 /** Al menos una pestaña del hub Inventario. */
 export function canViewInventoryHub(employee) {
   return (
+    canAccessFeature(employee, FEATURE.BIESSE_ORDERS) ||
+    canAccessFeature(employee, FEATURE.PALES_LIST) ||
     canAccessFeature(employee, FEATURE.INVENTORY_GUIAS) ||
     canAccessFeature(employee, FEATURE.INVENTORY_STOCK) ||
-    canAccessFeature(employee, FEATURE.INVENTORY_RM) ||
-    canAccessFeature(employee, FEATURE.PALES_LIST)
+    canAccessFeature(employee, FEATURE.INVENTORY_RM)
   )
 }
 
-/** Ruta inicial tras login (CASL: resumen vs órdenes). */
+function defaultInventoryPath(base, employee) {
+  if (canAccessFeature(employee, FEATURE.BIESSE_ORDERS)) return `${base}/inventario?area=ordenes`
+  if (canAccessFeature(employee, FEATURE.PALES_LIST)) return `${base}/inventario?area=pales`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_GUIAS)) return `${base}/inventario?area=guias`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_STOCK)) return `${base}/inventario?area=stock`
+  return `${base}/inventario`
+}
+
+/** Ruta inicial tras login (CASL: resumen vs hub inventario). */
 export function defaultDashboardPath(dashboardRole, employee) {
   const base = dashboardPath(dashboardRole)
   if (canViewResumen(employee)) {
     return base
   }
-  return `${base}/ordenes`
+  return defaultInventoryPath(base, employee)
 }
