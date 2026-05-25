@@ -33,8 +33,14 @@ const allActions = [
 // Matriz editable: para mostrar/ocultar botones, agrega o quita acciones por rol.
 // Ejemplo: si PRODUCCION no debe cerrar pales, elimina `ACTION.CLOSE` de FEATURE.PALES_OPERACIONES.
 export const ROLE_PERMISSIONS = {
-  [ROLE_MASTER]: [{ action: ACTION.MANAGE, subject: 'all' }],
-  [ROLE_ADMIN]: [{ action: ACTION.MANAGE, subject: 'all' }],
+  [ROLE_MASTER]: [
+    { action: ACTION.MANAGE, subject: 'all' },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+  ],
+  [ROLE_ADMIN]: [
+    { action: ACTION.MANAGE, subject: 'all' },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+  ],
 
   [ROLE_ADMIN_PRODUCCION]: [
     { action: ACTION.VIEW, subject: FEATURE.API_CATALOG },

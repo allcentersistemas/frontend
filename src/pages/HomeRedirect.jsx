@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { dashboardPath } from '../auth/roles'
+import { defaultDashboardPath } from '../auth/roles'
 
 export function HomeRedirect() {
   const { ready, employee, allowedDashboard } = useAuth()
@@ -18,5 +18,5 @@ export function HomeRedirect() {
     return <Navigate to="/login" replace />
   }
 
-  return <Navigate to={dashboardPath(allowedDashboard)} replace />
+  return <Navigate to={defaultDashboardPath(allowedDashboard, employee)} replace />
 }

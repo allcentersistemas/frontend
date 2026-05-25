@@ -3,7 +3,6 @@ import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppShell } from './components/AppShell'
-import { AdminToolsPage } from './pages/AdminToolsPage'
 import { ApiCatalogPage } from './pages/ApiCatalogPage'
 
 import { ProfilePage } from './pages/ProfilePage'
@@ -16,6 +15,7 @@ import { OrdersPage } from './pages/OrdersPage'
 import { PalesPage } from './pages/PalesPage'
 import { GestionPage } from './pages/GestionPage'
 import { InventoryPage } from './pages/InventoryPage.jsx'
+import { ResumenPage } from './pages/ResumenPage.jsx'
 
 export default function App() {
   return (
@@ -27,6 +27,7 @@ export default function App() {
 
           <Route element={<RequireAuth role="produccion" />}>
             <Route path="/dashboard/produccion" element={<AppShell role="produccion" />}>
+              <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<OrdersPage />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
               <Route path="pales" element={<PalesPage />} />
@@ -41,6 +42,7 @@ export default function App() {
 
           <Route element={<RequireAuth role="admin-produccion" />}>
             <Route path="/dashboard/admin-produccion" element={<AppShell role="admin-produccion" />}>
+              <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<OrdersPage />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
               <Route path="pales" element={<PalesPage />} />
@@ -62,6 +64,7 @@ export default function App() {
 
           <Route element={<RequireAuth role="despacho" />}>
             <Route path="/dashboard/despacho" element={<AppShell role="despacho" />}>
+              <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<OrdersPage />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
               <Route path="pales" element={<PalesPage />} />

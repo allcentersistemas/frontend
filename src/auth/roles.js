@@ -37,3 +37,13 @@ export function shellSubtitle(roleNames, routeDashboard) {
 export function dashboardPath(role) {
   return `/dashboard/${role}`
 }
+
+/** Ruta inicial tras login: resumen solo para MASTER/ADMIN; el resto a órdenes. */
+export function defaultDashboardPath(dashboardRole, employee) {
+  const base = dashboardPath(dashboardRole)
+  const set = new Set((employee?.roles ?? []).map((r) => normalizeRoleName(r.name)))
+  if (set.has(ROLE_MASTER) || set.has(ROLE_ADMIN)) {
+    return base
+  }
+  return `${base}/ordenes`
+}

@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, Mail } from 'lucide-react'
 
 import { useAuth } from '../auth/AuthContext'
-import { dashboardPath } from '../auth/roles'
+import { defaultDashboardPath } from '../auth/roles'
 import {
   AuthField,
   AuthShell,
@@ -27,7 +27,7 @@ export function LoginPage() {
   if (ready && employee && allowedDashboard) {
     return (
       <Navigate
-        to={from && from !== '/login' ? from : dashboardPath(allowedDashboard)}
+        to={from && from !== '/login' ? from : defaultDashboardPath(allowedDashboard, employee)}
         replace
       />
     )
@@ -40,9 +40,9 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const dash = await login(username.trim(), password)
+      const landing = await login(username.trim(), password)
 
-      navigate(dashboardPath(dash), {
+      navigate(landing, {
         replace: true,
       })
     } catch (err) {

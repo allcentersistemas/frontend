@@ -18,6 +18,7 @@ export const FEATURE = {
   API_CATALOG: 'api.catalog',
   INVENTORY: 'inventory',
   PROJECT_LIST: 'project.list',
+  DASHBOARD_RESUMEN: 'dashboard.resumen',
 }
 
 export const ENDPOINT_CATALOG = [

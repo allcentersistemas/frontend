@@ -2,7 +2,7 @@ import { FEATURE } from './permissionCatalog'
 
 // Un solo menú para toda la app. La visibilidad sale de CASL/rolePermissions.js.
 export const SIDEBAR_MENU = [
-  { id: 'home', segment: '', label: 'Resumen', end: true },
+  { id: 'home', segment: '', label: 'Resumen', end: true, feature: FEATURE.DASHBOARD_RESUMEN },
   { id: 'orders', segment: 'ordenes', label: 'Órdenes', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', segment: 'pales', label: 'Pales', feature: FEATURE.PALES_LIST },
   { id: 'inventario', segment: 'inventario', label: 'Inventario', feature: FEATURE.INVENTORY },

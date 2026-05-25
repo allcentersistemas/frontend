@@ -18,7 +18,7 @@ import {
 } from '../api/http'
 import { isAccessTokenExpired } from './jwtUtils'
 import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './tokenStorage'
-import { dashboardForRoles } from './roles'
+import { dashboardForRoles, defaultDashboardPath } from './roles'
 
 const AuthContext = createContext(null)
 
@@ -149,7 +149,7 @@ export function AuthProvider({ children }) {
         'Tu cuenta no tiene un rol permitido (Master, Administración, Admin producción, Despacho o Producción). Contacta al administrador.',
       )
     }
-    return dash
+    return defaultDashboardPath(dash, session.employee)
   }, [])
 
   const logout = useCallback(async () => {
