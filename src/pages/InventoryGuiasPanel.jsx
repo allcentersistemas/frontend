@@ -658,9 +658,6 @@ export function InventoryGuiasPanel() {
               </div>
             )}
             <div className="pad">
-              <button type="button" className="btn btn--ghost" onClick={() => setGuiaSub('create')}>
-                + Crear guía
-              </button>
             </div>
           </div>
 
