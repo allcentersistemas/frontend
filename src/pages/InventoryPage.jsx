@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
+import { CanButton } from '../components/CanButton.jsx'
 import { DetailModal } from '../components/DetailModal.jsx'
 import { categoriaLabel } from '../utils/stockCategoryLabels.js'
 import { systemApiBase } from '../config/env'
@@ -42,6 +43,39 @@ function decisionLabel(code) {
   if (!code) return '—'
   const k = String(code).trim().toUpperCase()
   return DECISION_LABEL[k] ?? code
+}
+
+function rmRecordCancelled(tab, record) {
+  if (!record) return false
+  if (tab === 'actas') {
+    return String(record.estado ?? '').trim().toUpperCase() === 'CANCELADO'
+  }
+  if (tab === 'entradas' || tab === 'salidas') {
+    return String(record.recepcionEstado ?? '').trim().toUpperCase() === 'CANCELADO'
+  }
+  return false
+}
+
+function rmEstadoDisplay(tab, record) {
+  if (!record) return '—'
+  if (tab === 'actas') {
+    const e = String(record.estado ?? '').trim()
+    return e || 'REGISTRADA'
+  }
+  return esc(record.recepcionEstado)
+}
+
+function RmCancelInfo({ data }) {
+  if (!data?.motivoCancelacion && !data?.canceladoAt) return null
+  return (
+    <>
+      <dt>Cancelación</dt>
+      <dd className="small">
+        {formatDateTime(data.canceladoAt)} · {esc(data.canceladoPorEmail)}
+        <span style={{ display: 'block', marginTop: '0.25rem' }}>Motivo: {esc(data.motivoCancelacion)}</span>
+      </dd>
+    </>
+  )
 }
 
 /** Mapa transporteId → texto corto (placa · marca) para filas y detalle de entradas RM. */
@@ -152,11 +186,13 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
       )
     }
   } else {
-    head = ['razonSocialNombre', 'decision', 'creado']
+    head = ['razonSocialNombre', 'decision', 'estado', 'creado']
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
-        [r.razonSocialNombre, decisionLabel(r.decision), r.createdAt].map((c) => csvEscape(c)).join(','),
+        [r.razonSocialNombre, decisionLabel(r.decision), rmEstadoDisplay('actas', r), r.createdAt]
+          .map((c) => csvEscape(c))
+          .join(','),
       )
     }
   }
@@ -250,6 +286,11 @@ export function InventoryPage() {
 
   const [transportById, setTransportById] = useState(() => new Map())
   const [transportCatalogErr, setTransportCatalogErr] = useState(null)
+
+  const [cancelDialog, setCancelDialog] = useState(null)
+  const [cancelMotivo, setCancelMotivo] = useState('')
+  const [cancelSaving, setCancelSaving] = useState(false)
+  const [cancelErr, setCancelErr] = useState(null)
 
   const filteredRows = useMemo(
     () => allRows.filter((r) => rowMatchesRmFilters(tab, r, vehiculoById, rmFilters)),
@@ -398,7 +439,51 @@ export function InventoryPage() {
     setDetailErr(null)
     setDetailVehiculo(null)
     setDetailLoading(false)
+    setCancelDialog(null)
+    setCancelMotivo('')
+    setCancelErr(null)
   }, [])
+
+  const openCancelDialog = useCallback(() => {
+    if (!detail?.id || !detail?.tab) return
+    if (!['entradas', 'salidas', 'actas'].includes(detail.tab)) return
+    setCancelMotivo('')
+    setCancelErr(null)
+    setCancelDialog({ tab: detail.tab, id: detail.id })
+  }, [detail])
+
+  const closeCancelDialog = useCallback(() => {
+    setCancelDialog(null)
+    setCancelMotivo('')
+    setCancelErr(null)
+  }, [])
+
+  const submitCancel = useCallback(async () => {
+    if (!cancelDialog) return
+    const motivo = cancelMotivo.trim()
+    if (motivo.length < 3) {
+      setCancelErr('Indique el motivo (mínimo 3 caracteres).')
+      return
+    }
+    setCancelSaving(true)
+    setCancelErr(null)
+    try {
+      if (cancelDialog.tab === 'entradas') {
+        await systemApi.cancelRegistroEntrada(cancelDialog.id, motivo)
+      } else if (cancelDialog.tab === 'salidas') {
+        await systemApi.cancelRegistroSalida(cancelDialog.id, motivo)
+      } else {
+        await systemApi.cancelActaConformidad(cancelDialog.id, motivo)
+      }
+      closeCancelDialog()
+      await openDetail(cancelDialog.id)
+      await loadList()
+    } catch (e) {
+      setCancelErr(e instanceof Error ? e.message : 'No se pudo cancelar el registro')
+    } finally {
+      setCancelSaving(false)
+    }
+  }, [cancelDialog, cancelMotivo, closeCancelDialog, openDetail, loadList])
 
   const detailModalTitle = useMemo(() => {
     if (!detail?.data) return detail?.id != null ? `Registro #${detail.id}` : 'Detalle'
@@ -709,6 +794,7 @@ export function InventoryPage() {
                     <tr>
                       <th>Proveedor / razón social</th>
                       <th>Decisión</th>
+                      <th>Estado</th>
                       <th>Creado</th>
                     </tr>
                   </thead>
@@ -722,6 +808,7 @@ export function InventoryPage() {
                       >
                         <td className="small">{esc(r.razonSocialNombre)}</td>
                         <td className="small">{decisionLabel(r.decision)}</td>
+                        <td className="small">{rmEstadoDisplay('actas', r)}</td>
                         <td className="small">{formatDateTime(r.createdAt)}</td>
                       </tr>
                     ))}
@@ -800,13 +887,14 @@ export function InventoryPage() {
                 <dd className="small">{formatDateTime(detail.data.createdAt)}</dd>
                 <dt>Recepción</dt>
                 <dd className="small">
-                  {esc(detail.data.recepcionEstado)}
+                  {rmEstadoDisplay('entradas', detail.data)}
                   {detail.data.validadoAt != null ? (
                     <span style={{ display: 'block', marginTop: '0.25rem' }}>
                       Validado: {formatDateTime(detail.data.validadoAt)} · {esc(detail.data.validadoPorEmail)}
                     </span>
                   ) : null}
                 </dd>
+                <RmCancelInfo data={detail.data} />
                 <dt>Chofer validación</dt>
                 <dd className="small">
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
@@ -876,13 +964,14 @@ export function InventoryPage() {
                 </dd>
                 <dt>Recepción / validación</dt>
                 <dd className="small">
-                  {esc(detail.data.recepcionEstado)}
+                  {rmEstadoDisplay('salidas', detail.data)}
                   {detail.data.validadoAt != null ? (
                     <span style={{ display: 'block', marginTop: '0.25rem' }}>
                       Validado: {formatDateTime(detail.data.validadoAt)} · {esc(detail.data.validadoPorEmail)}
                     </span>
                   ) : null}
                 </dd>
+                <RmCancelInfo data={detail.data} />
                 <dt>Chofer validación</dt>
                 <dd className="small">
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
@@ -984,6 +1073,9 @@ export function InventoryPage() {
                 <dd className="small">{esc(detail.data.transportistaNombrePlaca)}</dd>
                 <dt>Decisión</dt>
                 <dd>{decisionLabel(detail.data.decision)}</dd>
+                <dt>Estado</dt>
+                <dd className="small">{rmEstadoDisplay('actas', detail.data)}</dd>
+                <RmCancelInfo data={detail.data} />
                 <dt>Cant. conforme (parcial)</dt>
                 <dd>{detail.data.cantidadConformeUnidades ?? '—'}</dd>
                 <dt>Obs. decisión</dt>
@@ -1016,7 +1108,93 @@ export function InventoryPage() {
               <RmPhotoRow urls={detail.data.photoUrls} />
             </div>
           ) : null}
+
+        {(detail?.tab === 'entradas' || detail?.tab === 'salidas' || detail?.tab === 'actas') &&
+        detail.data &&
+        !detailLoading &&
+        !rmRecordCancelled(detail.tab, detail.data) ? (
+          <div
+            className="pad"
+            style={{
+              borderTop: '1px solid var(--border, #e0e0e0)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <CanButton
+              I={ACTION.UPDATE}
+              a={FEATURE.INVENTORY_RM}
+              type="button"
+              className="btn"
+              onClick={openCancelDialog}
+            >
+              Cancelar
+            </CanButton>
+          </div>
+        ) : null}
       </DetailModal>
+
+      {cancelDialog ? (
+        <div
+          className="detail-modal-backdrop"
+          role="presentation"
+          style={{ zIndex: 1200 }}
+          onClick={cancelSaving ? undefined : closeCancelDialog}
+        >
+          <div
+            className="card pad"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rm-cancel-title"
+            style={{ maxWidth: 480, width: 'min(92vw, 480px)', margin: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="rm-cancel-title" className="card__title" style={{ fontSize: '1.1rem' }}>
+              Cancelar registro
+            </h3>
+            <p className="muted small" style={{ marginTop: '0.35rem' }}>
+              Indique el motivo. El registro quedará en estado <strong>CANCELADO</strong>.
+            </p>
+            <label className="small" style={{ display: 'block', marginTop: '0.75rem' }}>
+              Motivo
+              <textarea
+                rows={4}
+                className="input"
+                style={{ width: '100%', marginTop: '0.35rem' }}
+                value={cancelMotivo}
+                disabled={cancelSaving}
+                onChange={(e) => setCancelMotivo(e.target.value)}
+                placeholder="Ej.: registro duplicado, error de captura…"
+              />
+            </label>
+            {cancelErr ? (
+              <p className="small" style={{ color: 'var(--danger, #b00020)', marginTop: '0.5rem' }}>
+                {cancelErr}
+              </p>
+            ) : null}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                disabled={cancelSaving}
+                onClick={closeCancelDialog}
+              >
+                Volver
+              </button>
+              <CanButton
+                I={ACTION.UPDATE}
+                a={FEATURE.INVENTORY_RM}
+                type="button"
+                className="btn btn--primary"
+                disabled={cancelSaving}
+                onClick={() => void submitCancel()}
+              >
+                {cancelSaving ? 'Guardando…' : 'Guardar y cancelar'}
+              </CanButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
       </>
       )}
 

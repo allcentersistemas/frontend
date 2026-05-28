@@ -4,7 +4,6 @@ import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { EmployeeAccessPicker } from '../components/EmployeeAccessPicker'
-import { normalizeRoleName } from '../auth/roles'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
 
@@ -99,24 +98,6 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   const [eeOk, setEeOk] = useState(null)
 
   const bump = useCallback(() => setRefreshKey((k) => k + 1), [])
-
-  const toggleCeRole = (id) => {
-    setCeRoleIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleEeRole = (id) => {
-    setEeRoleIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   useEffect(() => {
     if (panel !== 'employees' || !canManage) return undefined
@@ -900,9 +881,6 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
             <div className="split" style={{ alignItems: 'flex-start' }}>
               <div className="card pad form-section">
                 <h2>Nueva sucursal</h2>
-                <p className="muted small form-hint">
-                  <code className="code-inline">POST /api/location/branch</code> en module-system.
-                </p>
                 <form onSubmit={(e) => void submitCreateBranch(e)}>
                   <label className="field">
                     <span>Nombre *</span>

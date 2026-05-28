@@ -492,12 +492,26 @@ export async function getRegistroEntrada(id) {
   return systemJson(`/api/rm/registros-entrada/${id}`)
 }
 
+export async function cancelRegistroEntrada(id, motivo) {
+  return systemJson(`/api/rm/registros-entrada/${id}/cancelar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  })
+}
+
 export async function listRegistrosSalida({ page = 0, size = 20 } = {}) {
   return systemJson(`/api/rm/registros-salida${qs({ page, size })}`)
 }
 
 export async function getRegistroSalida(id) {
   return systemJson(`/api/rm/registros-salida/${id}`)
+}
+
+export async function cancelRegistroSalida(id, motivo) {
+  return systemJson(`/api/rm/registros-salida/${id}/cancelar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  })
 }
 
 export async function listRegistrosVehiculo({ page = 0, size = 20 } = {}) {
@@ -531,6 +545,13 @@ export async function listActasConformidad({ page = 0, size = 20 } = {}) {
 
 export async function getActaConformidad(id) {
   return systemJson(`/api/rm/actas-conformidad/${id}`)
+}
+
+export async function cancelActaConformidad(id, motivo) {
+  return systemJson(`/api/rm/actas-conformidad/${id}/cancelar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  })
 }
 
 /* ——— Portal clientes (admin en SPA empleados) ——— */
