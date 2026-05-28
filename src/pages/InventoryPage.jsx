@@ -65,16 +65,64 @@ function rmEstadoDisplay(tab, record) {
   return esc(record.recepcionEstado)
 }
 
-function RmCancelInfo({ data }) {
-  if (!data?.motivoCancelacion && !data?.canceladoAt) return null
+function rmCancelActor(record) {
+  if (!record) return '—'
+  const name = record.canceladoPorNombre != null ? String(record.canceladoPorNombre).trim() : ''
+  const email = record.canceladoPorEmail != null ? String(record.canceladoPorEmail).trim() : ''
+  if (name) {
+    return email && name.toLowerCase() !== email.toLowerCase() ? `${name} (${email})` : name
+  }
+  return email || '—'
+}
+
+function rmHasCancelAudit(record) {
+  if (!record) return false
+  return Boolean(
+    record.canceladoAt ||
+      record.motivoCancelacion ||
+      record.canceladoPorEmail ||
+      record.canceladoPorNombre,
+  )
+}
+
+function RmCancelAuditBlock({ tab, data }) {
+  if (!data || (!rmRecordCancelled(tab, data) && !rmHasCancelAudit(data))) return null
   return (
-    <>
-      <dt>Cancelación</dt>
-      <dd className="small">
-        {formatDateTime(data.canceladoAt)} · {esc(data.canceladoPorEmail)}
-        <span style={{ display: 'block', marginTop: '0.25rem' }}>Motivo: {esc(data.motivoCancelacion)}</span>
-      </dd>
-    </>
+    <div
+      className="card"
+      style={{
+        marginTop: '1rem',
+        padding: '0.85rem 1rem',
+        borderLeft: '4px solid var(--danger, #b00020)',
+        background: 'var(--surface-2, rgba(0,0,0,0.03))',
+      }}
+    >
+      <p className="small" style={{ margin: '0 0 0.65rem', fontWeight: 600 }}>
+        Auditoría de cancelación
+      </p>
+      <dl className="inv-dl" style={{ margin: 0 }}>
+        <dt>Cancelado por</dt>
+        <dd className="small">{rmCancelActor(data)}</dd>
+        <dt>Fecha y hora</dt>
+        <dd className="small">{formatDateTime(data.canceladoAt)}</dd>
+        <dt>Motivo</dt>
+        <dd className="small" style={{ whiteSpace: 'pre-wrap' }}>
+          {esc(data.motivoCancelacion)}
+        </dd>
+      </dl>
+    </div>
+  )
+}
+
+function RmCancelListCell({ record }) {
+  if (!rmHasCancelAudit(record)) return <span className="muted">—</span>
+  return (
+    <span className="small">
+      <span style={{ display: 'block' }}>{rmCancelActor(record)}</span>
+      <span className="muted" style={{ display: 'block', marginTop: '0.15rem' }}>
+        {formatDateTime(record.canceladoAt)}
+      </span>
+    </span>
   )
 }
 
@@ -130,7 +178,21 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
   let head
   let lines
   if (q === 'entradas') {
-    head = ['numeroRegistro', 'fecha', 'hora', 'vehiculo', 'oc', 'guia', 'lineas', 'estado', 'creado']
+    head = [
+      'numeroRegistro',
+      'fecha',
+      'hora',
+      'vehiculo',
+      'oc',
+      'guia',
+      'lineas',
+      'estado',
+      'canceladoPor',
+      'canceladoPorEmail',
+      'canceladoAt',
+      'motivoCancelacion',
+      'creado',
+    ]
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
@@ -143,6 +205,10 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.guiaNumero,
           r.lineas ?? '',
           r.recepcionEstado,
+          r.canceladoPorNombre,
+          r.canceladoPorEmail,
+          r.canceladoAt,
+          r.motivoCancelacion,
           r.createdAt,
         ]
           .map((c) => csvEscape(c))
@@ -150,7 +216,19 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
       )
     }
   } else if (q === 'salidas') {
-    head = ['numeroRegistro', 'fecha', 'horaCabecera', 'vehiculo', 'lineas', 'estado', 'creado']
+    head = [
+      'numeroRegistro',
+      'fecha',
+      'horaCabecera',
+      'vehiculo',
+      'lineas',
+      'estado',
+      'canceladoPor',
+      'canceladoPorEmail',
+      'canceladoAt',
+      'motivoCancelacion',
+      'creado',
+    ]
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
@@ -161,6 +239,10 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
           r.lineas ?? '',
           r.recepcionEstado,
+          r.canceladoPorNombre,
+          r.canceladoPorEmail,
+          r.canceladoAt,
+          r.motivoCancelacion,
           r.createdAt,
         ]
           .map((c) => csvEscape(c))
@@ -186,11 +268,29 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
       )
     }
   } else {
-    head = ['razonSocialNombre', 'decision', 'estado', 'creado']
+    head = [
+      'razonSocialNombre',
+      'decision',
+      'estado',
+      'canceladoPor',
+      'canceladoPorEmail',
+      'canceladoAt',
+      'motivoCancelacion',
+      'creado',
+    ]
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
-        [r.razonSocialNombre, decisionLabel(r.decision), rmEstadoDisplay('actas', r), r.createdAt]
+        [
+          r.razonSocialNombre,
+          decisionLabel(r.decision),
+          rmEstadoDisplay('actas', r),
+          r.canceladoPorNombre,
+          r.canceladoPorEmail,
+          r.canceladoAt,
+          r.motivoCancelacion,
+          r.createdAt,
+        ]
           .map((c) => csvEscape(c))
           .join(','),
       )
@@ -698,6 +798,7 @@ export function InventoryPage() {
                       <th>Vehículo (RM)</th>
                       <th>OC / Guía</th>
                       <th>Estado</th>
+                      <th>Cancelación</th>
                       <th>Líneas</th>
                     </tr>
                   </thead>
@@ -716,7 +817,10 @@ export function InventoryPage() {
                         <td className="small">
                           {esc(r.ocNumero)} / {esc(r.guiaNumero)}
                         </td>
-                        <td className="small">{esc(r.recepcionEstado)}</td>
+                        <td className="small">{rmEstadoDisplay('entradas', r)}</td>
+                        <td className="small">
+                          <RmCancelListCell record={r} />
+                        </td>
                         <td>{r.lineas ?? '—'}</td>
                       </tr>
                     ))}
@@ -733,6 +837,7 @@ export function InventoryPage() {
                       <th>Hora cab.</th>
                       <th>Vehículo (RM)</th>
                       <th>Estado</th>
+                      <th>Cancelación</th>
                       <th>Líneas</th>
                     </tr>
                   </thead>
@@ -748,7 +853,10 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
-                        <td className="small">{esc(r.recepcionEstado)}</td>
+                        <td className="small">{rmEstadoDisplay('salidas', r)}</td>
+                        <td className="small">
+                          <RmCancelListCell record={r} />
+                        </td>
                         <td>{r.lineas ?? '—'}</td>
                       </tr>
                     ))}
@@ -795,6 +903,7 @@ export function InventoryPage() {
                       <th>Proveedor / razón social</th>
                       <th>Decisión</th>
                       <th>Estado</th>
+                      <th>Cancelación</th>
                       <th>Creado</th>
                     </tr>
                   </thead>
@@ -809,6 +918,9 @@ export function InventoryPage() {
                         <td className="small">{esc(r.razonSocialNombre)}</td>
                         <td className="small">{decisionLabel(r.decision)}</td>
                         <td className="small">{rmEstadoDisplay('actas', r)}</td>
+                        <td className="small">
+                          <RmCancelListCell record={r} />
+                        </td>
                         <td className="small">{formatDateTime(r.createdAt)}</td>
                       </tr>
                     ))}
@@ -894,7 +1006,6 @@ export function InventoryPage() {
                     </span>
                   ) : null}
                 </dd>
-                <RmCancelInfo data={detail.data} />
                 <dt>Chofer validación</dt>
                 <dd className="small">
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
@@ -904,6 +1015,7 @@ export function InventoryPage() {
                 <dt>Observaciones</dt>
                 <dd className="small">{esc(detail.data.observaciones)}</dd>
               </dl>
+              <RmCancelAuditBlock tab="entradas" data={detail.data} />
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos documento
               </p>
@@ -971,7 +1083,6 @@ export function InventoryPage() {
                     </span>
                   ) : null}
                 </dd>
-                <RmCancelInfo data={detail.data} />
                 <dt>Chofer validación</dt>
                 <dd className="small">
                   {detail.data.choferValidacionNombre != null && detail.data.choferValidacionNombre !== ''
@@ -985,6 +1096,7 @@ export function InventoryPage() {
                 <dt>Observaciones</dt>
                 <dd className="small">{esc(detail.data.observaciones)}</dd>
               </dl>
+              <RmCancelAuditBlock tab="salidas" data={detail.data} />
               <p className="small" style={{ marginTop: '0.75rem' }}>
                 Fotos cabecera
               </p>
@@ -1075,7 +1187,6 @@ export function InventoryPage() {
                 <dd>{decisionLabel(detail.data.decision)}</dd>
                 <dt>Estado</dt>
                 <dd className="small">{rmEstadoDisplay('actas', detail.data)}</dd>
-                <RmCancelInfo data={detail.data} />
                 <dt>Cant. conforme (parcial)</dt>
                 <dd>{detail.data.cantidadConformeUnidades ?? '—'}</dd>
                 <dt>Obs. decisión</dt>
@@ -1085,6 +1196,7 @@ export function InventoryPage() {
                 <dt>Creado</dt>
                 <dd className="small">{formatDateTime(detail.data.createdAt)}</dd>
               </dl>
+              <RmCancelAuditBlock tab="actas" data={detail.data} />
               <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
                 Tipos de no conformidad
               </h3>
