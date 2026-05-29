@@ -4,10 +4,18 @@
  */
 import {
   ROLE_ADMIN,
+  ROLE_ADMINISTRADOR,
   ROLE_ADMIN_PRODUCCION,
+  ROLE_CALIDAD,
   ROLE_DESPACHO,
+  ROLE_GERENCIA,
+  ROLE_LOGISTICA,
   ROLE_MASTER,
+  ROLE_PROCESOS,
   ROLE_PRODUCCION,
+  ROLE_SEGURIDAD,
+  ROLE_SISTEMAS,
+  ROLE_VENTAS,
 } from '../auth/roles'
 import { FEATURE } from './permissionCatalog'
 
@@ -16,6 +24,7 @@ export const ACTION = {
   CREATE: 'create',
   UPDATE: 'update',
   DELETE: 'delete',
+  CANCEL: 'cancel',
   SCAN: 'scan',
   CLOSE: 'close',
   PRINT: 'print',
@@ -23,74 +32,102 @@ export const ACTION = {
   MANAGE: 'manage',
 }
 
+const readCreate = [ACTION.VIEW, ACTION.CREATE]
+const adminOps = [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.CANCEL, ACTION.PRINT]
+const auditView = [ACTION.VIEW, ACTION.AUDIT]
 const allActions = [
   ACTION.VIEW,
   ACTION.CREATE,
   ACTION.UPDATE,
   ACTION.DELETE,
+  ACTION.CANCEL,
   ACTION.SCAN,
   ACTION.CLOSE,
   ACTION.PRINT,
   ACTION.AUDIT,
 ]
 
-// Matriz editable: para mostrar/ocultar botones, agrega o quita acciones por rol.
-// Ejemplo: si PRODUCCION no debe cerrar pales, elimina `ACTION.CLOSE` de FEATURE.PALES_OPERACIONES.
+function rules(actions, ...subjects) {
+  return subjects.flatMap((subject) => [{ action: actions, subject }])
+}
+
+const OPS_FEATURES = [
+  FEATURE.BIESSE_ORDERS,
+  FEATURE.BIESSE_SCAN,
+  FEATURE.BIESSE_STICKERS,
+  FEATURE.BIESSE_TOOLS,
+  FEATURE.PALES_LIST,
+  FEATURE.PALES_OPERACIONES,
+  FEATURE.PALES_PRINT,
+  FEATURE.INVENTORY_GUIAS,
+  FEATURE.INVENTORY_STOCK,
+  FEATURE.INVENTORY_RM,
+  FEATURE.TRANSPORT_LOADS,
+  FEATURE.TRANSPORT_VEHICLES,
+  FEATURE.PROJECT_LIST,
+]
+
+const AUDIT_FEATURES = [
+  FEATURE.BIESSE_AUDIT,
+  FEATURE.PALES_AUDIT,
+  FEATURE.TRANSPORT_AUDIT,
+  FEATURE.BIESSE_STICKER_AUDIT,
+]
+
+const READ_CREATE_OPS = rules(readCreate, ...OPS_FEATURES)
+const ADMIN_OPS = rules(adminOps, ...OPS_FEATURES)
+const AUDIT_RULES = rules(auditView, ...AUDIT_FEATURES)
+
+const GESTION_ADMIN = [
+  { action: allActions, subject: FEATURE.EMPLOYEE_ADMIN },
+  { action: allActions, subject: FEATURE.LOCATION_CATALOG },
+  { action: ACTION.VIEW, subject: FEATURE.API_CATALOG },
+  ...rules(allActions, FEATURE.TRANSPORT_VEHICLES),
+]
+
+/** Roles con solo crear y leer en operaciones. */
+const READ_CREATE_ROLE_RULES = [...READ_CREATE_OPS]
+
+/** Gerencia / admin operativo: editar, cancelar, imprimir (sin eliminar). */
+const MANAGER_OPS = [...ADMIN_OPS]
+
 export const ROLE_PERMISSIONS = {
-  [ROLE_MASTER]: [
+  [ROLE_MASTER]: [{ action: ACTION.MANAGE, subject: 'all' }, { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN }],
+
+  [ROLE_SISTEMAS]: [
     { action: ACTION.MANAGE, subject: 'all' },
     { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    ...GESTION_ADMIN,
+    ...AUDIT_RULES,
+    ...rules(allActions, ...OPS_FEATURES),
   ],
+
   [ROLE_ADMIN]: [
-    { action: ACTION.MANAGE, subject: 'all' },
     { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    ...GESTION_ADMIN,
+    ...AUDIT_RULES,
+    ...MANAGER_OPS,
   ],
 
-  [ROLE_ADMIN_PRODUCCION]: [
-    { action: ACTION.VIEW, subject: FEATURE.API_CATALOG },
-    { action: [ACTION.VIEW, ACTION.SCAN, ACTION.UPDATE], subject: FEATURE.BIESSE_ORDERS },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.BIESSE_AUDIT },
-    { action: allActions, subject: FEATURE.BIESSE_SCAN },
-    { action: [ACTION.VIEW, ACTION.PRINT, ACTION.CREATE], subject: FEATURE.BIESSE_STICKERS },
-    { action: [ACTION.VIEW, ACTION.SCAN, ACTION.UPDATE, ACTION.PRINT], subject: FEATURE.BIESSE_TOOLS },
-    { action: allActions, subject: FEATURE.LOCATION_CATALOG },
-    { action: ACTION.VIEW, subject: FEATURE.PALES_LIST },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.SCAN, ACTION.CLOSE, ACTION.UPDATE, ACTION.DELETE], subject: FEATURE.PALES_OPERACIONES },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.PALES_AUDIT },
-    { action: ACTION.PRINT, subject: FEATURE.PALES_PRINT },
-    { action: allActions, subject: FEATURE.TRANSPORT_LOADS },
-    { action: allActions, subject: FEATURE.TRANSPORT_VEHICLES },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.TRANSPORT_AUDIT },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE], subject: FEATURE.INVENTORY_GUIAS },
-    { action: ACTION.VIEW, subject: FEATURE.INVENTORY_STOCK },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE], subject: FEATURE.INVENTORY_RM },
+  [ROLE_ADMINISTRADOR]: [
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    ...GESTION_ADMIN,
+    ...AUDIT_RULES,
+    ...MANAGER_OPS,
   ],
 
-  [ROLE_DESPACHO]: [
-    { action: [ACTION.VIEW, ACTION.UPDATE], subject: FEATURE.BIESSE_ORDERS },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.BIESSE_AUDIT },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE, ACTION.SCAN, ACTION.CLOSE, ACTION.AUDIT], subject: FEATURE.PALES_OPERACIONES },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.PALES_AUDIT },
-    { action: ACTION.VIEW, subject: FEATURE.PALES_LIST },
-    { action: ACTION.PRINT, subject: FEATURE.PALES_PRINT },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE], subject: FEATURE.TRANSPORT_LOADS },
-    { action: ACTION.VIEW, subject: FEATURE.TRANSPORT_VEHICLES },
-    { action: [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE], subject: FEATURE.INVENTORY_GUIAS },
-    { action: ACTION.VIEW, subject: FEATURE.INVENTORY_STOCK },
-    { action: ACTION.VIEW, subject: FEATURE.PROJECT_LIST },
+  [ROLE_GERENCIA]: [...MANAGER_OPS, ...AUDIT_RULES],
 
-  ],
+  [ROLE_SEGURIDAD]: READ_CREATE_ROLE_RULES,
+  [ROLE_PROCESOS]: READ_CREATE_ROLE_RULES,
+  [ROLE_LOGISTICA]: READ_CREATE_ROLE_RULES,
+  [ROLE_CALIDAD]: READ_CREATE_ROLE_RULES,
+  [ROLE_DESPACHO]: READ_CREATE_ROLE_RULES,
+  [ROLE_PRODUCCION]: READ_CREATE_ROLE_RULES,
+  [ROLE_VENTAS]: READ_CREATE_ROLE_RULES,
 
-  [ROLE_PRODUCCION]: [
-    { action: [ACTION.VIEW, ACTION.UPDATE], subject: FEATURE.BIESSE_ORDERS },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.BIESSE_AUDIT },
-    { action: [ACTION.VIEW, ACTION.SCAN, ACTION.UPDATE], subject: FEATURE.BIESSE_SCAN },
-    { action: [ACTION.VIEW, ACTION.SCAN, ACTION.UPDATE], subject: FEATURE.BIESSE_TOOLS },
-    { action: ACTION.VIEW, subject: FEATURE.INVENTORY_STOCK },
-    { action: ACTION.VIEW, subject: FEATURE.PALES_LIST },
-    { action: [ACTION.VIEW, ACTION.UPDATE, ACTION.DELETE], subject: FEATURE.PALES_OPERACIONES },
-    { action: [ACTION.VIEW, ACTION.AUDIT], subject: FEATURE.PALES_AUDIT },
-  ],
+  /** Compatibilidad con roles previos en BD */
+  [ROLE_ADMIN_PRODUCCION]: [...MANAGER_OPS, ...AUDIT_RULES],
 }
 
 export const PUBLIC_AUTHENTICATED_PERMISSIONS = [

@@ -4,6 +4,7 @@ export const FEATURE = {
   BIESSE_STICKERS: 'biesse.stickers',
   BIESSE_TOOLS: 'biesse.tools',
   BIESSE_AUDIT: 'biesse.audit',
+  BIESSE_STICKER_AUDIT: 'biesse.stickerAudit',
   EMPLOYEE_ADMIN: 'employee.admin',
   EMPLOYEE_PROFILE: 'employee.profile',
   EMPLOYEE_AUDIT: 'employee.audit',
@@ -78,6 +79,11 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/audit/entries/{id}'],
       ['GET', '/api'],
     ],
+  },
+  {
+    module: 'module-system',
+    feature: FEATURE.BIESSE_STICKER_AUDIT,
+    endpoints: [['GET', '/api/impresion/sticker']],
   },
   {
     module: 'module-system',

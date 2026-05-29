@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
-import { ACTION } from '../access/rolePermissions'
-import { FEATURE } from '../access/permissionCatalog'
-import { useAppAbility } from '../access/useAppAbility'
+import { canViewResumen, defaultInventoryPath } from '../access/permissions'
 import { useAuth } from '../auth/AuthContext'
 import { ResumenDashboard } from '../components/resumen/ResumenDashboard'
 import { roleDisplayName } from '../utils/adminAccess'
@@ -13,11 +11,8 @@ import { ModulePage } from '../components/module/ModuleChrome.jsx'
 export function ResumenPage() {
   const { role } = useParams()
   const { employee } = useAuth()
-  const ability = useAppAbility()
   const base = `/dashboard/${role ?? 'admin-produccion'}`
-
-  const canViewResumen =
-    ability.can(ACTION.VIEW, FEATURE.DASHBOARD_RESUMEN) || ability.can(ACTION.MANAGE, 'all')
+  const showResumen = canViewResumen(employee)
 
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
@@ -31,7 +26,7 @@ export function ResumenPage() {
   )
 
   useEffect(() => {
-    if (!canViewResumen) return
+    if (!showResumen) return
     let cancelled = false
     ;(async () => {
       setLoading(true)
@@ -56,10 +51,10 @@ export function ResumenPage() {
     return () => {
       cancelled = true
     }
-  }, [canViewResumen])
+  }, [showResumen])
 
-  if (!canViewResumen) {
-    return <Navigate to={`${base}/inventario?area=ordenes`} replace />
+  if (!showResumen) {
+    return <Navigate to={defaultInventoryPath(base, employee)} replace />
   }
 
   return (

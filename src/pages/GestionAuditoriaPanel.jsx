@@ -4,6 +4,7 @@ import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { OrderAuditPanel } from '../components/OrderAuditPanel.jsx'
 import { PaleAuditPanel } from '../components/PaleAuditPanel.jsx'
+import { StickerAuditPanel } from '../components/StickerAuditPanel.jsx'
 import { TransportAuditPanel } from '../components/TransportAuditPanel.jsx'
 import { UnifiedAuditPanel } from '../components/UnifiedAuditPanel.jsx'
 import { ModuleTabs } from '../components/module/ModuleChrome.jsx'
@@ -11,6 +12,7 @@ import { ModuleTabs } from '../components/module/ModuleChrome.jsx'
 const AUDIT_VIEWS = [
   { id: 'todas', label: 'Todas las fuentes', feature: FEATURE.EMPLOYEE_ADMIN },
   { id: 'ordenes', label: 'Órdenes Biesse', feature: FEATURE.BIESSE_AUDIT },
+  { id: 'stickers', label: 'Impresión stickers', feature: FEATURE.BIESSE_STICKER_AUDIT },
   { id: 'pales', label: 'Palés', feature: FEATURE.PALES_AUDIT },
   { id: 'flota', label: 'Flota', feature: FEATURE.TRANSPORT_AUDIT },
 ]
@@ -61,7 +63,7 @@ export function GestionAuditoriaPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Trazabilidad centralizada: órdenes, palés, flota y cambios de sistema.
+        Trazabilidad centralizada: órdenes, stickers, palés, flota y cambios de sistema.
       </p>
       <ModuleTabs
         ariaLabel="Auditoría"
@@ -70,6 +72,7 @@ export function GestionAuditoriaPanel() {
         tabs={allowedViews.map((v) => ({ id: v.id, label: v.label }))}
       />
       {view === 'ordenes' ? <OrderAuditPanel /> : null}
+      {view === 'stickers' ? <StickerAuditPanel /> : null}
       {view === 'pales' ? <PaleAuditPanel /> : null}
       {view === 'flota' ? <TransportAuditPanel /> : null}
       {view === 'todas' ? <UnifiedAuditPanel /> : null}

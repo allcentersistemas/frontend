@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Can } from '../access/AbilityContext'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { FEATURE } from '../access/permissionCatalog'
+import { canViewGestion, defaultInventoryPath } from '../access/permissions'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { AdminToolsPage } from './AdminToolsPage'
@@ -11,27 +11,52 @@ import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
 
-function resolveGestionTab(raw) {
-  if (raw === 'audit') return 'auditoria'
+function resolveGestionTab(raw, allowedIds) {
+  if (raw === 'audit') raw = 'auditoria'
   const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones']
-  if (raw && valid.includes(raw)) {
-    return raw
-  }
-  return 'vehiculos'
+  if (raw && valid.includes(raw) && allowedIds.includes(raw)) return raw
+  return allowedIds[0] ?? 'auditoria'
 }
 
 export function GestionPage() {
-  const { allowedDashboard } = useAuth()
+  const { allowedDashboard, employee } = useAuth()
   const ability = useAppAbility()
   const [searchParams, setSearchParams] = useSearchParams()
   const [vehiculoToEdit, setVehiculoToEdit] = useState(null)
 
-  const section = resolveGestionTab(searchParams.get('tab'))
+  const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'vehiculos', label: 'Vehículos', feature: FEATURE.TRANSPORT_VEHICLES },
+        {
+          id: 'auditoria',
+          label: 'Auditoría',
+          features: [
+            FEATURE.BIESSE_AUDIT,
+            FEATURE.PALES_AUDIT,
+            FEATURE.TRANSPORT_AUDIT,
+            FEATURE.BIESSE_STICKER_AUDIT,
+            FEATURE.EMPLOYEE_ADMIN,
+          ],
+        },
+        { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
+        { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
+        { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
+      ].filter((t) => {
+        if (ability.can('manage', 'all')) return true
+        if (t.features?.length) return t.features.some((f) => ability.can('view', f))
+        return ability.can('view', t.feature)
+      }),
+    [ability],
+  )
+
+  const allowedIds = useMemo(() => tabs.map((t) => t.id), [tabs])
+  const section = resolveGestionTab(searchParams.get('tab'), allowedIds)
   const isAdminPanel = ADMIN_PANELS.has(section)
 
-  const inventarioGuiasHref = allowedDashboard
-    ? `/dashboard/${allowedDashboard}/inventario?area=guias`
-    : '/inventario?area=guias'
+  const inventarioGuiasHref = `${base}/inventario?area=guias`
 
   const selectSection = useCallback(
     (next) => {
@@ -51,13 +76,16 @@ export function GestionPage() {
   )
 
   useEffect(() => {
-    const fromUrl = resolveGestionTab(searchParams.get('tab'))
+    const fromUrl = resolveGestionTab(searchParams.get('tab'), allowedIds)
+    if (fromUrl !== section) {
+      selectSection(fromUrl)
+    }
     const rawVeh = searchParams.get('vehiculo')
     if (rawVeh) {
       const id = Number(rawVeh)
       if (Number.isFinite(id) && id > 0) {
         setVehiculoToEdit(id)
-        if (fromUrl !== 'vehiculos') {
+        if (fromUrl !== 'vehiculos' && allowedIds.includes('vehiculos')) {
           selectSection('vehiculos')
         }
         setSearchParams(
@@ -71,23 +99,11 @@ export function GestionPage() {
         )
       }
     }
-  }, [searchParams, selectSection, setSearchParams])
+  }, [searchParams, selectSection, setSearchParams, allowedIds, section])
 
-  const tabs = [
-    { id: 'vehiculos', label: 'Vehículos', feature: FEATURE.TRANSPORT_VEHICLES },
-    {
-      id: 'auditoria',
-      label: 'Auditoría',
-      features: [FEATURE.BIESSE_AUDIT, FEATURE.PALES_AUDIT, FEATURE.TRANSPORT_AUDIT, FEATURE.EMPLOYEE_ADMIN],
-    },
-    { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
-    { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
-    { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
-  ].filter((t) => {
-    if (ability.can('manage', 'all')) return true
-    if (t.features?.length) return t.features.some((f) => ability.can('view', f))
-    return ability.can('view', t.feature)
-  })
+  if (!canViewGestion(employee)) {
+    return <Navigate to={defaultInventoryPath(base, employee)} replace />
+  }
 
   return (
     <ModulePage>

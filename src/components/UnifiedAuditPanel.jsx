@@ -38,6 +38,20 @@ export function normalizeAuditRows(source, payload) {
       details: a.details,
     }))
   }
+  if (source === 'stickers') {
+    const rows = Array.isArray(payload) ? payload : []
+    return rows.map((a) => ({
+      raw: a,
+      source: 'stickers',
+      id: a.id,
+      occurredAt: a.printedAt ?? a.fechaImpresion ?? a.createdAt,
+      action: 'IMPRIMIR_STICKER',
+      entityType: 'Orden/Biesse',
+      entityId: a.orderId ?? a.orderid,
+      actorEmail: a.printedByEmail ?? a.actorEmail ?? null,
+      details: a.notes ?? a.observaciones ?? a.details ?? null,
+    }))
+  }
   return (Array.isArray(payload) ? payload : []).map((a) => ({
     raw: a,
     source: 'biesse',
@@ -83,6 +97,9 @@ export function UnifiedAuditPanel() {
         }
         if (auditSource === 'all' || auditSource === 'biesse') {
           requests.push(biesseApi.listBiesseAudit({ limit: 30, offset: auditPage * 30 }).then((data) => ['biesse', data]))
+        }
+        if (auditSource === 'all' || auditSource === 'stickers') {
+          requests.push(systemApi.listStickerPrints({ limit: 30 }).then((data) => ['stickers', data]))
         }
         const settled = await Promise.allSettled(requests)
         const rows = settled
@@ -130,7 +147,7 @@ export function UnifiedAuditPanel() {
     <div className="card card--table pad">
       {err ? <p className="form-error pad">{err}</p> : null}
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Eventos de empleados/roles, flota y trazabilidad Biesse en una sola vista.
+        Eventos de empleados/roles, flota, stickers y trazabilidad Biesse en una sola vista.
       </p>
       <div className="toolbar--wrap" style={{ marginBottom: '1rem' }}>
         <label className="field">
@@ -147,6 +164,7 @@ export function UnifiedAuditPanel() {
             <option value="employee">Gestión / empleados</option>
             <option value="transport">Gestión / flota</option>
             <option value="biesse">Biesse / órdenes</option>
+            <option value="stickers">Impresión stickers</option>
           </select>
         </label>
         <label className="field">

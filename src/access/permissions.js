@@ -1,4 +1,4 @@
-import { dashboardPath } from '../auth/roles'
+import { canViewGestionMenu, canViewResumenMenu, dashboardPath, roleNamesFromEmployee } from '../auth/roles'
 import { buildAbilityFor } from './ability'
 import { FEATURE } from './permissionCatalog'
 import { ACTION } from './rolePermissions'
@@ -15,7 +15,11 @@ export function canAccessFeature(employee, feature, action = ACTION.VIEW) {
 }
 
 export function canViewResumen(employee) {
-  return canAccessFeature(employee, FEATURE.DASHBOARD_RESUMEN, ACTION.VIEW)
+  return canViewResumenMenu(roleNamesFromEmployee(employee))
+}
+
+export function canViewGestion(employee) {
+  return canViewGestionMenu(roleNamesFromEmployee(employee))
 }
 
 export function canManageEmployees(employee) {
@@ -33,7 +37,8 @@ export function canViewInventoryHub(employee) {
   )
 }
 
-function defaultInventoryPath(base, employee) {
+export function defaultInventoryPath(base, employee) {
+  if (canAccessFeature(employee, FEATURE.INVENTORY_RM)) return `${base}/inventario?area=rm`
   if (canAccessFeature(employee, FEATURE.BIESSE_ORDERS)) return `${base}/inventario?area=ordenes`
   if (canAccessFeature(employee, FEATURE.PALES_LIST)) return `${base}/inventario?area=pales`
   if (canAccessFeature(employee, FEATURE.INVENTORY_GUIAS)) return `${base}/inventario?area=guias`

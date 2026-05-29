@@ -221,7 +221,7 @@ export function AuthProvider({ children }) {
       saveAuthTokens(null)
       setEmployee(null)
       throw new Error(
-        'Tu cuenta no tiene un rol permitido (Master, Administración, Admin producción, Despacho o Producción). Contacta al administrador.',
+        'Tu cuenta no tiene un rol permitido en el portal. Contacta al administrador de sistemas.',
       )
     }
     return defaultDashboardPath(dash, session.employee)

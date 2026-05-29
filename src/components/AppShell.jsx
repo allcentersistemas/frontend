@@ -14,7 +14,7 @@ export function AppShell({ role }) {
   const { employee, logout } = useAuth()
   const ability = useAppAbility()
   const [menuOpen, setMenuOpen] = useState(false)
-  const sections = sidebarSectionsForDashboard(role, ability).filter((section) => section.items.length > 0)
+  const sections = sidebarSectionsForDashboard(role, ability, employee).filter((section) => section.items.length > 0)
 
   const displayName =
     [employee?.firstName, employee?.lastName].filter(Boolean).join(' ') ||

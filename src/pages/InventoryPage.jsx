@@ -350,11 +350,7 @@ export function InventoryPage() {
       setSearchParams(
         (prev) => {
           const p = new URLSearchParams(prev)
-          if (next === 'rm') {
-            p.delete('area')
-          } else {
-            p.set('area', next)
-          }
+          p.set('area', next)
           if (next !== 'pales') {
             p.delete('id')
             p.delete('mode')
@@ -1234,7 +1230,7 @@ export function InventoryPage() {
             }}
           >
             <CanButton
-              I={ACTION.UPDATE}
+              I={ACTION.CANCEL}
               a={FEATURE.INVENTORY_RM}
               type="button"
               className="btn"
@@ -1294,7 +1290,7 @@ export function InventoryPage() {
                 Volver
               </button>
               <CanButton
-                I={ACTION.UPDATE}
+                I={ACTION.CANCEL}
                 a={FEATURE.INVENTORY_RM}
                 type="button"
                 className="btn btn--primary"

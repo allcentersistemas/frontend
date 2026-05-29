@@ -2,10 +2,18 @@ import { FEATURE } from './permissionCatalog'
 import { ACTION } from './rolePermissions'
 import {
   ROLE_ADMIN,
+  ROLE_ADMINISTRADOR,
   ROLE_ADMIN_PRODUCCION,
+  ROLE_CALIDAD,
   ROLE_DESPACHO,
+  ROLE_GERENCIA,
+  ROLE_LOGISTICA,
   ROLE_MASTER,
+  ROLE_PROCESOS,
   ROLE_PRODUCCION,
+  ROLE_SEGURIDAD,
+  ROLE_SISTEMAS,
+  ROLE_VENTAS,
 } from '../auth/roles'
 
 /**
@@ -18,7 +26,7 @@ export const PORTAL_ACCESS_MODULES = [
     label: 'Resumen ejecutivo',
     description: 'Panel KPI (solo administración)',
     features: [FEATURE.DASHBOARD_RESUMEN],
-    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN],
+    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS],
   },
   {
     id: 'ordenes',
@@ -53,7 +61,7 @@ export const PORTAL_ACCESS_MODULES = [
     label: 'Inventario · Recepción mercadería (RM)',
     description: 'Entradas, salidas y actas',
     features: [FEATURE.INVENTORY_RM],
-    suggestedRoles: [ROLE_ADMIN_PRODUCCION],
+    suggestedRoles: [ROLE_SEGURIDAD, ROLE_ADMIN_PRODUCCION, ROLE_SISTEMAS, ROLE_ADMIN],
   },
   {
     id: 'gestion_flota',
@@ -66,8 +74,8 @@ export const PORTAL_ACCESS_MODULES = [
     id: 'gestion_admin',
     label: 'Gestión · Empleados, roles y auditoría',
     description: 'Alta de usuarios, roles y auditoría centralizada',
-    features: [FEATURE.EMPLOYEE_ADMIN, FEATURE.BIESSE_AUDIT, FEATURE.PALES_AUDIT, FEATURE.TRANSPORT_AUDIT],
-    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMIN_PRODUCCION],
+    features: [FEATURE.EMPLOYEE_ADMIN, FEATURE.BIESSE_AUDIT, FEATURE.PALES_AUDIT, FEATURE.TRANSPORT_AUDIT, FEATURE.BIESSE_STICKER_AUDIT],
+    suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS],
   },
   {
     id: 'proyectos',
@@ -102,6 +110,62 @@ export const ACCESS_TEMPLATES = [
     roleNames: [ROLE_DESPACHO],
   },
   {
+    id: 'sistemas',
+    label: 'Sistemas',
+    description: 'Control total, resumen y gestión',
+    moduleIds: PORTAL_ACCESS_MODULES.map((m) => m.id),
+    roleNames: [ROLE_SISTEMAS],
+  },
+  {
+    id: 'administrador',
+    label: 'Administrador',
+    description: 'Resumen, gestión y operación con editar/cancelar/imprimir',
+    moduleIds: PORTAL_ACCESS_MODULES.map((m) => m.id),
+    roleNames: [ROLE_ADMIN, ROLE_ADMINISTRADOR],
+  },
+  {
+    id: 'gerencia',
+    label: 'Gerencia',
+    description: 'Operación con editar/cancelar/imprimir (sin gestión de usuarios)',
+    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'rm', 'proyectos'],
+    roleNames: [ROLE_GERENCIA],
+  },
+  {
+    id: 'seguridad',
+    label: 'Seguridad',
+    description: 'Recepción mercadería (crear/leer)',
+    moduleIds: ['rm'],
+    roleNames: [ROLE_SEGURIDAD],
+  },
+  {
+    id: 'logistica',
+    label: 'Logística',
+    description: 'Guías, stock y palés (crear/leer)',
+    moduleIds: ['pales', 'guias', 'stock'],
+    roleNames: [ROLE_LOGISTICA],
+  },
+  {
+    id: 'procesos',
+    label: 'Procesos',
+    description: 'Consulta operativa (crear/leer)',
+    moduleIds: ['ordenes', 'pales', 'stock'],
+    roleNames: [ROLE_PROCESOS],
+  },
+  {
+    id: 'calidad',
+    label: 'Calidad',
+    description: 'Consulta operativa (crear/leer)',
+    moduleIds: ['ordenes', 'stock', 'rm'],
+    roleNames: [ROLE_CALIDAD],
+  },
+  {
+    id: 'ventas',
+    label: 'Ventas',
+    description: 'Consulta operativa (crear/leer)',
+    moduleIds: ['ordenes', 'proyectos'],
+    roleNames: [ROLE_VENTAS],
+  },
+  {
     id: 'admin_prod',
     label: 'Admin producción',
     description: 'Operación completa sin gestión de usuarios',
@@ -124,7 +188,7 @@ export const ACCESS_TEMPLATES = [
   },
 ]
 
-const ADMIN_ROLE_NAMES = new Set([ROLE_MASTER, ROLE_ADMIN])
+const ADMIN_ROLE_NAMES = new Set([ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS])
 
 export function isAdminRoleName(name) {
   return ADMIN_ROLE_NAMES.has(String(name ?? '').trim().toUpperCase().replace(/-/g, '_'))
@@ -143,7 +207,7 @@ export function roleNamesForModules(moduleIds) {
 /** Módulos que cubren los roles seleccionados (aproximado) */
 export function moduleIdsForRoleNames(roleNames) {
   const names = new Set(roleNames.map((n) => String(n).trim().toUpperCase().replace(/-/g, '_')))
-  if (names.has(ROLE_MASTER) || names.has(ROLE_ADMIN)) {
+  if (names.has(ROLE_MASTER) || names.has(ROLE_ADMIN) || names.has(ROLE_ADMINISTRADOR) || names.has(ROLE_SISTEMAS)) {
     return PORTAL_ACCESS_MODULES.map((m) => m.id)
   }
   const ids = []
@@ -163,6 +227,7 @@ export const ACTION_LABELS = {
   [ACTION.VIEW]: 'Ver',
   [ACTION.CREATE]: 'Crear',
   [ACTION.UPDATE]: 'Editar',
+  [ACTION.CANCEL]: 'Cancelar',
   [ACTION.DELETE]: 'Eliminar',
   [ACTION.SCAN]: 'Escanear',
   [ACTION.CLOSE]: 'Cerrar',
