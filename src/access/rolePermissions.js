@@ -32,7 +32,7 @@ export const ACTION = {
   MANAGE: 'manage',
 }
 
-const readCreate = [ACTION.VIEW, ACTION.CREATE]
+const readCreate = [ACTION.VIEW, ACTION.CREATE, ACTION.CLOSE]
 const adminOps = [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.CANCEL, ACTION.PRINT]
 const auditView = [ACTION.VIEW, ACTION.AUDIT]
 const allActions = [
