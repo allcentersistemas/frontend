@@ -92,6 +92,7 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/pallets/by-code/{code}'],
       ['POST', '/api/pallets/{id}/scan-piece'],
       ['POST', '/api/pallets/{id}/close'],
+      ['POST', '/api/pallets/{id}/cancel'],
       ['GET', '/api/pallets/audit'],
     ],
   },
