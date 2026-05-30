@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import * as biesseApi from '../api/biesseApi'
+import { normalizeStickerPrintRow } from '../utils/stickerAudit.js'
 
 function auditMatches(row, text) {
   const needle = text.trim().toLowerCase()
@@ -40,17 +41,20 @@ export function normalizeAuditRows(source, payload) {
   }
   if (source === 'stickers') {
     const rows = Array.isArray(payload) ? payload : []
-    return rows.map((a) => ({
-      raw: a,
-      source: 'stickers',
-      id: a.id,
-      occurredAt: a.printedAt ?? a.fechaImpresion ?? a.createdAt,
-      action: 'IMPRIMIR_STICKER',
-      entityType: 'Orden/Biesse',
-      entityId: a.orderId ?? a.orderid,
-      actorEmail: a.printedByEmail ?? a.actorEmail ?? null,
-      details: a.notes ?? a.observaciones ?? a.details ?? null,
-    }))
+    return rows
+      .map(normalizeStickerPrintRow)
+      .filter(Boolean)
+      .map((a) => ({
+        raw: a.raw,
+        source: 'stickers',
+        id: a.id,
+        occurredAt: a.fecha,
+        action: 'IMPRIMIR_STICKER',
+        entityType: 'Orden/Biesse',
+        entityId: a.orderId,
+        actorEmail: a.usuarioEmail,
+        details: a.detalle,
+      }))
   }
   return (Array.isArray(payload) ? payload : []).map((a) => ({
     raw: a,

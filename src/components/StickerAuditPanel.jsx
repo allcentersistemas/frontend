@@ -3,6 +3,7 @@ import * as systemApi from '../api/systemApi'
 import { CanButton } from './CanButton.jsx'
 import { ACTION } from '../access/rolePermissions'
 import { FEATURE } from '../access/permissionCatalog'
+import { normalizeStickerPrintRow } from '../utils/stickerAudit.js'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -24,7 +25,10 @@ export function StickerAuditPanel() {
       const trimmed = orderId.trim()
       if (trimmed) params.orderId = Number(trimmed)
       const list = await systemApi.listStickerPrints(params)
-      setRows(Array.isArray(list) ? list : [])
+      const normalized = (Array.isArray(list) ? list : [])
+        .map(normalizeStickerPrintRow)
+        .filter(Boolean)
+      setRows(normalized)
     } catch (e) {
       setRows([])
       setErr(e instanceof Error ? e.message : 'No se pudo cargar impresiones de stickers')
@@ -68,20 +72,20 @@ export function StickerAuditPanel() {
                 <th>Fecha</th>
                 <th>Orden</th>
                 <th>Parte</th>
-                <th>Piezas</th>
+                <th>Etiquetas</th>
                 <th>Impreso por</th>
                 <th>Detalle</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id ?? `${r.orderId}-${r.printedAt}-${r.partId}`}>
-                  <td className="small">{formatDateTime(r.printedAt ?? r.fechaImpresion ?? r.createdAt)}</td>
-                  <td>{r.orderId ?? r.orderid ?? '—'}</td>
-                  <td>{r.partId ?? r.partid ?? r.partCode ?? '—'}</td>
-                  <td>{r.pieceCount ?? r.cantidadPiezas ?? r.quantity ?? '—'}</td>
-                  <td className="small">{r.printedByEmail ?? r.actorEmail ?? r.usuario ?? '—'}</td>
-                  <td className="small">{r.notes ?? r.observaciones ?? r.details ?? '—'}</td>
+                <tr key={r.id ?? `${r.orderId}-${r.fecha}`}>
+                  <td className="small">{formatDateTime(r.fecha)}</td>
+                  <td>{r.orderId ?? '—'}</td>
+                  <td>{r.partLabel}</td>
+                  <td>{r.cantidadEtiquetas ?? '—'}</td>
+                  <td className="small">{r.usuarioEmail ?? '—'}</td>
+                  <td className="small">{r.detalle}</td>
                 </tr>
               ))}
             </tbody>
