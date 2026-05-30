@@ -6,10 +6,10 @@
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -79,10 +79,10 @@ export async function printBiessePartSticker({ order, part, piece }) {
     const QRCode = (await import('qrcode')).default
     const dataUrl = await QRCode.toDataURL(scanCode, {
       errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 180,
+      margin: 0,
+      width: 100,  // Reducido para etiqueta 2"x3"
     })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" width="140" height="140" alt="" /></div>`
+    qrBlock = `<div class="qr"><img src="${dataUrl}" width="90" height="90" alt="" /></div>`
   } catch {
     qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
@@ -105,71 +105,200 @@ export async function printBiessePartSticker({ order, part, piece }) {
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page { size: 200mm 74mm; margin: 0; }
-    * { box-sizing: border-box; }
+    @page { 
+      size: 2in 3in;
+      margin: 0;
+    }
+    * { 
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       margin: 0;
-      padding: 3mm 4mm;
+      padding: 0;
       font-family: Arial, Helvetica, sans-serif;
       color: #000;
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      width: 100%;
+      height: 100%;
     }
-    .sticker { padding-left: 5mm; width: 150mm; min-height: 68mm; display: flex; flex-direction: column; }
-    .head { position: relative; padding-bottom: 2mm; border-bottom: 1px solid #000; margin-bottom: 2mm; }
-    .head__title { font-size: 10pt; font-weight: 700; letter-spacing: 0.02em; line-height: 1.15; margin: 0; padding: 0; max-width: 110mm; }
-    .head__sub { font-size: 8pt; margin-top: 1mm; color: #222; font-weight: 600; }
-    .body { display: flex; flex: 1; gap: 3mm; align-items: flex-start; }
-    .col-left { flex: 1; min-width: 0; font-size: 8pt; }
-    .mat { font-weight: 700; margin-bottom: 1mm; font-size: 9pt; }
-    .desc1 { font-weight: 500; margin-bottom: 1mm; font-size: 8.5pt; color: #222; }
-    .ref { font-size: 9pt; margin-bottom: 5mm; }
-    .diagram-wrap { position: relative; margin: 5mm 16mm 6mm 16mm; }
-    .edge { position: absolute; font-size: 7pt; font-weight: 700; text-align: center; }
-    .edge--top { font-size: 9pt; top: -5mm; left: 0; right: 0; }
-    .edge--bottom { font-size: 9pt; bottom: -5mm; left: 0; right: 0; }
+    .sticker { 
+      width: 100%;
+      height: 100%;
+      padding: 1.5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .head { 
+      padding-bottom: 1mm; 
+      border-bottom: 0.5px solid #000; 
+      margin-bottom: 1mm; 
+    }
+    .head__title { 
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .head__sub { 
+      font-size: 6pt;
+      margin-top: 0.5mm;
+      color: #222;
+      font-weight: 600;
+    }
+    .body { 
+      display: flex;
+      flex: 1;
+      gap: 1.5mm;
+      align-items: flex-start;
+      min-height: 0;
+    }
+    .col-left { 
+      flex: 1;
+      min-width: 0;
+      font-size: 7pt;
+    }
+    .mat { 
+      font-weight: 700;
+      margin-bottom: 0.5mm;
+      font-size: 7pt;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .desc1 { 
+      font-weight: 500;
+      margin-bottom: 0.5mm;
+      font-size: 6.5pt;
+      color: #222;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ref { 
+      font-size: 7pt;
+      margin-bottom: 2mm;
+    }
+    .diagram-wrap { 
+      position: relative;
+      margin: 2mm 10mm 2mm 10mm;
+    }
+    .edge { 
+      position: absolute;
+      font-size: 6pt;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .edge--top { 
+      font-size: 7pt;
+      top: -3.5mm;
+      left: 0;
+      right: 0;
+    }
+    .edge--bottom { 
+      font-size: 7pt;
+      bottom: -3.5mm;
+      left: 0;
+      right: 0;
+    }
     .edge--right {
-      font-size: 9pt;
-      right: -22mm; top: 50%;
+      font-size: 7pt;
+      right: -15mm;
+      top: 50%;
       transform: translateY(-50%) rotate(90deg);
       transform-origin: center center;
-      width: 40mm;
+      width: 25mm;
     }
     .edge--left {
-      font-size: 9pt;
-      left: -22mm; top: 50%;
+      font-size: 7pt;
+      left: -15mm;
+      top: 50%;
       transform: translateY(-50%) rotate(-90deg);
       transform-origin: center center;
-      width: 40mm;
+      width: 25mm;
     }
     .diagram {
-      border: 3px solid #000;
-      min-height: 26mm;
-      display: flex; align-items: center; justify-content: center;
-      padding: 3mm 2mm;
+      border: 2px solid #000;
+      min-height: 18mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1mm;
     }
-    .diagram__txt { font-size: 8pt; font-weight: 700; text-align: center; word-break: break-word; }
-    .col-right { width: 40mm; flex-shrink: 0; font-size: 8pt; }
-    .qr { text-align: center; margin-bottom: 2mm; }
-    .qr img { display: inline-block; }
-    .qr--empty { font-size: 6pt; word-break: break-all; border: 1px dashed #999; padding: 2mm; }
-    .dims { font-family: ui-monospace, Consolas, monospace; font-size: 10pt; font-weight: 700; line-height: 1.35; }
-    .frac { margin-top: 1.5mm; font-size: 9pt; font-weight: 700; }
-    .foot { margin-top: auto; padding-top: 2mm; display: flex; justify-content: flex-end; gap: 4mm; font-size: 8pt; font-weight: 700; }
-    @media print { body { padding: 2mm 3mm; } }
+    .diagram__txt { 
+      font-size: 6pt;
+      font-weight: 700;
+      text-align: center;
+      word-break: break-word;
+    }
+    .col-right { 
+      width: 28mm;
+      flex-shrink: 0;
+      font-size: 7pt;
+    }
+    .qr { 
+      text-align: center;
+      margin-bottom: 1mm;
+    }
+    .qr img { 
+      display: inline-block;
+      width: 90px;
+      height: 90px;
+    }
+    .qr--empty { 
+      font-size: 6pt;
+      word-break: break-all;
+      border: 1px dashed #999;
+      padding: 1mm;
+    }
+    .dims { 
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 8pt;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .frac { 
+      margin-top: 1mm;
+      font-size: 7pt;
+      font-weight: 700;
+    }
+    .foot { 
+      margin-top: auto;
+      padding-top: 1mm;
+      display: flex;
+      justify-content: space-between;
+      gap: 2mm;
+      font-size: 6pt;
+      font-weight: 700;
+    }
+    @media print {
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="sticker">
     <header class="head">
-      <h1 class="head__title">${esc(headerTitle)}</h1>
-      ${order?.bookingCode ? `<div class="head__sub">${esc(String())}</div>` : ''}
+      <h1 class="head__title" title="${esc(headerTitle)}">${esc(headerTitle)}</h1>
+      ${order?.bookingCode ? `<div class="head__sub">${esc(String(order.bookingCode))}</div>` : ''}
     </header>
     <div class="body">
       <div class="col-left">
-        <div class="mat">${esc(materialLine(part?.material))}</div>
-        ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
+        <div class="mat" title="${esc(materialLine(part?.material, part?.descripcion))}">${esc(materialLine(part?.material, part?.descripcion))}</div>
+        ${subDesc ? `<div class="desc1" title="${esc(subDesc)}">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
         <div class="diagram-wrap">
           ${upLabel ? `<div class="edge edge--top">${esc(upLabel)}</div>` : ''}
@@ -195,7 +324,11 @@ export async function printBiessePartSticker({ order, part, piece }) {
       </div>
     </div>
   </div>
-  <script>window.onload = function () { window.print(); };</script>
+  <script>
+    window.onload = function () { 
+      window.print(); 
+    };
+  </script>
 </body>
 </html>`
 
