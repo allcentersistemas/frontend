@@ -148,7 +148,8 @@ export async function listStickerPrints(params = {}) {
   if (params.fromDate) q.set('fromDate', String(params.fromDate))
   if (params.toDate) q.set('toDate', String(params.toDate))
   q.set('limit', String(params.limit ?? 100))
-  return systemJson(`/api/impresion/sticker?${q}`)
+  const list = await systemJson(`/api/impresion/sticker?${q}`)
+  return list
 }
 
 export async function listRoles() {
