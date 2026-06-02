@@ -1,6 +1,5 @@
 /**
  * Ventana de impresión: etiqueta de pieza (estilo taller / Biesse scan).
- * Formato físico: 80 mm × 50 mm (Zebra ZD230 y similares).
  * El QR usa el mismo formato que {@code GET /api/biesse/scan/pieces/resolve?code=}.
  */
 
@@ -20,6 +19,7 @@ function roundDim(v) {
   return Math.round(n)
 }
 
+/** MM/DD/YY — fecha de impresión. */
 function formatStickerDate(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date)
   const safe = Number.isNaN(d.getTime()) ? new Date() : d
@@ -41,22 +41,23 @@ function joinNonEmpty(parts, sep = ' ') {
   return parts.map((p) => (p == null ? '' : String(p).trim())).filter((p) => p !== '').join(sep)
 }
 
+/** Material + descripción (línea 1, en negrita). */
 function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-/** Etiqueta física: 8 cm × 5 cm (ancho × alto). */
+/** Etiqueta física: 8 cm × 5 cm */
 const LABEL_W_MM = 80
 const LABEL_H_MM = 50
-const QR_MM = 17
 
+/** Tamaño del rectángulo interior según L×A (mm), dentro del área de diagrama 80×50. */
 function pieceShapeMm(longitud, ancho) {
   const L = roundDim(longitud)
   const A = roundDim(ancho)
-  const maxW = 22
-  const maxH = 11
+  const maxW = 26
+  const maxH = 14
   if (L == null || A == null || L <= 0 || A <= 0) {
-    return { width: 18, height: 9 }
+    return { width: 22, height: 12 }
   }
   const ratio = L / A
   let w
@@ -109,7 +110,11 @@ const PRINT_LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="
 <style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}</style>
 </head><body><p>Generando etiqueta…</p></body></html>`
 
-/** Abrir en el mismo tick del clic (antes de cualquier await). */
+/**
+ * Abre la ventana de impresión en el mismo tick del clic (antes de cualquier await).
+ * Si no se llama aquí, el navegador suele bloquear el popup aunque esté permitido.
+ * @returns {Window|null}
+ */
 export function openStickerPrintWindow() {
   const w = window.open('about:blank', '_blank')
   if (!w) return null
@@ -135,6 +140,7 @@ function writeLabelHtml(win, html) {
   triggerPrint(win)
 }
 
+/** Imprime sin ventana emergente (mismo documento). */
 function printLabelViaIframe(html) {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('title', 'Impresión etiqueta Biesse')
@@ -161,12 +167,13 @@ function printLabelViaIframe(html) {
  * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
  * @param {object} opts.part
  * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
- * @param {Window|null} [opts.printWindow]
+ * @param {Window|null} [opts.printWindow] ventana abierta en el clic (openStickerPrintWindow)
  * @returns {Promise<{ qrCode: string, printedAt: string }>}
  */
 export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
   const orderName = order?.orderName ?? ''
   const partNumber = part?.partNumber ?? part?.partId ?? 0
+  const partCode = String(part?.partCode ?? partNumber ?? '').trim()
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
@@ -177,8 +184,8 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     const QRCode = (await import('qrcode')).default
     const dataUrl = await QRCode.toDataURL(scanCode, {
       errorCorrectionLevel: 'M',
-      margin: 0,
-      width: 120,
+      margin: 1,
+      width: 96,
     })
     qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" /></div>`
   } catch {
@@ -187,14 +194,14 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
 
   const L = roundDim(part?.longitud)
   const A = roundDim(part?.ancho)
+  const shape = pieceShapeMm(L, A)
   const refLine = partNumber != null && partNumber !== '' ? String(partNumber) : '0'
-  const centerLabel = String(part?.descripcion ?? '—').trim()
+  const centerLabel = partCode || refLine || '—'
   const headerTitle = String(orderName).toUpperCase()
-  const booking = order?.bookingCode ? String(order.bookingCode).trim() : ''
+  const booking = String(order?.bookingCode ?? '').trim()
   const subDesc = joinNonEmpty([part?.descripcion1])
   const matLine = materialLine(part?.material, part?.descripcion)
   const pCode = `P${refLine}`
-  const shape = pieceShapeMm(part?.longitud, part?.ancho)
   const upLabel = String(part?.matedgeup ?? '').trim()
   const loLabel = String(part?.matedgelo ?? '').trim()
   const leftLabel = String(part?.matedgel ?? '').trim()
@@ -206,234 +213,256 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
-      size: 3.15in 1.97in landscape;
-      margin: 0;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm; margin: 0; }
+    * { box-sizing: border-box; }
     html, body {
+      margin: 0;
+      padding: 0;
       width: ${LABEL_W_MM}mm;
       height: ${LABEL_H_MM}mm;
-      min-width: ${LABEL_W_MM}mm;
-      min-height: ${LABEL_H_MM}mm;
-      max-width: ${LABEL_W_MM}mm;
-      max-height: ${LABEL_H_MM}mm;
+      background: #fff;
+      color: #000;
       overflow: hidden;
     }
     body {
+      padding: 1.5mm 2mm;
       font-family: Arial, Helvetica, sans-serif;
-      color: #000;
-      background: #fff;
+      font-size: 6pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .label {
-      width: ${LABEL_W_MM}mm;
-      height: ${LABEL_H_MM}mm;
-      padding: 1.2mm 1.5mm;
+    .label-sheet {
+      width: ${LABEL_W_MM - 4}mm;
+      height: ${LABEL_H_MM - 3}mm;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .head {
+      padding-bottom: 0.8mm;
+      border-bottom: 1px solid #000;
+      margin-bottom: 1mm;
       flex-shrink: 0;
-      border-bottom: 0.4pt solid #000;
-      padding-bottom: 0.6mm;
-      margin-bottom: 0.8mm;
     }
     .head__title {
-      font-size: 6.5pt;
+      font-size: 7pt;
       font-weight: 700;
-      line-height: 1.05;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      margin: 0;
+      white-space: nowrap;
       overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     .head__sub {
       font-size: 5.5pt;
+      margin: 0.3mm 0 0;
       font-weight: 600;
-      margin-top: 0.3mm;
-      overflow: hidden;
+      color: #222;
       white-space: nowrap;
+      overflow: hidden;
       text-overflow: ellipsis;
     }
-    .main {
-      flex: 1;
+    .body {
       display: flex;
-      flex-direction: row;
-      flex-wrap: nowrap;
-      align-items: flex-start;
-      gap: 1mm;
-      width: 100%;
+      flex: 1;
+      gap: 1.5mm;
+      align-items: stretch;
       min-height: 0;
     }
-    .main__left {
-      flex: 1 1 auto;
+    .col-left {
+      flex: 1;
       min-width: 0;
-      max-width: 58%;
-    }
-    .main__right {
-      flex: 0 0 30mm;
-      width: 30mm;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
     .mat {
-      font-size: 6pt;
       font-weight: 700;
+      margin-bottom: 0.3mm;
+      font-size: 6.5pt;
       line-height: 1.1;
-      margin-bottom: 0.4mm;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
-      word-break: break-word;
     }
     .desc1 {
+      font-weight: 500;
+      margin-bottom: 0.5mm;
       font-size: 5.5pt;
-      margin-bottom: 0.4mm;
+      color: #222;
+      line-height: 1.1;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
     .ref {
-      font-size: 6.5pt;
+      font-size: 6pt;
       font-weight: 700;
-      margin-bottom: 0.8mm;
+      margin-bottom: 0.5mm;
+      flex-shrink: 0;
     }
-    .diagram-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 7mm) 1fr minmax(0, 7mm);
-      grid-template-rows: auto auto auto;
-      gap: 0.3mm 0.4mm;
-      align-items: center;
-      max-width: 100%;
+    .diagram-wrap {
+      position: relative;
+      flex: 1;
+      margin: 2.5mm 9mm 2mm 9mm;
+      overflow: visible;
+      min-height: 16mm;
     }
     .edge {
-      font-size: 4.5pt;
-      font-weight: 700;
-      line-height: 1.05;
-      overflow: hidden;
-      word-break: break-word;
-    }
-    .edge--empty { visibility: hidden; }
-    .edge--up { grid-column: 1 / -1; text-align: center; max-height: 3.5mm; }
-    .edge--lo { grid-column: 1 / -1; text-align: center; max-height: 3.5mm; }
-    .edge--left { text-align: right; max-width: 7mm; }
-    .edge--right { text-align: left; max-width: 7mm; }
-    .piece-wrap {
-      grid-column: 2;
-      grid-row: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 12mm;
-    }
-    .piece-shape {
-      border: 1.2pt solid #000;
-      width: ${shape.width}mm;
-      height: ${shape.height}mm;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.4mm;
-    }
-    .piece-shape__txt {
-      font-size: 4.5pt;
+      position: absolute;
+      font-size: 5pt;
       font-weight: 700;
       text-align: center;
-      line-height: 1.05;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
+      white-space: nowrap;
+      color: #000;
+      line-height: 1;
     }
-    .qr { margin: 0 auto 0.8mm; line-height: 0; }
+    .edge--top {
+      font-size: 5.5pt;
+      top: -3.5mm;
+      left: 0;
+      right: 0;
+    }
+    .edge--bottom {
+      font-size: 5.5pt;
+      bottom: -3.5mm;
+      left: 0;
+      right: 0;
+    }
+    .edge--right {
+      font-size: 5.5pt;
+      right: -11mm;
+      top: 50%;
+      transform: translateY(-50%) rotate(90deg);
+      transform-origin: center center;
+      width: 22mm;
+    }
+    .edge--left {
+      font-size: 5.5pt;
+      left: -11mm;
+      top: 50%;
+      transform: translateY(-50%) rotate(-90deg);
+      transform-origin: center center;
+      width: 22mm;
+    }
+    .diagram {
+      border: 2px solid #000;
+      height: 100%;
+      min-height: 14mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5mm;
+      background: #fff;
+    }
+    .piece-shape {
+      border: 1.5px solid #000;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: ${shape.width}mm;
+      height: ${shape.height}mm;
+      min-width: 14mm;
+      min-height: 8mm;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .diagram__txt {
+      font-size: 6.5pt;
+      font-weight: 700;
+      text-align: center;
+      word-break: break-word;
+      padding: 0.5mm;
+      line-height: 1.05;
+    }
+    .col-right {
+      width: 20mm;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 6pt;
+    }
+    .qr {
+      text-align: center;
+      margin-bottom: 0.5mm;
+      line-height: 0;
+    }
     .qr img {
-      width: ${QR_MM}mm;
-      height: ${QR_MM}mm;
       display: block;
+      width: 18mm;
+      height: 18mm;
       margin: 0 auto;
     }
     .qr--empty {
-      font-size: 5pt;
+      font-size: 4.5pt;
       word-break: break-all;
-      border: 0.4pt dashed #999;
-      padding: 0.5mm;
+      border: 1px dashed #999;
+      padding: 1mm;
+      width: 18mm;
     }
     .dims {
       font-family: ui-monospace, Consolas, monospace;
-      font-size: 7pt;
+      font-size: 6.5pt;
       font-weight: 700;
-      line-height: 1.15;
-      text-align: left;
-      display: inline-block;
+      line-height: 1.2;
+      width: 100%;
     }
     .frac {
       margin-top: 0.5mm;
-      font-size: 6.5pt;
+      font-size: 6pt;
       font-weight: 700;
+      width: 100%;
+      text-align: center;
     }
     .foot {
-      margin-top: 0.6mm;
+      margin-top: auto;
+      padding-top: 0.5mm;
       display: flex;
-      justify-content: space-between;
-      gap: 1mm;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.2mm;
       font-size: 5.5pt;
       font-weight: 700;
       width: 100%;
     }
     @media print {
-      @page {
-        size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
-        size: 3.15in 1.97in landscape;
-        margin: 0;
-      }
       html, body {
-        width: ${LABEL_W_MM}mm !important;
-        height: ${LABEL_H_MM}mm !important;
+        width: ${LABEL_W_MM}mm;
+        height: ${LABEL_H_MM}mm;
       }
-      .label {
-        width: ${LABEL_W_MM}mm !important;
-        height: ${LABEL_H_MM}mm !important;
-      }
-      .main {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-      }
-      .main__left, .main__right {
-        display: block !important;
-      }
+      body { padding: 1.2mm 1.5mm; }
     }
   </style>
 </head>
 <body>
-  <div class="label">
+  <div class="label-sheet">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
       ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
     </header>
-    <div class="main">
-      <div class="main__left">
+    <div class="body">
+      <div class="col-left">
         <div class="mat">${esc(matLine)}</div>
         ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
-        <div class="diagram-grid">
-          ${upLabel ? `<div class="edge edge--up">${esc(upLabel)}</div>` : '<div class="edge edge--up edge--empty"></div>'}
-          <div class="edge edge--left">${leftLabel ? esc(leftLabel) : ''}</div>
-          <div class="piece-wrap">
+        <div class="diagram-wrap">
+          ${upLabel ? `<div class="edge edge--top">${esc(upLabel)}</div>` : ''}
+          ${loLabel ? `<div class="edge edge--bottom">${esc(loLabel)}</div>` : ''}
+          ${rightLabel ? `<div class="edge edge--right">${esc(rightLabel)}</div>` : ''}
+          ${leftLabel ? `<div class="edge edge--left">${esc(leftLabel)}</div>` : ''}
+          <div class="diagram">
             <div class="piece-shape">
-              <div class="piece-shape__txt">${esc(centerLabel)}</div>
+              <div class="diagram__txt">${esc(centerLabel)}</div>
             </div>
           </div>
-          <div class="edge edge--right">${rightLabel ? esc(rightLabel) : ''}</div>
-          ${loLabel ? `<div class="edge edge--lo">${esc(loLabel)}</div>` : '<div class="edge edge--lo edge--empty"></div>'}
         </div>
       </div>
-      <div class="main__right">
+      <div class="col-right">
         ${qrBlock}
         <div class="dims">
           <div>L: ${L != null ? esc(String(L)) : '—'}</div>
@@ -462,8 +491,9 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     } catch {
       window.alert(
         'No se pudo abrir la impresión.\n\n' +
-          '• Pulsa Imprimir de nuevo (solo funciona en el instante del clic).\n' +
-          '• Zebra ZD230: papel 80×50 mm, orientación Horizontal, escala 100 %, márgenes ninguno.'
+          '• Haz clic en Imprimir de nuevo (el navegador solo permite la ventana justo al pulsar).\n' +
+          '• En Chrome/Edge: icono junto a la URL → permitir ventanas emergentes para este sitio.\n' +
+          '• Impresora Zebra: en el diálogo elige la Zebra, tamaño 80×50 mm y escala 100 %.'
       )
       throw new Error('impresión no disponible')
     }

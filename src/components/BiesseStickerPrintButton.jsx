@@ -124,7 +124,9 @@ export function BiesseStickerPrintButton({ detail }) {
           /* ignore */
         }
       }
-      if (!(e instanceof Error && e.message === 'impresión no disponible')) {
+      if (e instanceof Error && e.message === 'impresión no disponible') {
+        /* mensaje ya mostrado en printBiessePartSticker */
+      } else {
         window.alert(e instanceof Error ? e.message : 'No se pudo generar la etiqueta.')
       }
     } finally {
