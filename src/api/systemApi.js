@@ -443,6 +443,17 @@ export async function listInventoryCategorias() {
   return systemJson('/api/inventory/categorias')
 }
 
+export async function listInventoryFamilias() {
+  return systemJson('/api/inventory/familias')
+}
+
+export async function updateInventoryItemFamilia(itemId, familiaCodigo) {
+  return systemJson(`/api/inventory/items/${itemId}/familia`, {
+    method: 'PATCH',
+    body: JSON.stringify({ familiaCodigo: familiaCodigo ?? '' }),
+  })
+}
+
 export async function listInventoryItems({ page = 0, size = 20, q } = {}) {
   return systemJson(`/api/inventory/items${qs({ page, size, q })}`)
 }
