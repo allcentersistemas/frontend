@@ -3,6 +3,8 @@
  * El QR usa el mismo formato que {@code GET /api/biesse/scan/pieces/resolve?code=}.
  */
 
+import { getStickerPrintSize } from './stickerPrintSize.js'
+
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
@@ -44,10 +46,8 @@ function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-/** Etiqueta Zebra ZD230: 80 mm ancho × 50 mm alto (horizontal). */
 const LABEL_W_MM = 80
 const LABEL_H_MM = 50
-const QR_MM = 16
 
 function pieceShapeMm(longitud, ancho) {
   const L = roundDim(longitud)
@@ -78,11 +78,301 @@ function pieceShapeMm(longitud, ancho) {
   return { width: Math.round(w), height: Math.round(h) }
 }
 
+function pieceShapeStyle(longitud, ancho, printSize) {
+  if (printSize === 'label_80x50') {
+    const s = pieceShapeMm(longitud, ancho)
+    return `width:${s.width}mm;height:${s.height}mm;`
+  }
+  const L = roundDim(longitud)
+  const A = roundDim(ancho)
+  if (L == null || A == null || L <= 0 || A <= 0) {
+    return 'width:72%;height:38%;'
+  }
+  if (L >= A) {
+    return `width:82%;height:auto;aspect-ratio:${L}/${A};max-height:58%;`
+  }
+  return `height:58%;width:auto;aspect-ratio:${L}/${A};max-width:82%;`
+}
+
+function buildStyles() {
+  return `
+    @page { size: auto; margin: 0; }
+    @page fixed-label {
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+      size: 3.15in 1.97in landscape;
+      margin: 0;
+    }
+    @page fill-sheet { size: landscape; margin: 0; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #000;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .sticker {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .print-size--auto .sticker {
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      padding: 1.5%;
+    }
+    .print-size--fill .sticker {
+      page: fill-sheet;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      padding: 2%;
+    }
+    .print-size--label_80x50 .sticker {
+      page: fixed-label;
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      padding: 1mm 1.5mm;
+    }
+
+    .head {
+      flex-shrink: 0;
+      border-bottom: 0.4pt solid #000;
+      padding-bottom: 0.4em;
+      margin-bottom: 0.5em;
+    }
+    .head__title {
+      font-weight: 700;
+      line-height: 1.05;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
+    }
+    .print-size--label_80x50 .head__title { font-size: 6pt; }
+    .print-size--auto .head__title,
+    .print-size--fill .head__title { font-size: clamp(6pt, 2.4vmin, 12pt); }
+
+    .head__sub {
+      font-weight: 600;
+      margin-top: 0.15em;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .print-size--label_80x50 .head__sub { font-size: 5pt; }
+    .print-size--auto .head__sub,
+    .print-size--fill .head__sub { font-size: clamp(5pt, 1.8vmin, 9pt); }
+
+    .body {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 0.8em;
+      min-height: 0;
+    }
+    .col-left {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .mat {
+      font-weight: 700;
+      line-height: 1.05;
+      margin-bottom: 0.25em;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
+    }
+    .print-size--label_80x50 .mat { font-size: 5.5pt; }
+    .print-size--auto .mat,
+    .print-size--fill .mat { font-size: clamp(5.5pt, 2vmin, 10pt); }
+
+    .desc1 {
+      margin-bottom: 0.25em;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .print-size--label_80x50 .desc1 { font-size: 5pt; }
+    .print-size--auto .desc1,
+    .print-size--fill .desc1 { font-size: clamp(5pt, 1.7vmin, 9pt); }
+
+    .ref {
+      font-weight: 700;
+      margin-bottom: 0.4em;
+    }
+    .print-size--label_80x50 .ref { font-size: 6pt; }
+    .print-size--auto .ref,
+    .print-size--fill .ref { font-size: clamp(6pt, 2.2vmin, 11pt); }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 0.2em 0.3em;
+      align-items: center;
+    }
+    .print-size--label_80x50 .diagram-grid {
+      grid-template-columns: 6mm 1fr 6mm;
+    }
+    .print-size--auto .diagram-grid,
+    .print-size--fill .diagram-grid {
+      grid-template-columns: 9% 1fr 9%;
+    }
+
+    .edge {
+      font-weight: 700;
+      line-height: 1;
+      overflow: hidden;
+      word-break: break-word;
+      text-align: center;
+    }
+    .print-size--label_80x50 .edge { font-size: 4pt; }
+    .print-size--auto .edge,
+    .print-size--fill .edge { font-size: clamp(4pt, 1.5vmin, 8pt); }
+
+    .edge--up { grid-column: 1 / -1; }
+    .edge--lo { grid-column: 1 / -1; }
+    .edge--left { text-align: right; }
+    .edge--right { text-align: left; }
+
+    .piece-wrap {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .print-size--label_80x50 .piece-wrap { min-height: 10mm; }
+    .print-size--auto .piece-wrap,
+    .print-size--fill .piece-wrap { min-height: 18%; }
+
+    .piece-shape {
+      border: 1pt solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3mm;
+    }
+    .piece-shape__txt {
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.05;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
+    }
+    .print-size--label_80x50 .piece-shape__txt { font-size: 4pt; }
+    .print-size--auto .piece-shape__txt,
+    .print-size--fill .piece-shape__txt { font-size: clamp(4pt, 1.6vmin, 9pt); }
+
+    .col-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .print-size--label_80x50 .col-right {
+      flex: 0 0 22mm;
+      width: 22mm;
+      font-size: 5.5pt;
+    }
+    .print-size--auto .col-right,
+    .print-size--fill .col-right {
+      flex: 0 0 30%;
+      width: 30%;
+      font-size: clamp(5.5pt, 2vmin, 10pt);
+    }
+
+    .qr { line-height: 0; margin-bottom: 0.4em; width: 100%; text-align: center; }
+    .print-size--label_80x50 .qr img {
+      width: 16mm;
+      height: 16mm;
+      display: inline-block;
+    }
+    .print-size--auto .qr img,
+    .print-size--fill .qr img {
+      width: 88%;
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+      object-fit: contain;
+      display: inline-block;
+    }
+    .qr--empty {
+      word-break: break-all;
+      border: 0.4pt dashed #999;
+      padding: 0.5mm;
+      font-size: 4pt;
+    }
+
+    .dims {
+      font-family: ui-monospace, Consolas, monospace;
+      font-weight: 700;
+      line-height: 1.1;
+      align-self: stretch;
+      padding-left: 0.3em;
+    }
+    .print-size--label_80x50 .dims { font-size: 6.5pt; }
+    .print-size--auto .dims,
+    .print-size--fill .dims { font-size: clamp(6.5pt, 2.4vmin, 12pt); }
+
+    .frac { margin-top: 0.25em; font-weight: 700; }
+    .print-size--label_80x50 .frac { font-size: 6pt; }
+    .print-size--auto .frac,
+    .print-size--fill .frac { font-size: clamp(6pt, 2.2vmin, 11pt); }
+
+    .foot {
+      margin-top: auto;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5em;
+      font-weight: 700;
+      padding-top: 0.25em;
+    }
+    .print-size--label_80x50 .foot { font-size: 5pt; }
+    .print-size--auto .foot,
+    .print-size--fill .foot { font-size: clamp(5pt, 1.8vmin, 9pt); }
+
+    @media print {
+      html, body { width: 100%; height: 100%; }
+      .print-size--auto .sticker,
+      .print-size--fill .sticker {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+      }
+      .print-size--label_80x50 .sticker {
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+      }
+      .body {
+        display: flex !important;
+        flex-direction: row !important;
+      }
+    }
+  `
+}
+
 const LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Etiqueta</title>
 <style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}</style>
 </head><body><p>Generando etiqueta…</p></body></html>`
 
-/** Abrir ventana en el mismo instante del clic (antes de cualquier await). */
 export function openStickerPrintWindow() {
   const w = window.open('about:blank', '_blank')
   if (!w) return null
@@ -155,224 +445,42 @@ function printViaIframe(html) {
   }, 120_000)
 }
 
-function buildStickerHtml({
-  scanCode,
-  headerTitle,
-  bookingCode,
-  matLine,
-  subDesc,
-  refLine,
-  centerLabel,
-  upLabel,
-  loLabel,
-  leftLabel,
-  rightLabel,
-  qrBlock,
-  L,
-  A,
-  numeroPieza,
-  cantidad,
-  pCode,
-  printedAt,
-  shape,
-}) {
+function buildStickerHtml(data) {
+  const {
+    scanCode,
+    headerTitle,
+    bookingCode,
+    matLine,
+    subDesc,
+    refLine,
+    centerLabel,
+    upLabel,
+    loLabel,
+    leftLabel,
+    rightLabel,
+    qrBlock,
+    L,
+    A,
+    numeroPieza,
+    cantidad,
+    pCode,
+    printedAt,
+    printSize,
+    longitud,
+    ancho,
+  } = data
   const booking = bookingCode ? String(bookingCode).trim() : ''
+  const sizeClass = `print-size--${printSize}`
+  const pieceStyle = pieceShapeStyle(longitud, ancho, printSize)
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
-  <style>
-    @page {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
-      size: 3.15in 1.97in landscape;
-      margin: 0;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: ${LABEL_W_MM}mm;
-      height: ${LABEL_H_MM}mm;
-      overflow: hidden;
-    }
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #000;
-      background: #fff;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .sticker {
-      width: ${LABEL_W_MM}mm;
-      height: ${LABEL_H_MM}mm;
-      padding: 1mm 1.5mm;
-      display: flex;
-      flex-direction: column;
-    }
-    .head {
-      flex-shrink: 0;
-      border-bottom: 0.4pt solid #000;
-      padding-bottom: 0.5mm;
-      margin-bottom: 0.6mm;
-    }
-    .head__title {
-      font-size: 6pt;
-      font-weight: 700;
-      line-height: 1.05;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
-    }
-    .head__sub {
-      font-size: 5pt;
-      font-weight: 600;
-      margin-top: 0.2mm;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .body {
-      flex: 1;
-      display: flex;
-      flex-direction: row;
-      flex-wrap: nowrap;
-      align-items: stretch;
-      gap: 1mm;
-      min-height: 0;
-    }
-    .col-left {
-      flex: 1 1 auto;
-      min-width: 0;
-      font-size: 5.5pt;
-    }
-    .mat {
-      font-weight: 700;
-      font-size: 5.5pt;
-      line-height: 1.05;
-      margin-bottom: 0.3mm;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
-    }
-    .desc1 {
-      font-size: 5pt;
-      margin-bottom: 0.3mm;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-    .ref {
-      font-size: 6pt;
-      font-weight: 700;
-      margin-bottom: 0.5mm;
-    }
-    .diagram-grid {
-      display: grid;
-      grid-template-columns: 6mm 1fr 6mm;
-      grid-template-rows: auto 1fr auto;
-      gap: 0.2mm 0.3mm;
-      align-items: center;
-    }
-    .edge {
-      font-size: 4pt;
-      font-weight: 700;
-      line-height: 1;
-      overflow: hidden;
-      word-break: break-word;
-      text-align: center;
-    }
-    .edge--up { grid-column: 1 / -1; max-height: 3mm; }
-    .edge--lo { grid-column: 1 / -1; max-height: 3mm; }
-    .edge--left { text-align: right; }
-    .edge--right { text-align: left; }
-    .piece-wrap {
-      grid-column: 2;
-      grid-row: 2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 10mm;
-    }
-    .piece-shape {
-      border: 1pt solid #000;
-      width: ${shape.width}mm;
-      height: ${shape.height}mm;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.3mm;
-    }
-    .piece-shape__txt {
-      font-size: 4pt;
-      font-weight: 700;
-      text-align: center;
-      line-height: 1.05;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
-    }
-    .col-right {
-      flex: 0 0 22mm;
-      width: 22mm;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 5.5pt;
-    }
-    .qr { line-height: 0; margin-bottom: 0.5mm; }
-    .qr img {
-      width: ${QR_MM}mm;
-      height: ${QR_MM}mm;
-      display: block;
-    }
-    .qr--empty {
-      font-size: 4pt;
-      word-break: break-all;
-      border: 0.4pt dashed #999;
-      padding: 0.5mm;
-    }
-    .dims {
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 6.5pt;
-      font-weight: 700;
-      line-height: 1.1;
-      align-self: stretch;
-      padding-left: 1mm;
-    }
-    .frac { margin-top: 0.3mm; font-size: 6pt; font-weight: 700; }
-    .foot {
-      margin-top: auto;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      gap: 1mm;
-      font-size: 5pt;
-      font-weight: 700;
-      padding-top: 0.3mm;
-    }
-    @media print {
-      @page {
-        size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
-        size: 3.15in 1.97in landscape;
-        margin: 0;
-      }
-      html, body, .sticker {
-        width: ${LABEL_W_MM}mm !important;
-        height: ${LABEL_H_MM}mm !important;
-      }
-      .body {
-        display: flex !important;
-        flex-direction: row !important;
-      }
-    }
-  </style>
+  <style>${buildStyles()}</style>
 </head>
-<body>
+<body class="print-size ${sizeClass}">
   <div class="sticker">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
@@ -387,7 +495,7 @@ function buildStickerHtml({
           ${upLabel ? `<div class="edge edge--up">${esc(upLabel)}</div>` : '<div class="edge edge--up"></div>'}
           <div class="edge edge--left">${leftLabel ? esc(leftLabel) : ''}</div>
           <div class="piece-wrap">
-            <div class="piece-shape">
+            <div class="piece-shape" style="${pieceStyle}">
               <div class="piece-shape__txt">${esc(centerLabel)}</div>
             </div>
           </div>
@@ -418,10 +526,17 @@ function buildStickerHtml({
  * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
  * @param {object} opts.part
  * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
- * @param {Window|null} [opts.printWindow] ventana abierta al hacer clic
+ * @param {Window|null} [opts.printWindow]
+ * @param {'auto'|'fill'|'label_80x50'} [opts.printSize]
  * @returns {Promise<{ qrCode: string, printedAt: string }>}
  */
-export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
+export async function printBiessePartSticker({
+  order,
+  part,
+  piece,
+  printWindow = null,
+  printSize = getStickerPrintSize(),
+}) {
   const orderName = order?.orderName ?? ''
   const partNumber = part?.partNumber ?? part?.partId ?? 0
   const numeroPieza = piece?.numeroPieza ?? 1
@@ -457,11 +572,13 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     qrBlock,
     L: roundDim(part?.longitud),
     A: roundDim(part?.ancho),
+    longitud: part?.longitud,
+    ancho: part?.ancho,
     numeroPieza,
     cantidad,
     pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
     printedAt,
-    shape: pieceShapeMm(part?.longitud, part?.ancho),
+    printSize,
   })
 
   let w = printWindow && !printWindow.closed ? printWindow : null

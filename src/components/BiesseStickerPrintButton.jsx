@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { openStickerPrintWindow, printBiessePartSticker } from '../utils/printBiessePartSticker'
+import {
+  getStickerPrintSize,
+  setStickerPrintSize,
+  STICKER_PRINT_SIZES,
+} from '../utils/stickerPrintSize'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -14,6 +19,7 @@ export function BiesseStickerPrintButton({ detail }) {
   const [partId, setPartId] = useState(null)
   const [numeroPieza, setNumeroPieza] = useState(1)
   const [printing, setPrinting] = useState(false)
+  const [printSize, setPrintSize] = useState(getStickerPrintSize)
 
   const partes = useMemo(() => (Array.isArray(detail?.partes) ? detail.partes : []), [detail])
 
@@ -46,6 +52,10 @@ export function BiesseStickerPrintButton({ detail }) {
     }
   }, [selectedPart, numeroPieza])
 
+  useEffect(() => {
+    if (open) setPrintSize(getStickerPrintSize())
+  }, [open])
+
   async function handlePrint() {
     if (!detail || !selectedPart) return
     const printWindow = openStickerPrintWindow()
@@ -54,6 +64,7 @@ export function BiesseStickerPrintButton({ detail }) {
       const piezaSeleccionada = (selectedPart.piezas ?? []).find((z) => z.numeroPieza === numeroPieza)
       const printResult = await printBiessePartSticker({
         printWindow,
+        printSize,
         order: {
           orderName: detail.orderName,
           bookingCode: detail.bookingCode,
@@ -170,6 +181,27 @@ export function BiesseStickerPrintButton({ detail }) {
                 Elige la parte y el número de pieza. Se abrirá una ventana con la etiqueta lista para imprimir; el
                 código QR coincide con el formato de resolución Biesse (<InlineCode>pieces/resolve</InlineCode>).
               </p>
+              <div>
+                <label className={labelClass}>Tamaño de impresión</label>
+                <select
+                  className={`${inputClass} mt-2 cursor-pointer`}
+                  value={printSize}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setPrintSize(next)
+                    setStickerPrintSize(next)
+                  }}
+                >
+                  {STICKER_PRINT_SIZES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                  {STICKER_PRINT_SIZES.find((s) => s.id === printSize)?.hint}
+                </p>
+              </div>
               <div>
                 <label className={labelClass}>Parte</label>
                 <select
