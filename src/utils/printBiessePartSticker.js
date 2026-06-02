@@ -6,10 +6,10 @@
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -19,7 +19,6 @@ function roundDim(v) {
   return Math.round(n)
 }
 
-/** MM/DD/YY (legacy del taller). Por defecto fecha actual de impresión. */
 function formatStickerDate(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date)
   const safe = Number.isNaN(d.getTime()) ? new Date() : d
@@ -41,65 +40,109 @@ function joinNonEmpty(parts, sep = ' ') {
   return parts.map((p) => (p == null ? '' : String(p).trim())).filter((p) => p !== '').join(sep)
 }
 
-/** Material + descripción (línea 1, en negrita). */
 function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-/**
- * @param {object} opts
- * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
- * @param {{
- *   partCode?: string|null,
- *   partNumber?: number|string,
- *   descripcion?: string|null,
- *   descripcion1?: string|null,
- *   material?: string|null,
- *   matedgeup?: string|null,
- *   matedgelo?: string|null,
- *   matedgel?: string|null,
- *   matedger?: string|null,
- *   longitud?: number|string,
- *   ancho?: number|string,
- *   cantidad?: number|string,
- * }} opts.part
- * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
- * @returns {Promise<{ qrCode: string, printedAt: string }>}
- */
-export async function printBiessePartSticker({ order, part, piece }) {
-  const orderName = order?.orderName ?? ''
-  const partNumber = part?.partNumber ?? part?.partId ?? 0
-  const numeroPieza = piece?.numeroPieza ?? 1
-  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
-  const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
-  const printedAt = new Date()
+const LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Etiqueta</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}</style>
+</head><body><p>Generando etiqueta…</p></body></html>`
 
-  let qrBlock = ''
+/** Abrir ventana en el mismo instante del clic (antes de cualquier await). */
+export function openStickerPrintWindow() {
+  const w = window.open('about:blank', '_blank')
+  if (!w) return null
   try {
-    const QRCode = (await import('qrcode')).default
-    const dataUrl = await QRCode.toDataURL(scanCode, {
-      errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 180,
-    })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" width="140" height="140" alt="" /></div>`
+    w.document.open()
+    w.document.write(LOADING_HTML)
+    w.document.close()
   } catch {
-    qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
+    try {
+      w.close()
+    } catch {
+      /* ignore */
+    }
+    return null
   }
+  return w
+}
 
-  const L = roundDim(part?.longitud)
-  const A = roundDim(part?.ancho)
-  const refLine = partNumber != null && partNumber !== '' ? String(partNumber) : '0'
-  const centerLabel = String(part?.descripcion ?? '—').trim()
-  const headerTitle = String(orderName).toUpperCase()
-  const subDesc = joinNonEmpty([part?.descripcion1])
-  const pCode = `P${refLine}`
-  const upLabel = String(part?.matedgeup ?? '').trim()
-  const loLabel = String(part?.matedgelo ?? '').trim()
-  const leftLabel = String(part?.matedgel ?? '').trim()
-  const rightLabel = String(part?.matedger ?? '').trim()
+function triggerPrint(win) {
+  const run = () => {
+    try {
+      win.focus()
+    } catch {
+      /* ignore */
+    }
+    setTimeout(() => {
+      try {
+        win.print()
+      } catch {
+        /* ignore */
+      }
+    }, 400)
+  }
+  const img = win.document.querySelector('.qr img')
+  if (img && !img.complete) {
+    img.addEventListener('load', run, { once: true })
+    img.addEventListener('error', run, { once: true })
+  } else if (win.document.readyState === 'complete') {
+    run()
+  } else {
+    win.addEventListener('load', run, { once: true })
+  }
+}
 
-  const html = `<!DOCTYPE html>
+function writeAndPrint(win, html) {
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  triggerPrint(win)
+}
+
+function printViaIframe(html) {
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('title', 'Impresión etiqueta')
+  iframe.style.cssText =
+    'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+  document.body.appendChild(iframe)
+  const win = iframe.contentWindow
+  if (!win) {
+    iframe.remove()
+    throw new Error('No se pudo preparar la impresión.')
+  }
+  writeAndPrint(win, html)
+  setTimeout(() => {
+    try {
+      iframe.remove()
+    } catch {
+      /* ignore */
+    }
+  }, 120_000)
+}
+
+function buildStickerHtml({
+  scanCode,
+  headerTitle,
+  bookingCode,
+  matLine,
+  subDesc,
+  refLine,
+  centerLabel,
+  upLabel,
+  loLabel,
+  leftLabel,
+  rightLabel,
+  qrBlock,
+  L,
+  A,
+  numeroPieza,
+  cantidad,
+  pCode,
+  printedAt,
+}) {
+  const booking = bookingCode ? String(bookingCode).trim() : ''
+  return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -164,11 +207,11 @@ export async function printBiessePartSticker({ order, part, piece }) {
   <div class="sticker">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
-      ${order?.bookingCode ? `<div class="head__sub">${esc(String())}</div>` : ''}
+      ${booking ? `<div class="head__sub">${esc(booking)}</div>` : ''}
     </header>
     <div class="body">
       <div class="col-left">
-        <div class="mat">${esc(materialLine(part?.material))}</div>
+        <div class="mat">${esc(matLine)}</div>
         ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
         <div class="diagram-wrap">
@@ -195,18 +238,78 @@ export async function printBiessePartSticker({ order, part, piece }) {
       </div>
     </div>
   </div>
-  <script>window.onload = function () { window.print(); };</script>
 </body>
 </html>`
+}
 
-  const w = window.open('', '_blank')
-  if (!w) {
-    window.alert('Permite ventanas emergentes para imprimir la etiqueta.')
-    throw new Error('popups bloqueados')
+/**
+ * @param {object} opts
+ * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
+ * @param {object} opts.part
+ * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
+ * @param {Window|null} [opts.printWindow] ventana abierta al hacer clic
+ * @returns {Promise<{ qrCode: string, printedAt: string }>}
+ */
+export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
+  const orderName = order?.orderName ?? ''
+  const partNumber = part?.partNumber ?? part?.partId ?? 0
+  const numeroPieza = piece?.numeroPieza ?? 1
+  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
+  const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
+  const printedAt = new Date()
+
+  let qrBlock = ''
+  try {
+    const QRCode = (await import('qrcode')).default
+    const dataUrl = await QRCode.toDataURL(scanCode, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 180,
+    })
+    qrBlock = `<div class="qr"><img src="${dataUrl}" width="140" height="140" alt="" /></div>`
+  } catch {
+    qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+
+  const html = buildStickerHtml({
+    scanCode,
+    headerTitle: String(orderName).toUpperCase(),
+    bookingCode: order?.bookingCode,
+    matLine: materialLine(part?.material, part?.descripcion),
+    subDesc: joinNonEmpty([part?.descripcion1]),
+    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
+    centerLabel: String(part?.descripcion ?? '—').trim(),
+    upLabel: String(part?.matedgeup ?? '').trim(),
+    loLabel: String(part?.matedgelo ?? '').trim(),
+    leftLabel: String(part?.matedgel ?? '').trim(),
+    rightLabel: String(part?.matedger ?? '').trim(),
+    qrBlock,
+    L: roundDim(part?.longitud),
+    A: roundDim(part?.ancho),
+    numeroPieza,
+    cantidad,
+    pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
+    printedAt,
+  })
+
+  let w = printWindow && !printWindow.closed ? printWindow : null
+  if (!w) {
+    w = window.open('about:blank', '_blank')
+  }
+
+  if (w) {
+    writeAndPrint(w, html)
+  } else {
+    try {
+      printViaIframe(html)
+    } catch {
+      window.alert(
+        'No se pudo abrir la impresión.\n\n' +
+          'Permite ventanas emergentes para este sitio o pulsa Imprimir de nuevo.'
+      )
+      throw new Error('impresión no disponible')
+    }
+  }
 
   return { qrCode: scanCode, printedAt: printedAt.toISOString() }
 }
