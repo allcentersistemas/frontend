@@ -46,14 +46,18 @@ function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-/** Tamaño del rectángulo interior según L×A (mm en pantalla/impresión). */
+/** Etiqueta física: 8 cm × 5 cm */
+const LABEL_W_MM = 80
+const LABEL_H_MM = 50
+
+/** Tamaño del rectángulo interior según L×A (mm), dentro del área de diagrama 80×50. */
 function pieceShapeMm(longitud, ancho) {
   const L = roundDim(longitud)
   const A = roundDim(ancho)
-  const maxW = 62
-  const maxH = 34
+  const maxW = 26
+  const maxH = 14
   if (L == null || A == null || L <= 0 || A <= 0) {
-    return { width: 48, height: 26 }
+    return { width: 22, height: 12 }
   }
   const ratio = L / A
   let w
@@ -124,9 +128,9 @@ export async function printBiessePartSticker({ order, part, piece }) {
     const dataUrl = await QRCode.toDataURL(scanCode, {
       errorCorrectionLevel: 'M',
       margin: 1,
-      width: 180,
+      width: 96,
     })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" width="132" height="132" alt="" /></div>`
+    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" /></div>`
   } catch {
     qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
@@ -152,188 +156,229 @@ export async function printBiessePartSticker({ order, part, piece }) {
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page { size: 200mm 74mm; margin: 0; }
+    @page { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm; margin: 0; }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
-      width: 200mm;
-      min-height: 74mm;
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
       background: #fff;
       color: #000;
+      overflow: hidden;
     }
     body {
-      padding: 3mm 5mm 3mm 8mm;
+      padding: 1.5mm 2mm;
       font-family: Arial, Helvetica, sans-serif;
+      font-size: 6pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .label-sheet {
-      width: 188mm;
-      min-height: 68mm;
+      width: ${LABEL_W_MM - 4}mm;
+      height: ${LABEL_H_MM - 3}mm;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .head {
-      padding-bottom: 2mm;
-      border-bottom: 1.5px solid #000;
-      margin-bottom: 2mm;
+      padding-bottom: 0.8mm;
+      border-bottom: 1px solid #000;
+      margin-bottom: 1mm;
+      flex-shrink: 0;
     }
     .head__title {
-      font-size: 11pt;
+      font-size: 7pt;
       font-weight: 700;
-      letter-spacing: 0.02em;
-      line-height: 1.15;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
       margin: 0;
-      max-width: 120mm;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
     .head__sub {
-      font-size: 8pt;
-      margin: 1mm 0 0;
+      font-size: 5.5pt;
+      margin: 0.3mm 0 0;
       font-weight: 600;
       color: #222;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .body {
       display: flex;
       flex: 1;
-      gap: 4mm;
-      align-items: flex-start;
+      gap: 1.5mm;
+      align-items: stretch;
+      min-height: 0;
     }
     .col-left {
       flex: 1;
       min-width: 0;
-      padding-right: 2mm;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
     .mat {
       font-weight: 700;
-      margin-bottom: 1mm;
-      font-size: 9.5pt;
-      line-height: 1.2;
+      margin-bottom: 0.3mm;
+      font-size: 6.5pt;
+      line-height: 1.1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
     .desc1 {
       font-weight: 500;
-      margin-bottom: 2mm;
-      font-size: 8.5pt;
+      margin-bottom: 0.5mm;
+      font-size: 5.5pt;
       color: #222;
+      line-height: 1.1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
     .ref {
-      font-size: 9pt;
+      font-size: 6pt;
       font-weight: 700;
-      margin-bottom: 4mm;
+      margin-bottom: 0.5mm;
+      flex-shrink: 0;
     }
     .diagram-wrap {
       position: relative;
-      margin: 6mm 20mm 8mm 20mm;
+      flex: 1;
+      margin: 2.5mm 9mm 2mm 9mm;
       overflow: visible;
-      min-height: 40mm;
+      min-height: 16mm;
     }
     .edge {
       position: absolute;
-      font-size: 8pt;
+      font-size: 5pt;
       font-weight: 700;
       text-align: center;
       white-space: nowrap;
       color: #000;
+      line-height: 1;
     }
     .edge--top {
-      font-size: 9pt;
-      top: -5.5mm;
+      font-size: 5.5pt;
+      top: -3.5mm;
       left: 0;
       right: 0;
     }
     .edge--bottom {
-      font-size: 9pt;
-      bottom: -5.5mm;
+      font-size: 5.5pt;
+      bottom: -3.5mm;
       left: 0;
       right: 0;
     }
     .edge--right {
-      font-size: 9pt;
-      right: -24mm;
+      font-size: 5.5pt;
+      right: -11mm;
       top: 50%;
       transform: translateY(-50%) rotate(90deg);
       transform-origin: center center;
-      width: 44mm;
+      width: 22mm;
     }
     .edge--left {
-      font-size: 9pt;
-      left: -24mm;
+      font-size: 5.5pt;
+      left: -11mm;
       top: 50%;
       transform: translateY(-50%) rotate(-90deg);
       transform-origin: center center;
-      width: 44mm;
+      width: 22mm;
     }
     .diagram {
-      border: 3px solid #000;
-      min-height: 32mm;
+      border: 2px solid #000;
+      height: 100%;
+      min-height: 14mm;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 4mm;
+      padding: 1.5mm;
       background: #fff;
-      overflow: visible;
     }
     .piece-shape {
-      border: 2px solid #000;
+      border: 1.5px solid #000;
       background: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       width: ${shape.width}mm;
       height: ${shape.height}mm;
-      min-width: 24mm;
-      min-height: 14mm;
+      min-width: 14mm;
+      min-height: 8mm;
+      max-width: 100%;
+      max-height: 100%;
     }
     .diagram__txt {
-      font-size: 9pt;
+      font-size: 6.5pt;
       font-weight: 700;
       text-align: center;
       word-break: break-word;
-      padding: 1mm;
-      line-height: 1.1;
+      padding: 0.5mm;
+      line-height: 1.05;
     }
     .col-right {
-      width: 42mm;
+      width: 20mm;
       flex-shrink: 0;
-      font-size: 8pt;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 6pt;
     }
     .qr {
       text-align: center;
-      margin-bottom: 2mm;
+      margin-bottom: 0.5mm;
+      line-height: 0;
     }
     .qr img {
-      display: inline-block;
-      width: 132px;
-      height: 132px;
+      display: block;
+      width: 18mm;
+      height: 18mm;
+      margin: 0 auto;
     }
     .qr--empty {
-      font-size: 6pt;
+      font-size: 4.5pt;
       word-break: break-all;
       border: 1px dashed #999;
-      padding: 2mm;
+      padding: 1mm;
+      width: 18mm;
     }
     .dims {
       font-family: ui-monospace, Consolas, monospace;
-      font-size: 10pt;
+      font-size: 6.5pt;
       font-weight: 700;
-      line-height: 1.35;
+      line-height: 1.2;
+      width: 100%;
     }
     .frac {
-      margin-top: 1.5mm;
-      font-size: 9pt;
+      margin-top: 0.5mm;
+      font-size: 6pt;
       font-weight: 700;
+      width: 100%;
+      text-align: center;
     }
     .foot {
-      margin-top: 2mm;
+      margin-top: auto;
+      padding-top: 0.5mm;
       display: flex;
-      justify-content: flex-end;
-      gap: 4mm;
-      font-size: 8pt;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.2mm;
+      font-size: 5.5pt;
       font-weight: 700;
+      width: 100%;
     }
     @media print {
-      html, body { width: 200mm; min-height: 74mm; }
-      body { padding: 2mm 4mm 2mm 7mm; }
+      html, body {
+        width: ${LABEL_W_MM}mm;
+        height: ${LABEL_H_MM}mm;
+      }
+      body { padding: 1.2mm 1.5mm; }
     }
   </style>
 </head>
