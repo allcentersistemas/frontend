@@ -164,7 +164,6 @@ export async function printBiessePartSticker({ order, part, piece }) {
   <div class="sticker">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
-      ${order?.bookingCode ? `<div class="head__sub">${esc(String())}</div>` : ''}
     </header>
     <div class="body">
       <div class="col-left">
