@@ -33,6 +33,8 @@ export function canViewInventoryHub(employee) {
     canAccessFeature(employee, FEATURE.PALES_LIST) ||
     canAccessFeature(employee, FEATURE.INVENTORY_GUIAS) ||
     canAccessFeature(employee, FEATURE.INVENTORY_STOCK) ||
+    canAccessFeature(employee, FEATURE.INVENTORY_TABLEROS) ||
+    canAccessFeature(employee, FEATURE.INVENTORY_CANTOS) ||
     canAccessFeature(employee, FEATURE.INVENTORY_RM)
   )
 }

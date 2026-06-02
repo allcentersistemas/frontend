@@ -57,6 +57,20 @@ export const PORTAL_ACCESS_MODULES = [
     suggestedRoles: [ROLE_DESPACHO, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
   },
   {
+    id: 'tableros',
+    label: 'Inventario · Tableros (planilla cliente)',
+    description: 'Alta manual del catálogo de tableros',
+    features: [FEATURE.INVENTORY_TABLEROS],
+    suggestedRoles: [ROLE_VENTAS, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'cantos',
+    label: 'Inventario · Cantos (planilla cliente)',
+    description: 'Alta manual del catálogo de cantos',
+    features: [FEATURE.INVENTORY_CANTOS],
+    suggestedRoles: [ROLE_VENTAS, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+  },
+  {
     id: 'rm',
     label: 'Inventario · Recepción mercadería (RM)',
     description: 'Entradas, salidas y actas',

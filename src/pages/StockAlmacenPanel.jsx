@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { useAuth } from '../auth/AuthContext'
-import { Can } from '../access/AbilityContext'
-import { FEATURE } from '../access/permissionCatalog'
-import { ACTION } from '../access/rolePermissions'
-import { CanButton } from '../components/CanButton'
 import { DetailModal } from '../components/DetailModal'
 import { categoriaLabel } from '../utils/stockCategoryLabels'
-import { familiaLabel } from '../utils/familiaLabels'
 
 function esc(s) {
   if (s == null || s === '') return '—'
@@ -47,31 +42,22 @@ export function StockAlmacenPanel() {
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailErr, setDetailErr] = useState(null)
-  const [familias, setFamilias] = useState([])
-  const [familiaDraft, setFamiliaDraft] = useState('')
-  const [familiaSaving, setFamiliaSaving] = useState(false)
-  const [familiaMsg, setFamiliaMsg] = useState(null)
-  const [familiaErr, setFamiliaErr] = useState(null)
 
   const rows = useMemo(() => systemApi.pageContent(listBody), [listBody])
   const meta = useMemo(() => systemApi.pageMeta(listBody), [listBody])
 
-  const sucursalIdForDetail = useMemo(() => {
+  const sucursalIdForFilter = useMemo(() => {
     const raw = filterSucursalId === '' ? null : Number(filterSucursalId)
     return raw != null && Number.isFinite(raw) && raw > 0 ? raw : null
   }, [filterSucursalId])
 
   const sucursalNombre = useMemo(() => {
-    if (sucursalIdForDetail == null) return null
-    return branches.find((b) => b.id === sucursalIdForDetail)?.nombre ?? `Sucursal #${sucursalIdForDetail}`
-  }, [branches, sucursalIdForDetail])
+    if (sucursalIdForFilter == null) return null
+    return branches.find((b) => b.id === sucursalIdForFilter)?.nombre ?? `Sucursal #${sucursalIdForFilter}`
+  }, [branches, sucursalIdForFilter])
 
   useEffect(() => {
     void systemApi.listBranches().then(setBranches).catch(() => setBranches([]))
-    void systemApi
-      .listInventoryFamilias()
-      .then((list) => setFamilias(Array.isArray(list) ? list : []))
-      .catch(() => setFamilias([]))
   }, [])
 
   useEffect(() => {
@@ -88,6 +74,7 @@ export function StockAlmacenPanel() {
         page,
         size: pageSize,
         q: q.trim() || undefined,
+        sucursalId: sucursalIdForFilter ?? undefined,
       })
       setListBody(body)
     } catch (e) {
@@ -96,11 +83,15 @@ export function StockAlmacenPanel() {
     } finally {
       setListLoading(false)
     }
-  }, [page, pageSize, q])
+  }, [page, pageSize, q, sucursalIdForFilter])
 
   useEffect(() => {
     void loadList()
   }, [loadList])
+
+  useEffect(() => {
+    setPage(0)
+  }, [q, sucursalIdForFilter])
 
   const fetchDetail = useCallback(
     async (id) => {
@@ -109,7 +100,7 @@ export function StockAlmacenPanel() {
       setDetail(null)
       try {
         const data = await systemApi.getInventoryItemDetail(id, {
-          sucursalId: sucursalIdForDetail ?? undefined,
+          sucursalId: sucursalIdForFilter ?? undefined,
         })
         setDetail(data)
       } catch (e) {
@@ -118,7 +109,7 @@ export function StockAlmacenPanel() {
         setDetailLoading(false)
       }
     },
-    [sucursalIdForDetail],
+    [sucursalIdForFilter],
   )
 
   useEffect(() => {
@@ -126,50 +117,18 @@ export function StockAlmacenPanel() {
     void fetchDetail(selectedId)
   }, [selectedId, fetchDetail])
 
-  useEffect(() => {
-    const code = detail?.item?.familiaCodigo
-    setFamiliaDraft(code == null || code === '' ? '' : String(code))
-    setFamiliaMsg(null)
-    setFamiliaErr(null)
-  }, [detail?.item?.id, detail?.item?.familiaCodigo])
-
   function closeDetail() {
     setSelectedId(null)
     setDetail(null)
     setDetailErr(null)
-    setFamiliaMsg(null)
-    setFamiliaErr(null)
-  }
-
-  async function saveFamilia() {
-    if (selectedId == null) return
-    setFamiliaSaving(true)
-    setFamiliaMsg(null)
-    setFamiliaErr(null)
-    try {
-      const updated = await systemApi.updateInventoryItemFamilia(selectedId, familiaDraft || null)
-      setDetail((prev) => (prev?.item ? { ...prev, item: { ...prev.item, ...updated } } : prev))
-      setListBody((prev) => {
-        if (!prev?.content) return prev
-        return {
-          ...prev,
-          content: prev.content.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)),
-        }
-      })
-      setFamiliaMsg('Familia actualizada.')
-    } catch (e) {
-      setFamiliaErr(e instanceof Error ? e.message : 'No se pudo guardar la familia')
-    } finally {
-      setFamiliaSaving(false)
-    }
   }
 
   function exportStockCsv() {
-    const head = ['id', 'sku', 'name', 'unit', 'familiaCodigo', 'active', 'createdAt']
+    const head = ['id', 'sku', 'name', 'unit', 'balanceOnHand', 'active', 'createdAt']
     const lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
-        [r.id, r.sku, r.name, r.unit, r.familiaCodigo, r.active, r.createdAt]
+        [r.id, r.sku, r.name, r.unit, r.balanceOnHand, r.active, r.createdAt]
           .map((c) => csvEscape(c))
           .join(','),
       )
@@ -187,9 +146,9 @@ export function StockAlmacenPanel() {
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <p className="muted small" style={{ margin: 0 }}>
-          Consulta de kardex por sucursal. Asigne familia <strong>Tablero</strong> o <strong>Canto</strong> en el detalle
-          del artículo para que aparezca en la planilla de corte del portal cliente. El stock se actualiza al crear
-          palés, cerrarlos con piezas y al despachar guías.
+          Kardex de almacén por sucursal (palés, piezas, guías). Los catálogos de{' '}
+          <strong>tableros</strong> y <strong>cantos</strong> para la planilla del cliente se administran en sus
+          pestañas del inventario.
         </p>
       </div>
 
@@ -200,13 +159,10 @@ export function StockAlmacenPanel() {
             <input value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
           <label className="field" style={{ flex: '1 1 200px', margin: 0 }}>
-            <span>Sucursal (saldo y movimientos)</span>
+            <span>Sucursal</span>
             <select
               value={filterSucursalId === '' ? '' : String(filterSucursalId)}
-              onChange={(e) => {
-                setFilterSucursalId(e.target.value)
-                if (selectedId != null) void fetchDetail(selectedId)
-              }}
+              onChange={(e) => setFilterSucursalId(e.target.value)}
             >
               <option value="">Todas (vista global)</option>
               {branches.map((b) => (
@@ -223,6 +179,15 @@ export function StockAlmacenPanel() {
             CSV página
           </button>
         </div>
+        {sucursalNombre ? (
+          <p className="pad muted small" style={{ paddingTop: 0 }}>
+            Mostrando saldos y movimientos de: <strong>{sucursalNombre}</strong>
+          </p>
+        ) : (
+          <p className="pad muted small" style={{ paddingTop: 0 }}>
+            Vista global — elija sucursal para ver saldo disponible por almacén.
+          </p>
+        )}
         {listErr ? <p className="pad" style={{ color: 'var(--danger, #b00020)' }}>{listErr}</p> : null}
         {listLoading ? <p className="muted pad">Cargando…</p> : null}
         <div className="table-wrap">
@@ -233,7 +198,7 @@ export function StockAlmacenPanel() {
                 <th>SKU</th>
                 <th>Nombre</th>
                 <th>Unidad</th>
-                <th>Familia</th>
+                {sucursalIdForFilter != null ? <th>Saldo disp.</th> : null}
                 <th>Activo</th>
               </tr>
             </thead>
@@ -249,7 +214,7 @@ export function StockAlmacenPanel() {
                   <td className="small">{esc(r.sku)}</td>
                   <td className="small">{esc(r.name)}</td>
                   <td>{esc(r.unit)}</td>
-                  <td className="small">{familiaLabel(r.familiaCodigo)}</td>
+                  {sucursalIdForFilter != null ? <td>{esc(r.balanceOnHand)}</td> : null}
                   <td>{r.active === false ? 'No' : 'Sí'}</td>
                 </tr>
               ))}
@@ -278,7 +243,6 @@ export function StockAlmacenPanel() {
             Siguiente
           </button>
         </div>
-
       </div>
 
       <DetailModal
@@ -304,65 +268,9 @@ export function StockAlmacenPanel() {
               <dd>{esc(detail.item.name)}</dd>
               <dt>Unidad</dt>
               <dd>{esc(detail.item.unit)}</dd>
-              <dt>Familia (planilla cliente)</dt>
-              <dd>{familiaLabel(detail.item.familiaCodigo)}</dd>
-              <dt>Saldo disponible {sucursalIdForDetail ? 'en sucursal' : 'global'}</dt>
+              <dt>Saldo disponible {sucursalIdForFilter ? 'en sucursal' : 'global'}</dt>
               <dd>{esc(detail.balanceOnHand)}</dd>
             </dl>
-            <Can I={ACTION.UPDATE} a={FEATURE.INVENTORY_STOCK}>
-              <div
-                className="pad"
-                style={{
-                  marginTop: '1rem',
-                  borderTop: '1px solid var(--border, #e5e7eb)',
-                  paddingTop: '1rem',
-                }}
-              >
-                <h3 className="card__title" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
-                  Familia para planilla de corte
-                </h3>
-                <p className="muted small" style={{ marginBottom: '0.75rem' }}>
-                  Los artículos con familia Tablero o Canto se listan en el portal del cliente al capturar detalles de
-                  orden. Sin familia, solo aplican reglas por prefijo de SKU (TAB/TBL/CANT).
-                </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                  <label className="field" style={{ flex: '1 1 220px', margin: 0 }}>
-                    <span>Familia</span>
-                    <select
-                      value={familiaDraft}
-                      onChange={(e) => setFamiliaDraft(e.target.value)}
-                      disabled={familiaSaving}
-                    >
-                      <option value="">Sin familia</option>
-                      {familias.map((f) => (
-                        <option key={f.codigo} value={f.codigo}>
-                          {f.etiqueta ?? f.codigo}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <CanButton
-                    I={ACTION.UPDATE}
-                    a={FEATURE.INVENTORY_STOCK}
-                    className="btn btn--primary"
-                    disabled={familiaSaving}
-                    onClick={() => void saveFamilia()}
-                  >
-                    {familiaSaving ? 'Guardando…' : 'Guardar familia'}
-                  </CanButton>
-                </div>
-                {familiaMsg ? (
-                  <p className="small" style={{ color: 'var(--success, #0d7a3e)', marginTop: '0.5rem' }}>
-                    {familiaMsg}
-                  </p>
-                ) : null}
-                {familiaErr ? (
-                  <p className="small" style={{ color: 'var(--danger, #b00020)', marginTop: '0.5rem' }}>
-                    {familiaErr}
-                  </p>
-                ) : null}
-              </div>
-            </Can>
             {(detail.balancesByCategoria ?? []).length > 0 ? (
               <>
                 <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem' }}>
@@ -379,7 +287,7 @@ export function StockAlmacenPanel() {
             ) : null}
             <p className="muted small pad" style={{ marginTop: '1rem' }}>
               Los movimientos aparecen al registrar palés en almacén, al cerrar palés con piezas y al despachar guías con
-              palés. No se registran ajustes manuales ni materiales sueltos en ingreso/salida RM.
+              palés.
             </p>
             <h3 className="card__title" style={{ marginTop: '1rem', fontSize: '1rem', paddingLeft: '1rem' }}>
               Últimos movimientos (kardex)
@@ -399,7 +307,7 @@ export function StockAlmacenPanel() {
                   {(detail.recentMovements ?? []).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="muted small">
-                        Sin movimientos{sucursalIdForDetail ? ' en esta sucursal' : ''}.
+                        Sin movimientos{sucursalIdForFilter ? ' en esta sucursal' : ''}.
                       </td>
                     </tr>
                   ) : (

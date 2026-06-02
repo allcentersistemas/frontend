@@ -443,19 +443,30 @@ export async function listInventoryCategorias() {
   return systemJson('/api/inventory/categorias')
 }
 
-export async function listInventoryFamilias() {
-  return systemJson('/api/inventory/familias')
+export async function listInventoryItems({ page = 0, size = 20, q, sucursalId } = {}) {
+  return systemJson(`/api/inventory/items${qs({ page, size, q, sucursalId })}`)
 }
 
-export async function updateInventoryItemFamilia(itemId, familiaCodigo) {
-  return systemJson(`/api/inventory/items/${itemId}/familia`, {
-    method: 'PATCH',
-    body: JSON.stringify({ familiaCodigo: familiaCodigo ?? '' }),
+export async function listTableros({ page = 0, size = 20, q } = {}) {
+  return systemJson(`/api/inventory/tableros${qs({ page, size, q })}`)
+}
+
+export async function createTablero(body) {
+  return systemJson('/api/inventory/tableros', {
+    method: 'POST',
+    body: JSON.stringify(body),
   })
 }
 
-export async function listInventoryItems({ page = 0, size = 20, q } = {}) {
-  return systemJson(`/api/inventory/items${qs({ page, size, q })}`)
+export async function listCantos({ page = 0, size = 20, q } = {}) {
+  return systemJson(`/api/inventory/cantos${qs({ page, size, q })}`)
+}
+
+export async function createCanto(body) {
+  return systemJson('/api/inventory/cantos', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function getInventoryItemDetail(id, { sucursalId } = {}) {

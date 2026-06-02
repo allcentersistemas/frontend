@@ -20,6 +20,8 @@ import {
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
+import { TablerosCatalogPanel } from './TablerosCatalogPanel.jsx'
+import { CantosCatalogPanel } from './CantosCatalogPanel.jsx'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -311,6 +313,8 @@ const INVENTORY_AREAS = [
   { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
   { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
   { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
+  { id: 'tableros', label: 'Tableros', feature: FEATURE.INVENTORY_TABLEROS },
+  { id: 'cantos', label: 'Cantos', feature: FEATURE.INVENTORY_CANTOS },
   { id: 'rm', label: 'Recepción mercadería', feature: FEATURE.INVENTORY_RM },
 ]
 
@@ -334,6 +338,8 @@ export function InventoryPage() {
   const canViewRm = canViewArea(ability, FEATURE.INVENTORY_RM)
   const canViewGuias = canViewArea(ability, FEATURE.INVENTORY_GUIAS)
   const canViewStock = canViewArea(ability, FEATURE.INVENTORY_STOCK)
+  const canViewTableros = canViewArea(ability, FEATURE.INVENTORY_TABLEROS)
+  const canViewCantos = canViewArea(ability, FEATURE.INVENTORY_CANTOS)
   const canViewOrders = canViewArea(ability, FEATURE.BIESSE_ORDERS)
   const canViewPales = canViewArea(ability, FEATURE.PALES_LIST)
   const canViewTransportCatalog = ability.can('view', FEATURE.TRANSPORT_VEHICLES)
@@ -643,6 +649,10 @@ export function InventoryPage() {
           </div>
           <StockAlmacenPanel />
         </>
+      ) : areaTab === 'tableros' && canViewTableros ? (
+        <TablerosCatalogPanel />
+      ) : areaTab === 'cantos' && canViewCantos ? (
+        <CantosCatalogPanel />
       ) : (
         <>
       <div className="card pad" style={{ marginBottom: '1rem' }}>

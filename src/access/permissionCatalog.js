@@ -21,6 +21,8 @@ export const FEATURE = {
   INVENTORY: 'inventory',
   INVENTORY_GUIAS: 'inventory.guias',
   INVENTORY_STOCK: 'inventory.stock',
+  INVENTORY_TABLEROS: 'inventory.tableros',
+  INVENTORY_CANTOS: 'inventory.cantos',
   INVENTORY_RM: 'inventory.rm',
   PROJECT_LIST: 'project.list',
   DASHBOARD_RESUMEN: 'dashboard.resumen',
@@ -170,12 +172,32 @@ export const ENDPOINT_CATALOG = [
     feature: FEATURE.INVENTORY_STOCK,
     endpoints: [
       ['GET', '/api/inventory/categorias'],
-      ['GET', '/api/inventory/familias'],
       ['GET', '/api/inventory/items'],
       ['GET', '/api/inventory/items/{id}'],
-      ['PATCH', '/api/inventory/items/{id}/familia'],
       ['POST', '/api/inventory/items'],
       ['POST', '/api/inventory/items/{id}/movements'],
+    ],
+  },
+  {
+    module: 'module-system',
+    domain: 'inventory',
+    feature: FEATURE.INVENTORY_TABLEROS,
+    endpoints: [
+      ['GET', '/api/inventory/tableros'],
+      ['GET', '/api/inventory/tableros/{id}'],
+      ['POST', '/api/inventory/tableros'],
+      ['PUT', '/api/inventory/tableros/{id}'],
+    ],
+  },
+  {
+    module: 'module-system',
+    domain: 'inventory',
+    feature: FEATURE.INVENTORY_CANTOS,
+    endpoints: [
+      ['GET', '/api/inventory/cantos'],
+      ['GET', '/api/inventory/cantos/{id}'],
+      ['POST', '/api/inventory/cantos'],
+      ['PUT', '/api/inventory/cantos/{id}'],
     ],
   },
 ]
