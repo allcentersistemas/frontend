@@ -6,10 +6,10 @@
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -19,7 +19,7 @@ function roundDim(v) {
   return Math.round(n)
 }
 
-/** MM/DD/YY — fecha de impresión. */
+/** MM/DD/YY (legacy del taller). Por defecto fecha actual de impresión. */
 function formatStickerDate(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date)
   const safe = Number.isNaN(d.getTime()) ? new Date() : d
@@ -46,134 +46,29 @@ function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-/** Etiqueta física: 8 cm × 5 cm */
-const LABEL_W_MM = 80
-const LABEL_H_MM = 50
-
-/** Tamaño del rectángulo interior según L×A (mm), dentro del área de diagrama 80×50. */
-function pieceShapeMm(longitud, ancho) {
-  const L = roundDim(longitud)
-  const A = roundDim(ancho)
-  const maxW = 26
-  const maxH = 14
-  if (L == null || A == null || L <= 0 || A <= 0) {
-    return { width: 22, height: 12 }
-  }
-  const ratio = L / A
-  let w
-  let h
-  if (ratio >= 1) {
-    w = maxW
-    h = maxW / ratio
-    if (h > maxH) {
-      h = maxH
-      w = maxH * ratio
-    }
-  } else {
-    h = maxH
-    w = maxH * ratio
-    if (w > maxW) {
-      w = maxW
-      h = maxW / ratio
-    }
-  }
-  return { width: Math.round(w), height: Math.round(h) }
-}
-
-function triggerPrint(win) {
-  const run = () => {
-    try {
-      win.focus()
-    } catch {
-      /* ignore */
-    }
-    setTimeout(() => {
-      try {
-        win.print()
-      } catch {
-        /* ignore */
-      }
-    }, 300)
-  }
-  const img = win.document.querySelector('.qr img')
-  if (img && !img.complete) {
-    img.addEventListener('load', run, { once: true })
-    img.addEventListener('error', run, { once: true })
-  } else if (win.document.readyState === 'complete') {
-    run()
-  } else {
-    win.addEventListener('load', run, { once: true })
-  }
-}
-
-const PRINT_LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Etiqueta</title>
-<style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}</style>
-</head><body><p>Generando etiqueta…</p></body></html>`
-
-/**
- * Abre la ventana de impresión en el mismo tick del clic (antes de cualquier await).
- * Si no se llama aquí, el navegador suele bloquear el popup aunque esté permitido.
- * @returns {Window|null}
- */
-export function openStickerPrintWindow() {
-  const w = window.open('about:blank', '_blank')
-  if (!w) return null
-  try {
-    w.document.open()
-    w.document.write(PRINT_LOADING_HTML)
-    w.document.close()
-  } catch {
-    try {
-      w.close()
-    } catch {
-      /* ignore */
-    }
-    return null
-  }
-  return w
-}
-
-function writeLabelHtml(win, html) {
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
-  triggerPrint(win)
-}
-
-/** Imprime sin ventana emergente (mismo documento). */
-function printLabelViaIframe(html) {
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('title', 'Impresión etiqueta Biesse')
-  iframe.style.cssText =
-    'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
-  document.body.appendChild(iframe)
-  const win = iframe.contentWindow
-  if (!win) {
-    iframe.remove()
-    throw new Error('No se pudo preparar la impresión.')
-  }
-  writeLabelHtml(win, html)
-  setTimeout(() => {
-    try {
-      iframe.remove()
-    } catch {
-      /* ignore */
-    }
-  }, 60_000)
-}
-
 /**
  * @param {object} opts
  * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
- * @param {object} opts.part
+ * @param {{
+ *   partCode?: string|null,
+ *   partNumber?: number|string,
+ *   descripcion?: string|null,
+ *   descripcion1?: string|null,
+ *   material?: string|null,
+ *   matedgeup?: string|null,
+ *   matedgelo?: string|null,
+ *   matedgel?: string|null,
+ *   matedger?: string|null,
+ *   longitud?: number|string,
+ *   ancho?: number|string,
+ *   cantidad?: number|string,
+ * }} opts.part
  * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
- * @param {Window|null} [opts.printWindow] ventana abierta en el clic (openStickerPrintWindow)
  * @returns {Promise<{ qrCode: string, printedAt: string }>}
  */
-export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
+export async function printBiessePartSticker({ order, part, piece }) {
   const orderName = order?.orderName ?? ''
   const partNumber = part?.partNumber ?? part?.partId ?? 0
-  const partCode = String(part?.partCode ?? partNumber ?? '').trim()
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
@@ -184,23 +79,20 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     const QRCode = (await import('qrcode')).default
     const dataUrl = await QRCode.toDataURL(scanCode, {
       errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 96,
+      margin: 0,
+      width: 100,  // Reducido para etiqueta 2"x3"
     })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" /></div>`
+    qrBlock = `<div class="qr"><img src="${dataUrl}" width="90" height="90" alt="" /></div>`
   } catch {
     qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
 
   const L = roundDim(part?.longitud)
   const A = roundDim(part?.ancho)
-  const shape = pieceShapeMm(L, A)
   const refLine = partNumber != null && partNumber !== '' ? String(partNumber) : '0'
-  const centerLabel = partCode || refLine || '—'
+  const centerLabel = String(part?.descripcion ?? '—').trim()
   const headerTitle = String(orderName).toUpperCase()
-  const booking = String(order?.bookingCode ?? '').trim()
   const subDesc = joinNonEmpty([part?.descripcion1])
-  const matLine = materialLine(part?.material, part?.descripcion)
   const pCode = `P${refLine}`
   const upLabel = String(part?.matedgeup ?? '').trim()
   const loLabel = String(part?.matedgelo ?? '').trim()
@@ -213,242 +105,200 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm; margin: 0; }
-    * { box-sizing: border-box; }
-    html, body {
+    @page { 
+      size: 2in 3in;
+      margin: 0;
+    }
+    * { 
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      width: ${LABEL_W_MM}mm;
-      height: ${LABEL_H_MM}mm;
-      background: #fff;
-      color: #000;
-      overflow: hidden;
     }
     body {
-      padding: 1.5mm 2mm;
+      margin: 0;
+      padding: 0;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 6pt;
+      color: #000;
+      background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      width: 100%;
+      height: 100%;
     }
-    .label-sheet {
-      width: ${LABEL_W_MM - 4}mm;
-      height: ${LABEL_H_MM - 3}mm;
+    .sticker { 
+      width: 100%;
+      height: 100%;
+      padding: 1.5mm;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      justify-content: space-between;
     }
-    .head {
-      padding-bottom: 0.8mm;
-      border-bottom: 1px solid #000;
-      margin-bottom: 1mm;
-      flex-shrink: 0;
+    .head { 
+      padding-bottom: 1mm; 
+      border-bottom: 0.5px solid #000; 
+      margin-bottom: 1mm; 
     }
-    .head__title {
-      font-size: 7pt;
+    .head__title { 
+      font-size: 8pt;
       font-weight: 700;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.02em;
       line-height: 1.1;
       margin: 0;
-      white-space: nowrap;
+      padding: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 100%;
+      white-space: nowrap;
     }
-    .head__sub {
-      font-size: 5.5pt;
-      margin: 0.3mm 0 0;
-      font-weight: 600;
+    .head__sub { 
+      font-size: 6pt;
+      margin-top: 0.5mm;
       color: #222;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 600;
     }
-    .body {
+    .body { 
       display: flex;
       flex: 1;
       gap: 1.5mm;
-      align-items: stretch;
+      align-items: flex-start;
       min-height: 0;
     }
-    .col-left {
+    .col-left { 
       flex: 1;
       min-width: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
+      font-size: 7pt;
     }
-    .mat {
+    .mat { 
       font-weight: 700;
-      margin-bottom: 0.3mm;
-      font-size: 6.5pt;
-      line-height: 1.1;
+      margin-bottom: 0.5mm;
+      font-size: 7pt;
       overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .desc1 {
+    .desc1 { 
       font-weight: 500;
       margin-bottom: 0.5mm;
-      font-size: 5.5pt;
+      font-size: 6.5pt;
       color: #222;
-      line-height: 1.1;
       overflow: hidden;
-      white-space: nowrap;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .ref {
-      font-size: 6pt;
-      font-weight: 700;
-      margin-bottom: 0.5mm;
-      flex-shrink: 0;
+    .ref { 
+      font-size: 7pt;
+      margin-bottom: 2mm;
     }
-    .diagram-wrap {
+    .diagram-wrap { 
       position: relative;
-      flex: 1;
-      margin: 2.5mm 9mm 2mm 9mm;
-      overflow: visible;
-      min-height: 16mm;
+      margin: 2mm 10mm 2mm 10mm;
     }
-    .edge {
+    .edge { 
       position: absolute;
-      font-size: 5pt;
+      font-size: 6pt;
       font-weight: 700;
       text-align: center;
       white-space: nowrap;
-      color: #000;
-      line-height: 1;
     }
-    .edge--top {
-      font-size: 5.5pt;
+    .edge--top { 
+      font-size: 7pt;
       top: -3.5mm;
       left: 0;
       right: 0;
     }
-    .edge--bottom {
-      font-size: 5.5pt;
+    .edge--bottom { 
+      font-size: 7pt;
       bottom: -3.5mm;
       left: 0;
       right: 0;
     }
     .edge--right {
-      font-size: 5.5pt;
-      right: -11mm;
+      font-size: 7pt;
+      right: -15mm;
       top: 50%;
       transform: translateY(-50%) rotate(90deg);
       transform-origin: center center;
-      width: 22mm;
+      width: 25mm;
     }
     .edge--left {
-      font-size: 5.5pt;
-      left: -11mm;
+      font-size: 7pt;
+      left: -15mm;
       top: 50%;
       transform: translateY(-50%) rotate(-90deg);
       transform-origin: center center;
-      width: 22mm;
+      width: 25mm;
     }
     .diagram {
       border: 2px solid #000;
-      height: 100%;
-      min-height: 14mm;
+      min-height: 18mm;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1.5mm;
-      background: #fff;
+      padding: 1mm;
     }
-    .piece-shape {
-      border: 1.5px solid #000;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: ${shape.width}mm;
-      height: ${shape.height}mm;
-      min-width: 14mm;
-      min-height: 8mm;
-      max-width: 100%;
-      max-height: 100%;
-    }
-    .diagram__txt {
-      font-size: 6.5pt;
+    .diagram__txt { 
+      font-size: 6pt;
       font-weight: 700;
       text-align: center;
       word-break: break-word;
-      padding: 0.5mm;
-      line-height: 1.05;
     }
-    .col-right {
-      width: 20mm;
+    .col-right { 
+      width: 28mm;
       flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 6pt;
+      font-size: 7pt;
     }
-    .qr {
+    .qr { 
       text-align: center;
-      margin-bottom: 0.5mm;
-      line-height: 0;
+      margin-bottom: 1mm;
     }
-    .qr img {
-      display: block;
-      width: 18mm;
-      height: 18mm;
-      margin: 0 auto;
+    .qr img { 
+      display: inline-block;
+      width: 90px;
+      height: 90px;
     }
-    .qr--empty {
-      font-size: 4.5pt;
+    .qr--empty { 
+      font-size: 6pt;
       word-break: break-all;
       border: 1px dashed #999;
       padding: 1mm;
-      width: 18mm;
     }
-    .dims {
+    .dims { 
       font-family: ui-monospace, Consolas, monospace;
-      font-size: 6.5pt;
+      font-size: 8pt;
       font-weight: 700;
       line-height: 1.2;
-      width: 100%;
     }
-    .frac {
-      margin-top: 0.5mm;
+    .frac { 
+      margin-top: 1mm;
+      font-size: 7pt;
+      font-weight: 700;
+    }
+    .foot { 
+      margin-top: auto;
+      padding-top: 1mm;
+      display: flex;
+      justify-content: space-between;
+      gap: 2mm;
       font-size: 6pt;
       font-weight: 700;
-      width: 100%;
-      text-align: center;
-    }
-    .foot {
-      margin-top: auto;
-      padding-top: 0.5mm;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 0.2mm;
-      font-size: 5.5pt;
-      font-weight: 700;
-      width: 100%;
     }
     @media print {
-      html, body {
-        width: ${LABEL_W_MM}mm;
-        height: ${LABEL_H_MM}mm;
+      body {
+        margin: 0;
+        padding: 0;
       }
-      body { padding: 1.2mm 1.5mm; }
     }
   </style>
 </head>
 <body>
-  <div class="label-sheet">
+  <div class="sticker">
     <header class="head">
-      <h1 class="head__title">${esc(headerTitle)}</h1>
-      ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
+      <h1 class="head__title" title="${esc(headerTitle)}">${esc(headerTitle)}</h1>
+      ${order?.bookingCode ? `<div class="head__sub">${esc(String(order.bookingCode))}</div>` : ''}
     </header>
     <div class="body">
       <div class="col-left">
-        <div class="mat">${esc(matLine)}</div>
-        ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
+        <div class="mat" title="${esc(materialLine(part?.material, part?.descripcion))}">${esc(materialLine(part?.material, part?.descripcion))}</div>
+        ${subDesc ? `<div class="desc1" title="${esc(subDesc)}">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
         <div class="diagram-wrap">
           ${upLabel ? `<div class="edge edge--top">${esc(upLabel)}</div>` : ''}
@@ -456,9 +306,7 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
           ${rightLabel ? `<div class="edge edge--right">${esc(rightLabel)}</div>` : ''}
           ${leftLabel ? `<div class="edge edge--left">${esc(leftLabel)}</div>` : ''}
           <div class="diagram">
-            <div class="piece-shape">
-              <div class="diagram__txt">${esc(centerLabel)}</div>
-            </div>
+            <div class="diagram__txt">${esc(centerLabel)}</div>
           </div>
         </div>
       </div>
@@ -476,28 +324,22 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
       </div>
     </div>
   </div>
+  <script>
+    window.onload = function () { 
+      window.print(); 
+    };
+  </script>
 </body>
 </html>`
 
-  let w = printWindow && !printWindow.closed ? printWindow : null
+  const w = window.open('', '_blank')
   if (!w) {
-    w = window.open('about:blank', '_blank')
+    window.alert('Permite ventanas emergentes para imprimir la etiqueta.')
+    throw new Error('popups bloqueados')
   }
-  if (w) {
-    writeLabelHtml(w, html)
-  } else {
-    try {
-      printLabelViaIframe(html)
-    } catch {
-      window.alert(
-        'No se pudo abrir la impresión.\n\n' +
-          '• Haz clic en Imprimir de nuevo (el navegador solo permite la ventana justo al pulsar).\n' +
-          '• En Chrome/Edge: icono junto a la URL → permitir ventanas emergentes para este sitio.\n' +
-          '• Impresora Zebra: en el diálogo elige la Zebra, tamaño 80×50 mm y escala 100 %.'
-      )
-      throw new Error('impresión no disponible')
-    }
-  }
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
 
   return { qrCode: scanCode, printedAt: printedAt.toISOString() }
 }
