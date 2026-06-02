@@ -44,6 +44,40 @@ function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
+/** Etiqueta Zebra ZD230: 80 mm ancho × 50 mm alto (horizontal). */
+const LABEL_W_MM = 80
+const LABEL_H_MM = 50
+const QR_MM = 16
+
+function pieceShapeMm(longitud, ancho) {
+  const L = roundDim(longitud)
+  const A = roundDim(ancho)
+  const maxW = 20
+  const maxH = 10
+  if (L == null || A == null || L <= 0 || A <= 0) {
+    return { width: 16, height: 8 }
+  }
+  const ratio = L / A
+  let w
+  let h
+  if (ratio >= 1) {
+    w = maxW
+    h = maxW / ratio
+    if (h > maxH) {
+      h = maxH
+      w = maxH * ratio
+    }
+  } else {
+    h = maxH
+    w = maxH * ratio
+    if (w > maxW) {
+      w = maxW
+      h = maxW / ratio
+    }
+  }
+  return { width: Math.round(w), height: Math.round(h) }
+}
+
 const LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Etiqueta</title>
 <style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}</style>
 </head><body><p>Generando etiqueta…</p></body></html>`
@@ -140,6 +174,7 @@ function buildStickerHtml({
   cantidad,
   pCode,
   printedAt,
+  shape,
 }) {
   const booking = bookingCode ? String(bookingCode).trim() : ''
   return `<!DOCTYPE html>
@@ -148,80 +183,216 @@ function buildStickerHtml({
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page { size: 200mm 74mm; margin: 0; }
-    * { box-sizing: border-box; }
-    body {
+    @page {
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+      size: 3.15in 1.97in landscape;
       margin: 0;
-      padding: 3mm 4mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      overflow: hidden;
+    }
+    body {
       font-family: Arial, Helvetica, sans-serif;
       color: #000;
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .sticker { padding-left: 5mm; width: 150mm; min-height: 68mm; display: flex; flex-direction: column; }
-    .head { position: relative; padding-bottom: 2mm; border-bottom: 1px solid #000; margin-bottom: 2mm; }
-    .head__title { font-size: 10pt; font-weight: 700; letter-spacing: 0.02em; line-height: 1.15; margin: 0; padding: 0; max-width: 110mm; }
-    .head__sub { font-size: 8pt; margin-top: 1mm; color: #222; font-weight: 600; }
-    .body { display: flex; flex: 1; gap: 3mm; align-items: flex-start; }
-    .col-left { flex: 1; min-width: 0; font-size: 8pt; }
-    .mat { font-weight: 700; margin-bottom: 1mm; font-size: 9pt; }
-    .desc1 { font-weight: 500; margin-bottom: 1mm; font-size: 8.5pt; color: #222; }
-    .ref { font-size: 9pt; margin-bottom: 5mm; }
-    .diagram-wrap { position: relative; margin: 5mm 16mm 6mm 16mm; }
-    .edge { position: absolute; font-size: 7pt; font-weight: 700; text-align: center; }
-    .edge--top { font-size: 9pt; top: -5mm; left: 0; right: 0; }
-    .edge--bottom { font-size: 9pt; bottom: -5mm; left: 0; right: 0; }
-    .edge--right {
-      font-size: 9pt;
-      right: -22mm; top: 50%;
-      transform: translateY(-50%) rotate(90deg);
-      transform-origin: center center;
-      width: 40mm;
+    .sticker {
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      padding: 1mm 1.5mm;
+      display: flex;
+      flex-direction: column;
     }
-    .edge--left {
-      font-size: 9pt;
-      left: -22mm; top: 50%;
-      transform: translateY(-50%) rotate(-90deg);
-      transform-origin: center center;
-      width: 40mm;
+    .head {
+      flex-shrink: 0;
+      border-bottom: 0.4pt solid #000;
+      padding-bottom: 0.5mm;
+      margin-bottom: 0.6mm;
     }
-    .diagram {
-      border: 3px solid #000;
-      min-height: 26mm;
-      display: flex; align-items: center; justify-content: center;
-      padding: 3mm 2mm;
+    .head__title {
+      font-size: 6pt;
+      font-weight: 700;
+      line-height: 1.05;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
     }
-    .diagram__txt { font-size: 8pt; font-weight: 700; text-align: center; word-break: break-word; }
-    .col-right { width: 40mm; flex-shrink: 0; font-size: 8pt; }
-    .qr { text-align: center; margin-bottom: 2mm; }
-    .qr img { display: inline-block; }
-    .qr--empty { font-size: 6pt; word-break: break-all; border: 1px dashed #999; padding: 2mm; }
-    .dims { font-family: ui-monospace, Consolas, monospace; font-size: 10pt; font-weight: 700; line-height: 1.35; }
-    .frac { margin-top: 1.5mm; font-size: 9pt; font-weight: 700; }
-    .foot { margin-top: auto; padding-top: 2mm; display: flex; justify-content: flex-end; gap: 4mm; font-size: 8pt; font-weight: 700; }
-    @media print { body { padding: 2mm 3mm; } }
+    .head__sub {
+      font-size: 5pt;
+      font-weight: 600;
+      margin-top: 0.2mm;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .body {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 1mm;
+      min-height: 0;
+    }
+    .col-left {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 5.5pt;
+    }
+    .mat {
+      font-weight: 700;
+      font-size: 5.5pt;
+      line-height: 1.05;
+      margin-bottom: 0.3mm;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
+    }
+    .desc1 {
+      font-size: 5pt;
+      margin-bottom: 0.3mm;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .ref {
+      font-size: 6pt;
+      font-weight: 700;
+      margin-bottom: 0.5mm;
+    }
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: 6mm 1fr 6mm;
+      grid-template-rows: auto 1fr auto;
+      gap: 0.2mm 0.3mm;
+      align-items: center;
+    }
+    .edge {
+      font-size: 4pt;
+      font-weight: 700;
+      line-height: 1;
+      overflow: hidden;
+      word-break: break-word;
+      text-align: center;
+    }
+    .edge--up { grid-column: 1 / -1; max-height: 3mm; }
+    .edge--lo { grid-column: 1 / -1; max-height: 3mm; }
+    .edge--left { text-align: right; }
+    .edge--right { text-align: left; }
+    .piece-wrap {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 10mm;
+    }
+    .piece-shape {
+      border: 1pt solid #000;
+      width: ${shape.width}mm;
+      height: ${shape.height}mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3mm;
+    }
+    .piece-shape__txt {
+      font-size: 4pt;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.05;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      word-break: break-word;
+    }
+    .col-right {
+      flex: 0 0 22mm;
+      width: 22mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 5.5pt;
+    }
+    .qr { line-height: 0; margin-bottom: 0.5mm; }
+    .qr img {
+      width: ${QR_MM}mm;
+      height: ${QR_MM}mm;
+      display: block;
+    }
+    .qr--empty {
+      font-size: 4pt;
+      word-break: break-all;
+      border: 0.4pt dashed #999;
+      padding: 0.5mm;
+    }
+    .dims {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 6.5pt;
+      font-weight: 700;
+      line-height: 1.1;
+      align-self: stretch;
+      padding-left: 1mm;
+    }
+    .frac { margin-top: 0.3mm; font-size: 6pt; font-weight: 700; }
+    .foot {
+      margin-top: auto;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      gap: 1mm;
+      font-size: 5pt;
+      font-weight: 700;
+      padding-top: 0.3mm;
+    }
+    @media print {
+      @page {
+        size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+        size: 3.15in 1.97in landscape;
+        margin: 0;
+      }
+      html, body, .sticker {
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+      }
+      .body {
+        display: flex !important;
+        flex-direction: row !important;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="sticker">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
-      ${booking ? `<div class="head__sub">${esc(booking)}</div>` : ''}
+      ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
     </header>
     <div class="body">
       <div class="col-left">
         <div class="mat">${esc(matLine)}</div>
         ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
-        <div class="diagram-wrap">
-          ${upLabel ? `<div class="edge edge--top">${esc(upLabel)}</div>` : ''}
-          ${loLabel ? `<div class="edge edge--bottom">${esc(loLabel)}</div>` : ''}
-          ${rightLabel ? `<div class="edge edge--right">${esc(rightLabel)}</div>` : ''}
-          ${leftLabel ? `<div class="edge edge--left">${esc(leftLabel)}</div>` : ''}
-          <div class="diagram">
-            <div class="diagram__txt">${esc(centerLabel)}</div>
+        <div class="diagram-grid">
+          ${upLabel ? `<div class="edge edge--up">${esc(upLabel)}</div>` : '<div class="edge edge--up"></div>'}
+          <div class="edge edge--left">${leftLabel ? esc(leftLabel) : ''}</div>
+          <div class="piece-wrap">
+            <div class="piece-shape">
+              <div class="piece-shape__txt">${esc(centerLabel)}</div>
+            </div>
           </div>
+          <div class="edge edge--right">${rightLabel ? esc(rightLabel) : ''}</div>
+          ${loLabel ? `<div class="edge edge--lo">${esc(loLabel)}</div>` : '<div class="edge edge--lo"></div>'}
         </div>
       </div>
       <div class="col-right">
@@ -266,7 +437,7 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
       margin: 1,
       width: 180,
     })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" width="140" height="140" alt="" /></div>`
+    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" /></div>`
   } catch {
     qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
@@ -290,6 +461,7 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     cantidad,
     pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
     printedAt,
+    shape: pieceShapeMm(part?.longitud, part?.ancho),
   })
 
   let w = printWindow && !printWindow.closed ? printWindow : null
