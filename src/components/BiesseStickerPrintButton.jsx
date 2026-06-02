@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { printBiessePartSticker } from '../utils/printBiessePartSticker'
+import { openStickerPrintWindow, printBiessePartSticker } from '../utils/printBiessePartSticker'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -48,10 +48,12 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrint() {
     if (!detail || !selectedPart) return
+    const printWindow = openStickerPrintWindow()
     setPrinting(true)
     try {
       const piezaSeleccionada = (selectedPart.piezas ?? []).find((z) => z.numeroPieza === numeroPieza)
       const printResult = await printBiessePartSticker({
+        printWindow,
         order: {
           orderName: detail.orderName,
           bookingCode: detail.bookingCode,
@@ -115,7 +117,18 @@ export function BiesseStickerPrintButton({ detail }) {
 
       setOpen(false)
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo generar la etiqueta.')
+      if (printWindow && !printWindow.closed) {
+        try {
+          printWindow.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      if (e instanceof Error && e.message === 'impresión no disponible') {
+        /* mensaje ya mostrado en printBiessePartSticker */
+      } else {
+        window.alert(e instanceof Error ? e.message : 'No se pudo generar la etiqueta.')
+      }
     } finally {
       setPrinting(false)
     }

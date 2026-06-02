@@ -106,14 +106,71 @@ function triggerPrint(win) {
   }
 }
 
+const PRINT_LOADING_HTML = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Etiqueta</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}</style>
+</head><body><p>Generando etiqueta…</p></body></html>`
+
+/**
+ * Abre la ventana de impresión en el mismo tick del clic (antes de cualquier await).
+ * Si no se llama aquí, el navegador suele bloquear el popup aunque esté permitido.
+ * @returns {Window|null}
+ */
+export function openStickerPrintWindow() {
+  const w = window.open('about:blank', '_blank')
+  if (!w) return null
+  try {
+    w.document.open()
+    w.document.write(PRINT_LOADING_HTML)
+    w.document.close()
+  } catch {
+    try {
+      w.close()
+    } catch {
+      /* ignore */
+    }
+    return null
+  }
+  return w
+}
+
+function writeLabelHtml(win, html) {
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  triggerPrint(win)
+}
+
+/** Imprime sin ventana emergente (mismo documento). */
+function printLabelViaIframe(html) {
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('title', 'Impresión etiqueta Biesse')
+  iframe.style.cssText =
+    'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+  document.body.appendChild(iframe)
+  const win = iframe.contentWindow
+  if (!win) {
+    iframe.remove()
+    throw new Error('No se pudo preparar la impresión.')
+  }
+  writeLabelHtml(win, html)
+  setTimeout(() => {
+    try {
+      iframe.remove()
+    } catch {
+      /* ignore */
+    }
+  }, 60_000)
+}
+
 /**
  * @param {object} opts
  * @param {{ orderName?: string, bookingCode?: string|null }} opts.order
  * @param {object} opts.part
  * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
+ * @param {Window|null} [opts.printWindow] ventana abierta en el clic (openStickerPrintWindow)
  * @returns {Promise<{ qrCode: string, printedAt: string }>}
  */
-export async function printBiessePartSticker({ order, part, piece }) {
+export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
   const orderName = order?.orderName ?? ''
   const partNumber = part?.partNumber ?? part?.partId ?? 0
   const partCode = String(part?.partCode ?? partNumber ?? '').trim()
@@ -422,15 +479,25 @@ export async function printBiessePartSticker({ order, part, piece }) {
 </body>
 </html>`
 
-  const w = window.open('', '_blank', 'noopener,noreferrer')
+  let w = printWindow && !printWindow.closed ? printWindow : null
   if (!w) {
-    window.alert('Permite ventanas emergentes para imprimir la etiqueta.')
-    throw new Error('popups bloqueados')
+    w = window.open('about:blank', '_blank')
   }
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
-  triggerPrint(w)
+  if (w) {
+    writeLabelHtml(w, html)
+  } else {
+    try {
+      printLabelViaIframe(html)
+    } catch {
+      window.alert(
+        'No se pudo abrir la impresión.\n\n' +
+          '• Haz clic en Imprimir de nuevo (el navegador solo permite la ventana justo al pulsar).\n' +
+          '• En Chrome/Edge: icono junto a la URL → permitir ventanas emergentes para este sitio.\n' +
+          '• Impresora Zebra: en el diálogo elige la Zebra, tamaño 80×50 mm y escala 100 %.'
+      )
+      throw new Error('impresión no disponible')
+    }
+  }
 
   return { qrCode: scanCode, printedAt: printedAt.toISOString() }
 }
