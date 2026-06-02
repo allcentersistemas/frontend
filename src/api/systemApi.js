@@ -443,8 +443,8 @@ export async function listInventoryCategorias() {
   return systemJson('/api/inventory/categorias')
 }
 
-export async function listInventoryItems({ page = 0, size = 20, q, sucursalId } = {}) {
-  return systemJson(`/api/inventory/items${qs({ page, size, q, sucursalId })}`)
+export async function listInventoryItems({ page = 0, size = 20, q, sucursalId, tipo } = {}) {
+  return systemJson(`/api/inventory/items${qs({ page, size, q, sucursalId, tipo })}`)
 }
 
 export async function listTableros({ page = 0, size = 20, q } = {}) {

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { useAuth } from '../auth/AuthContext'
 import { DetailModal } from '../components/DetailModal'
+import { ModuleTabs } from '../components/module/ModuleChrome.jsx'
 import { categoriaLabel } from '../utils/stockCategoryLabels'
+import { inferStockItemType, stockItemTypeLabel, STOCK_ITEM_TYPES } from '../utils/stockItemTypes'
 
 function esc(s) {
   if (s == null || s === '') return '—'
@@ -29,6 +31,7 @@ export function StockAlmacenPanel() {
   const defaultSucursalId = employee?.branchId ?? null
 
   const [q, setQ] = useState('')
+  const [tipoFilter, setTipoFilter] = useState('')
   const [page, setPage] = useState(0)
   const pageSize = 15
   const [listBody, setListBody] = useState(null)
@@ -75,6 +78,7 @@ export function StockAlmacenPanel() {
         size: pageSize,
         q: q.trim() || undefined,
         sucursalId: sucursalIdForFilter ?? undefined,
+        tipo: tipoFilter || undefined,
       })
       setListBody(body)
     } catch (e) {
@@ -83,7 +87,7 @@ export function StockAlmacenPanel() {
     } finally {
       setListLoading(false)
     }
-  }, [page, pageSize, q, sucursalIdForFilter])
+  }, [page, pageSize, q, sucursalIdForFilter, tipoFilter])
 
   useEffect(() => {
     void loadList()
@@ -91,7 +95,7 @@ export function StockAlmacenPanel() {
 
   useEffect(() => {
     setPage(0)
-  }, [q, sucursalIdForFilter])
+  }, [q, sucursalIdForFilter, tipoFilter])
 
   const fetchDetail = useCallback(
     async (id) => {
@@ -124,11 +128,11 @@ export function StockAlmacenPanel() {
   }
 
   function exportStockCsv() {
-    const head = ['id', 'sku', 'name', 'unit', 'balanceOnHand', 'active', 'createdAt']
+    const head = ['id', 'tipo', 'sku', 'name', 'unit', 'balanceOnHand', 'active', 'createdAt']
     const lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
-        [r.id, r.sku, r.name, r.unit, r.balanceOnHand, r.active, r.createdAt]
+        [r.id, inferStockItemType(r), r.sku, r.name, r.unit, r.balanceOnHand, r.active, r.createdAt]
           .map((c) => csvEscape(c))
           .join(','),
       )
@@ -146,9 +150,8 @@ export function StockAlmacenPanel() {
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <p className="muted small" style={{ margin: 0 }}>
-          Kardex de almacén por sucursal (palés, piezas, guías). Los catálogos de{' '}
-          <strong>tableros</strong> y <strong>cantos</strong> para la planilla del cliente se administran en sus
-          pestañas del inventario.
+          Kardex de almacén por sucursal. <strong>Palés</strong> (unidad logística) y <strong>piezas</strong> (contenido
+          al cerrar palé) se listan por separado. Seleccione sucursal para ver solo el stock de ese almacén.
         </p>
       </div>
 
@@ -164,7 +167,7 @@ export function StockAlmacenPanel() {
               value={filterSucursalId === '' ? '' : String(filterSucursalId)}
               onChange={(e) => setFilterSucursalId(e.target.value)}
             >
-              <option value="">Todas (vista global)</option>
+              <option value="">Todas (catálogo global)</option>
               {branches.map((b) => (
                 <option key={b.id} value={String(b.id)}>
                   {b.nombre ?? `#${b.id}`}
@@ -179,22 +182,35 @@ export function StockAlmacenPanel() {
             CSV página
           </button>
         </div>
+
+        <div className="pad" style={{ paddingTop: 0 }}>
+          <ModuleTabs
+            ariaLabel="Tipo de artículo"
+            activeId={tipoFilter || ''}
+            onChange={(id) => setTipoFilter(id)}
+            tabs={STOCK_ITEM_TYPES.map((t) => ({ id: t.id, label: t.label }))}
+          />
+        </div>
+
         {sucursalNombre ? (
           <p className="pad muted small" style={{ paddingTop: 0 }}>
-            Mostrando saldos y movimientos de: <strong>{sucursalNombre}</strong>
+            Stock con saldo en: <strong>{sucursalNombre}</strong>
+            {tipoFilter ? ` · tipo ${stockItemTypeLabel(tipoFilter)}` : ''}
           </p>
         ) : (
           <p className="pad muted small" style={{ paddingTop: 0 }}>
-            Vista global — elija sucursal para ver saldo disponible por almacén.
+            Vista global del catálogo — elija una sucursal para filtrar por almacén (solo artículos con saldo en esa
+            sucursal).
           </p>
         )}
+
         {listErr ? <p className="pad" style={{ color: 'var(--danger, #b00020)' }}>{listErr}</p> : null}
         {listLoading ? <p className="muted pad">Cargando…</p> : null}
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Tipo</th>
                 <th>SKU</th>
                 <th>Nombre</th>
                 <th>Unidad</th>
@@ -203,24 +219,35 @@ export function StockAlmacenPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className={selectedId === r.id ? 'inv-row-selected' : undefined}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedId(r.id)}
-                >
-                  <td>{r.id}</td>
-                  <td className="small">{esc(r.sku)}</td>
-                  <td className="small">{esc(r.name)}</td>
-                  <td>{esc(r.unit)}</td>
-                  {sucursalIdForFilter != null ? <td>{esc(r.balanceOnHand)}</td> : null}
-                  <td>{r.active === false ? 'No' : 'Sí'}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const tipo = inferStockItemType(r)
+                return (
+                  <tr
+                    key={r.id}
+                    className={selectedId === r.id ? 'inv-row-selected' : undefined}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedId(r.id)}
+                  >
+                    <td>
+                      <span className="tag">{stockItemTypeLabel(tipo)}</span>
+                    </td>
+                    <td className="small">{esc(r.sku)}</td>
+                    <td className="small">{esc(r.name)}</td>
+                    <td>{esc(r.unit)}</td>
+                    {sucursalIdForFilter != null ? <td>{esc(r.balanceOnHand)}</td> : null}
+                    <td>{r.active === false ? 'No' : 'Sí'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
-          {!rows.length && !listLoading ? <p className="muted pad">Sin artículos en esta página.</p> : null}
+          {!rows.length && !listLoading ? (
+            <p className="muted pad">
+              {sucursalIdForFilter != null
+                ? 'Sin stock en esta sucursal para el filtro actual.'
+                : 'Sin artículos en esta página.'}
+            </p>
+          ) : null}
         </div>
         <div className="pad" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <button
@@ -260,8 +287,8 @@ export function StockAlmacenPanel() {
         {detail?.item ? (
           <>
             <dl className="inv-dl">
-              <dt>ID</dt>
-              <dd>{detail.item.id}</dd>
+              <dt>Tipo</dt>
+              <dd>{stockItemTypeLabel(inferStockItemType(detail.item))}</dd>
               <dt>SKU</dt>
               <dd>{esc(detail.item.sku)}</dd>
               <dt>Nombre</dt>
