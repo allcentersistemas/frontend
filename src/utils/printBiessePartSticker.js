@@ -6,10 +6,10 @@
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -105,40 +105,49 @@ export async function printBiessePartSticker({ order, part, piece }) {
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
-    @page { size: 200mm 74mm; margin: 0; }
+    @page { 
+      size: 200mm 74mm; 
+      margin: 0; 
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 3mm 4mm;
+      padding: 3mm 2mm 3mm 2mm;
       font-family: Arial, Helvetica, sans-serif;
       color: #000;
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .sticker { padding-left: 5mm; width: 150mm; min-height: 68mm; display: flex; flex-direction: column; }
+    .sticker { 
+      padding-left: 1mm; 
+      width: 100%; 
+      min-height: 68mm; 
+      display: flex; 
+      flex-direction: column; 
+    }
     .head { position: relative; padding-bottom: 2mm; border-bottom: 1px solid #000; margin-bottom: 2mm; }
     .head__title { font-size: 10pt; font-weight: 700; letter-spacing: 0.02em; line-height: 1.15; margin: 0; padding: 0; max-width: 110mm; }
     .head__sub { font-size: 8pt; margin-top: 1mm; color: #222; font-weight: 600; }
-    .body { display: flex; flex: 1; gap: 3mm; align-items: flex-start; }
+    .body { display: flex; flex: 1; gap: 2mm; align-items: flex-start; }
     .col-left { flex: 1; min-width: 0; font-size: 8pt; }
     .mat { font-weight: 700; margin-bottom: 1mm; font-size: 9pt; }
     .desc1 { font-weight: 500; margin-bottom: 1mm; font-size: 8.5pt; color: #222; }
     .ref { font-size: 9pt; margin-bottom: 5mm; }
-    .diagram-wrap { position: relative; margin: 5mm 16mm 6mm 16mm; }
+    .diagram-wrap { position: relative; margin: 5mm 12mm 6mm 12mm; }
     .edge { position: absolute; font-size: 7pt; font-weight: 700; text-align: center; }
     .edge--top { font-size: 9pt; top: -5mm; left: 0; right: 0; }
     .edge--bottom { font-size: 9pt; bottom: -5mm; left: 0; right: 0; }
     .edge--right {
       font-size: 9pt;
-      right: -22mm; top: 50%;
+      right: -18mm; top: 50%;
       transform: translateY(-50%) rotate(90deg);
       transform-origin: center center;
       width: 40mm;
     }
     .edge--left {
       font-size: 9pt;
-      left: -22mm; top: 50%;
+      left: -18mm; top: 50%;
       transform: translateY(-50%) rotate(-90deg);
       transform-origin: center center;
       width: 40mm;
@@ -150,14 +159,18 @@ export async function printBiessePartSticker({ order, part, piece }) {
       padding: 3mm 2mm;
     }
     .diagram__txt { font-size: 8pt; font-weight: 700; text-align: center; word-break: break-word; }
-    .col-right { width: 40mm; flex-shrink: 0; font-size: 8pt; }
+    .col-right { width: 38mm; flex-shrink: 0; font-size: 8pt; }
     .qr { text-align: center; margin-bottom: 2mm; }
     .qr img { display: inline-block; }
     .qr--empty { font-size: 6pt; word-break: break-all; border: 1px dashed #999; padding: 2mm; }
     .dims { font-family: ui-monospace, Consolas, monospace; font-size: 10pt; font-weight: 700; line-height: 1.35; }
     .frac { margin-top: 1.5mm; font-size: 9pt; font-weight: 700; }
     .foot { margin-top: auto; padding-top: 2mm; display: flex; justify-content: flex-end; gap: 4mm; font-size: 8pt; font-weight: 700; }
-    @media print { body { padding: 2mm 3mm; } }
+    @media print { 
+      body { 
+        padding: 2mm 1mm 2mm 1mm; 
+      } 
+    }
   </style>
 </head>
 <body>
