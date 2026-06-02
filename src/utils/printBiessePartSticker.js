@@ -167,7 +167,6 @@ function printLabelViaIframe(html) {
 export async function printBiessePartSticker({ order, part, piece, printWindow = null }) {
   const orderName = order?.orderName ?? ''
   const partNumber = part?.partNumber ?? part?.partId ?? 0
-  const partCode = String(part?.partCode ?? partNumber ?? '').trim()
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
@@ -208,13 +207,18 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
   <title>Etiqueta ${esc(scanCode)}</title>
   <style>
     @page {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+      size: 3.15in 1.97in landscape;
       margin: 0;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: ${LABEL_W_MM}mm;
       height: ${LABEL_H_MM}mm;
+      min-width: ${LABEL_W_MM}mm;
+      min-height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
       overflow: hidden;
     }
     body {
@@ -257,17 +261,24 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
     }
     .main {
       flex: 1;
-      display: table;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      gap: 1mm;
       width: 100%;
-      table-layout: fixed;
-      border-collapse: collapse;
+      min-height: 0;
     }
-    .main__left, .main__right {
-      display: table-cell;
-      vertical-align: top;
+    .main__left {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 58%;
     }
-    .main__left { width: 58%; padding-right: 1mm; }
-    .main__right { width: 42%; text-align: center; }
+    .main__right {
+      flex: 0 0 30mm;
+      width: 30mm;
+      text-align: center;
+    }
     .mat {
       font-size: 6pt;
       font-weight: 700;
@@ -375,9 +386,26 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
       width: 100%;
     }
     @media print {
+      @page {
+        size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+        size: 3.15in 1.97in landscape;
+        margin: 0;
+      }
       html, body {
-        width: ${LABEL_W_MM}mm;
-        height: ${LABEL_H_MM}mm;
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+      }
+      .label {
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+      }
+      .main {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+      }
+      .main__left, .main__right {
+        display: block !important;
       }
     }
   </style>
@@ -435,7 +463,7 @@ export async function printBiessePartSticker({ order, part, piece, printWindow =
       window.alert(
         'No se pudo abrir la impresión.\n\n' +
           '• Pulsa Imprimir de nuevo (solo funciona en el instante del clic).\n' +
-          '• Zebra ZD230: papel 80×50 mm, escala 100 %, márgenes ninguno.'
+          '• Zebra ZD230: papel 80×50 mm, orientación Horizontal, escala 100 %, márgenes ninguno.'
       )
       throw new Error('impresión no disponible')
     }
