@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { openStickerPrintWindow, printBiessePartSticker } from '../utils/printBiessePartSticker'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
