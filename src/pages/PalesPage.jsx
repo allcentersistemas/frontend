@@ -193,20 +193,20 @@ async function printPalletOrderSummary(header, details) {
     <div><strong>Cierre</strong> ${esc(formatPrintShort(header.fechaCierre))}</div>
     <div style="grid-column: 1 / -1"><strong>Notas</strong> ${esc(header.notas)}</div>
   </div>
-  <table>
-    <caption>Detalle de piezas</caption>
-    <thead>
-      <tr>
-        <th style="width:12%">Parte</th>
-        <th>Orden · Desc. · Med. (L×A)</th>
-        <th style="width:8%">Pza</th>
-        <th style="width:14%">Fecha</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
-    </tbody>
-  </table>
+  // <table>
+  //   <caption>Detalle de piezas</caption>
+  //   <thead>
+  //     <tr>
+  //       <th style="width:12%">Parte</th>
+  //       <th>Orden · Desc. · Med. (L×A)</th>
+  //       <th style="width:8%">Pza</th>
+  //       <th style="width:14%">Fecha</th>
+  //     </tr>
+  //   </thead>
+  //   <tbody>
+  //     ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
+  //   </tbody>
+  // </table>
   <script>window.onload = function () { window.print(); };</script>
 </body>
 </html>`
