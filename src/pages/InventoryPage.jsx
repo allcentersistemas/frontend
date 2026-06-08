@@ -16,6 +16,7 @@ import {
   formatNumeroRegistro,
   rmVehiculoLabel,
   rowMatchesRmFilters,
+  salidaNumeroGuia,
   tipoRegistroLabel,
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
@@ -242,7 +243,7 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
           r.ordenCompra,
-          r.guiaNumero,
+          salidaNumeroGuia(r),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -879,7 +880,7 @@ export function InventoryPage() {
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
                         <td className="small">
-                          {esc(r.ordenCompra)} / {esc(r.guiaNumero)}
+                          {esc(r.ordenCompra)} / {esc(salidaNumeroGuia(r))}
                         </td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">

@@ -1,5 +1,12 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
+/** N° guía en salidas RM (columna numero_guia; alias guiaNumero en registros antiguos). */
+export function salidaNumeroGuia(row) {
+  if (!row || typeof row !== 'object') return ''
+  const v = row.numeroGuia ?? row.guiaNumero
+  return v == null ? '' : String(v).trim()
+}
+
 export function tipoRegistroLabel(raw) {
   if (raw == null || raw === '') return '—'
   const t = String(raw).trim().toLowerCase()
@@ -124,7 +131,7 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      row.guiaNumero,
+      salidaNumeroGuia(row),
       row.ordenCompra,
       row.recepcionEstado,
       row.lineas,
