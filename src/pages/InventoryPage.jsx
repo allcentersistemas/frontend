@@ -1099,7 +1099,7 @@ export function InventoryPage() {
                 <dt>N° guía</dt>
                 <dd>{esc(detail.data.numeroGuia)}</dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(detail.data.ordenCompra)}</dd>
+                <dd>{esc(rmListOcNumero(detail.data))}</dd>
                 <dt>Vehículo flota (salida)</dt>
                 <dd className="small">{transporteLabel(transportById, detail.data.transporteId)}</dd>
                 <dt>Chofer salida</dt>
