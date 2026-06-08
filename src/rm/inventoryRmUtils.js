@@ -1,16 +1,16 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
-/** OC en filas de listado RM (entradas y salidas). */
+/** OC en filas de listado RM (columna oc_numero). */
 export function rmListOcNumero(row) {
   if (!row || typeof row !== 'object') return ''
-  const v = row.ocNumero ?? row.ordenCompra
+  const v = row.ocNumero
   return v == null ? '' : String(v).trim()
 }
 
-/** N° guía en filas de listado RM (entradas y salidas; columna numero_guia en salidas). */
+/** N° guía en filas de listado RM (columna numero_guia). */
 export function rmListGuiaNumero(row) {
   if (!row || typeof row !== 'object') return ''
-  const v = row.guiaNumero ?? row.numeroGuia
+  const v = row.numeroGuia
   return v == null ? '' : String(v).trim()
 }
 
