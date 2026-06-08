@@ -1,11 +1,41 @@
 import { sessionClientHeaders } from '../auth/clientSession'
 import { isAccessTokenExpired } from '../auth/jwtUtils'
+import { saveAuthTokens } from '../auth/tokenStorage'
 import { biesseApiBase, systemApiBase } from '../config/env'
 
 const RM_MEDIA_MARKER = '/api/rm/media/'
+const AUTH_SYNC_CHANNEL = 'appscanner-auth'
+const REFRESH_LOCK = 'appscanner-auth-refresh'
 
 let tokens = null
 const listeners = []
+let refreshInFlight = null
+let authBroadcast = null
+
+function authChannel() {
+  if (typeof BroadcastChannel === 'undefined') {
+    return null
+  }
+  if (authBroadcast) {
+    return authBroadcast
+  }
+  authBroadcast = new BroadcastChannel(AUTH_SYNC_CHANNEL)
+  authBroadcast.onmessage = (ev) => {
+    if (ev.data?.type === 'tokens-updated' && ev.data.tokens?.accessToken && ev.data.tokens?.refreshToken) {
+      tokens = ev.data.tokens
+      for (const l of listeners) {
+        l(tokens)
+      }
+    }
+  }
+  return authBroadcast
+}
+
+function publishTokens(next) {
+  setStoredTokens(next)
+  saveAuthTokens(next)
+  authChannel()?.postMessage({ type: 'tokens-updated', tokens: next })
+}
 
 let systemExtraHeadersFn = () => ({})
 
@@ -58,15 +88,34 @@ function collectSystemExtraHeaders() {
   return merged
 }
 
-async function tryRefresh() {
+async function runRefreshOnce() {
   if (!refreshFn) return false
   const session = await refreshFn()
-  if (!session) return false
-  setStoredTokens({
+  if (!session?.accessToken || !session?.refreshToken) return false
+  publishTokens({
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
   })
   return true
+}
+
+async function tryRefresh() {
+  if (refreshInFlight) {
+    return refreshInFlight
+  }
+
+  refreshInFlight = (async () => {
+    if (navigator.locks?.request) {
+      return navigator.locks.request(REFRESH_LOCK, runRefreshOnce)
+    }
+    return runRefreshOnce()
+  })()
+
+  try {
+    return await refreshInFlight
+  } finally {
+    refreshInFlight = null
+  }
 }
 
 async function parseJson(text) {
@@ -177,6 +226,21 @@ export async function systemJson(path, init) {
 /** module-biesse (escaneo OSI) */
 export async function biesseJson(path, init) {
   return backendJson(biesseApiBase, path, init)
+}
+
+export async function refreshStoredSession() {
+  if (!getStoredTokens()?.refreshToken) {
+    return null
+  }
+  const ok = await tryRefresh()
+  if (!ok) {
+    return null
+  }
+  const t = getStoredTokens()
+  if (!t?.accessToken || !t?.refreshToken) {
+    return null
+  }
+  return { accessToken: t.accessToken, refreshToken: t.refreshToken }
 }
 
 export async function refreshSessionRequest(body) {

@@ -223,6 +223,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
       'fecha',
       'horaCabecera',
       'vehiculo',
+      'oc',
+      'guia',
       'lineas',
       'estado',
       'canceladoPor',
@@ -239,6 +241,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
+          r.ordenCompra,
+          r.guiaNumero,
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -252,7 +256,7 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
       )
     }
   } else if (q === 'vehiculos') {
-    head = ['numeroRegistro', 'tipoRegistro', 'fecha', 'placa', 'chofer', 'marca', 'creado']
+    head = ['numeroRegistro', 'tipoRegistro', 'fecha', 'placa', 'chofer', 'marca', 'guia', 'oc', 'creado']
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
@@ -263,6 +267,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.placa,
           r.chofer,
           r.marca,
+          r.guiaNumero,
+          r.ocNumero,
           r.createdAt,
         ]
           .map((c) => csvEscape(c))
@@ -394,10 +400,18 @@ export function InventoryPage() {
   const [cancelSaving, setCancelSaving] = useState(false)
   const [cancelErr, setCancelErr] = useState(null)
 
-  const filteredRows = useMemo(
-    () => allRows.filter((r) => rowMatchesRmFilters(tab, r, vehiculoById, rmFilters)),
-    [allRows, tab, vehiculoById, rmFilters],
-  )
+  const [debouncedQ, setDebouncedQ] = useState('')
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQ(rmFilters.q?.trim() ?? ''), 400)
+    return () => clearTimeout(t)
+  }, [rmFilters.q])
+
+  const filteredRows = useMemo(() => {
+    const serverTextSearch = Boolean(debouncedQ)
+    return allRows.filter((r) =>
+      rowMatchesRmFilters(tab, r, vehiculoById, rmFilters, { skipTextSearch: serverTextSearch }),
+    )
+  }, [allRows, tab, vehiculoById, rmFilters, debouncedQ])
   const clientTotalPages = Math.max(1, Math.ceil(filteredRows.length / RM_LIST_PAGE_SIZE))
   const pagedRows = useMemo(() => {
     const start = clientPage * RM_LIST_PAGE_SIZE
@@ -434,7 +448,11 @@ export function InventoryPage() {
       else if (tab === 'salidas') listFn = systemApi.listRegistrosSalida
       else if (tab === 'vehiculos') listFn = systemApi.listRegistrosVehiculo
       else listFn = systemApi.listActasConformidad
-      const { items, truncated } = await systemApi.fetchAllPaged(listFn, { size: 100, maxItems: 2000 })
+      const searchQ = debouncedQ || undefined
+      const { items, truncated } = await systemApi.fetchAllPaged(
+        (p) => listFn({ ...p, q: searchQ }),
+        { size: 100, maxItems: searchQ ? 5000 : 2000 },
+      )
       setAllRows(items)
       setListTruncated(truncated)
     } catch (e) {
@@ -443,7 +461,7 @@ export function InventoryPage() {
     } finally {
       setListLoading(false)
     }
-  }, [canViewRm, areaTab, tab])
+  }, [canViewRm, areaTab, tab, debouncedQ])
 
   const loadTransportCatalog = useCallback(async () => {
     if (!canViewRm || areaTab !== 'rm' || !canViewTransportCatalog) {
@@ -842,6 +860,7 @@ export function InventoryPage() {
                       <th>Fecha</th>
                       <th>Hora cab.</th>
                       <th>Vehículo (RM)</th>
+                      <th>OC / Guía</th>
                       <th>Estado</th>
                       <th>Cancelación</th>
                       <th>Líneas</th>
@@ -859,6 +878,9 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
+                        <td className="small">
+                          {esc(r.ordenCompra)} / {esc(r.guiaNumero)}
+                        </td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
                           <RmCancelListCell record={r} />
@@ -880,6 +902,8 @@ export function InventoryPage() {
                       <th>Placa</th>
                       <th>Chofer</th>
                       <th>Marca</th>
+                      <th>Guía</th>
+                      <th>OC</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -896,6 +920,8 @@ export function InventoryPage() {
                         <td>{esc(r.placa)}</td>
                         <td className="small">{esc(r.chofer)}</td>
                         <td className="small">{esc(r.marca)}</td>
+                        <td className="small">{esc(r.guiaNumero)}</td>
+                        <td className="small">{esc(r.ocNumero)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1145,6 +1171,10 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.marca)}</dd>
                 <dt>Chofer</dt>
                 <dd>{esc(detail.data.chofer)}</dd>
+                <dt>N° guía</dt>
+                <dd>{esc(detail.data.guiaNumero)}</dd>
+                <dt>Orden de compra</dt>
+                <dd>{esc(detail.data.ocNumero)}</dd>
                 <dt>Hora ingreso / salida</dt>
                 <dd className="small">
                   {esc(detail.data.horaIngreso)} / {esc(detail.data.horaSalida)}

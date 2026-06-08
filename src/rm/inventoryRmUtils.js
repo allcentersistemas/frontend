@@ -18,6 +18,8 @@ export function buildRmVehiculoMap(vehiculos) {
     const placa = typeof v.placa === 'string' ? v.placa.trim() : ''
     const marca = typeof v.marca === 'string' ? v.marca.trim() : ''
     const chofer = typeof v.chofer === 'string' ? v.chofer.trim() : ''
+    const guiaNumero = typeof v.guiaNumero === 'string' ? v.guiaNumero.trim() : ''
+    const ocNumero = typeof v.ocNumero === 'string' ? v.ocNumero.trim() : ''
     const parts = [placa, marca, chofer].filter(Boolean)
     const numero = v.numeroRegistro ?? v.numeroregistro
     const label =
@@ -31,6 +33,8 @@ export function buildRmVehiculoMap(vehiculos) {
       placa,
       marca,
       chofer,
+      guiaNumero,
+      ocNumero,
       tipoRegistro: v.tipoRegistro ?? v.tiporegistro,
       numeroRegistro: numero,
       label,
@@ -51,6 +55,15 @@ function haystack(...parts) {
     .filter((p) => p != null && p !== '')
     .join(' ')
     .toLowerCase()
+}
+
+/** Normaliza término de búsqueda (quita espacios, guiones extra). */
+export function normalizeRmSearchText(value) {
+  if (value == null) return ''
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
 }
 
 function parseRowDate(value) {
@@ -79,16 +92,73 @@ function dateInRange(value, from, to) {
   return true
 }
 
+function rowMatchesText(tab, row, vehiculoById, q) {
+  const needle = normalizeRmSearchText(q)
+  if (!needle) return true
+
+  const veh = vehiculoById.get(Number(row.registroVehiculoId))
+  const vehLabel = veh?.label ?? ''
+
+  if (tab === 'entradas') {
+    return haystack(
+      row.numeroRegistro,
+      row.registroVehiculoId,
+      vehLabel,
+      veh?.guiaNumero,
+      veh?.ocNumero,
+      row.fecha,
+      row.hora,
+      row.ocNumero,
+      row.guiaNumero,
+      row.recepcionEstado,
+      row.lineas,
+      row.createdAt,
+    ).includes(needle)
+  }
+  if (tab === 'salidas') {
+    return haystack(
+      row.numeroRegistro,
+      row.registroVehiculoId,
+      vehLabel,
+      veh?.guiaNumero,
+      veh?.ocNumero,
+      row.fecha,
+      row.horaCabecera,
+      row.guiaNumero,
+      row.ordenCompra,
+      row.recepcionEstado,
+      row.lineas,
+      row.createdAt,
+    ).includes(needle)
+  }
+  if (tab === 'vehiculos') {
+    return haystack(
+      row.numeroRegistro,
+      row.tipoRegistro,
+      row.tiporegistro,
+      row.fecha,
+      row.placa,
+      row.chofer,
+      row.marca,
+      row.guiaNumero,
+      row.ocNumero,
+      row.createdAt,
+    ).includes(needle)
+  }
+  return haystack(row.razonSocialNombre, row.decision, row.createdAt).includes(needle)
+}
+
 /**
  * @param {'entradas'|'salidas'|'vehiculos'|'actas'} tab
  * @param {object} filters { q, fechaDesde, fechaHasta, tipoRegistro, placaChofer }
+ * @param {{ skipTextSearch?: boolean }} [opts]
  */
-export function rowMatchesRmFilters(tab, row, vehiculoById, filters) {
-  const q = (filters.q ?? '').trim().toLowerCase()
+export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) {
+  const q = filters.q ?? ''
   const fechaDesde = filters.fechaDesde ?? ''
   const fechaHasta = filters.fechaHasta ?? ''
   const tipoFiltro = (filters.tipoRegistro ?? '').trim().toLowerCase()
-  const placaChofer = (filters.placaChofer ?? '').trim().toLowerCase()
+  const placaChofer = normalizeRmSearchText(filters.placaChofer ?? '')
 
   if (tab === 'entradas' || tab === 'salidas') {
     if (!dateInRange(row.fecha, fechaDesde, fechaHasta)) return false
@@ -98,7 +168,7 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters) {
       if (t !== tipoFiltro) return false
     }
     if (placaChofer && veh) {
-      const blob = haystack(veh.placa, veh.marca, veh.chofer, veh.label)
+      const blob = haystack(veh.placa, veh.marca, veh.chofer, veh.label, veh.guiaNumero, veh.ocNumero)
       if (!blob.includes(placaChofer)) return false
     }
   }
@@ -110,7 +180,7 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters) {
       if (t !== tipoFiltro) return false
     }
     if (placaChofer) {
-      const blob = haystack(row.placa, row.marca, row.chofer)
+      const blob = haystack(row.placa, row.marca, row.chofer, row.guiaNumero, row.ocNumero)
       if (!blob.includes(placaChofer)) return false
     }
   }
@@ -119,49 +189,8 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters) {
     if (!dateInRange(row.createdAt, fechaDesde, fechaHasta)) return false
   }
 
-  if (!q) return true
-
-  if (tab === 'entradas') {
-    const vehLabel = rmVehiculoLabel(vehiculoById, row.registroVehiculoId)
-    return haystack(
-      row.numeroRegistro,
-      row.registroVehiculoId,
-      vehLabel,
-      row.fecha,
-      row.hora,
-      row.ocNumero,
-      row.guiaNumero,
-      row.recepcionEstado,
-      row.lineas,
-      row.createdAt,
-    ).includes(q)
-  }
-  if (tab === 'salidas') {
-    const vehLabel = rmVehiculoLabel(vehiculoById, row.registroVehiculoId)
-    return haystack(
-      row.numeroRegistro,
-      row.registroVehiculoId,
-      vehLabel,
-      row.fecha,
-      row.horaCabecera,
-      row.recepcionEstado,
-      row.lineas,
-      row.createdAt,
-    ).includes(q)
-  }
-  if (tab === 'vehiculos') {
-    return haystack(
-      row.numeroRegistro,
-      row.tipoRegistro,
-      row.tiporegistro,
-      row.fecha,
-      row.placa,
-      row.chofer,
-      row.marca,
-      row.createdAt,
-    ).includes(q)
-  }
-  return haystack(row.razonSocialNombre, row.decision, row.createdAt).includes(q)
+  if (opts.skipTextSearch) return true
+  return rowMatchesText(tab, row, vehiculoById, q)
 }
 
 export function formatNumeroRegistro(n) {

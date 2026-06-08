@@ -12,17 +12,16 @@ import {
   configureSystemExtraHeaders,
   configureTokenRefresh,
   getStoredTokens,
+  refreshStoredSession,
   refreshSessionRequest,
   setStoredTokens,
   subscribeTokens,
 } from '../api/http'
 import { isAccessTokenExpired } from './jwtUtils'
-import { clearAuthTokens, loadAuthTokens, saveAuthTokens } from './tokenStorage'
+import { clearAuthTokens, listenCrossTabAuthSync, loadAuthTokens, saveAuthTokens } from './tokenStorage'
 import { defaultDashboardPath } from '../access/permissions'
 import { dashboardForRoles } from './roles'
 
-/** Si el usuario está inactivo más de este tiempo, no renovamos token (se cerrará sesión al caducar). */
-const IDLE_BEFORE_NO_REFRESH_MS = 15 * 60 * 1000
 /** Renovar access token cuando falten estos segundos o menos para caducar. */
 const REFRESH_SKEW_SECONDS = 90
 const REFRESH_POLL_MS = 30_000
@@ -34,13 +33,7 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false)
 
   const refreshSession = useCallback(async () => {
-    const t = getStoredTokens()
-    if (!t?.refreshToken) return null
-    try {
-      return await refreshSessionRequest({ refreshToken: t.refreshToken })
-    } catch {
-      return null
-    }
+    return refreshStoredSession()
   }, [])
 
   const logout = useCallback(async () => {
@@ -58,8 +51,16 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    configureTokenRefresh(refreshSession)
-  }, [refreshSession])
+    configureTokenRefresh(async () => {
+      const t = getStoredTokens()
+      if (!t?.refreshToken) return null
+      try {
+        return await refreshSessionRequest({ refreshToken: t.refreshToken })
+      } catch {
+        return null
+      }
+    })
+  }, [])
 
   useEffect(() => {
     const p = loadAuthTokens()
@@ -129,6 +130,17 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    return listenCrossTabAuthSync((t) => {
+      if (t) {
+        setStoredTokens({ accessToken: t.accessToken, refreshToken: t.refreshToken })
+      } else {
+        setStoredTokens(null)
+        setEmployee(null)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
     configureSystemExtraHeaders(() => {
       if (!employee) return {}
       const h = {}
@@ -144,44 +156,33 @@ export function AuthProvider({ children }) {
     })
   }, [employee])
 
-  /** Renovación proactiva mientras la pestaña está activa; cierre si caducó sin uso. */
+/** Renovación proactiva del access token mientras haya refresh token válido. */
   useEffect(() => {
     if (!employee) return undefined
-
-    let lastActivity = Date.now()
-    const markActive = () => {
-      lastActivity = Date.now()
-    }
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll']
-    for (const ev of events) {
-      window.addEventListener(ev, markActive, { passive: true })
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') markActive()
-    }
-    document.addEventListener('visibilitychange', onVisibility)
 
     const tick = async () => {
       const t = getStoredTokens()
       if (!t?.refreshToken) return
 
-      const visible = document.visibilityState === 'visible'
-      const activeRecently = Date.now() - lastActivity < IDLE_BEFORE_NO_REFRESH_MS
-      const shouldRefreshEarly =
-        t.accessToken && isAccessTokenExpired(t.accessToken, REFRESH_SKEW_SECONDS)
-      const accessDead = t.accessToken && isAccessTokenExpired(t.accessToken, 0)
+      const shouldRefresh =
+        !t.accessToken || isAccessTokenExpired(t.accessToken, REFRESH_SKEW_SECONDS)
 
-      if (shouldRefreshEarly && visible && activeRecently) {
-        const refreshed = await refreshSession()
-        if (refreshed) {
-          setStoredTokens({
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken,
-          })
-        } else {
-          await logout()
-        }
-      } else if (accessDead && (!visible || !activeRecently)) {
+      if (!shouldRefresh) return
+
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        setStoredTokens({
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+        })
+        saveAuthTokens({
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+        })
+        return
+      }
+
+      if (t.accessToken && isAccessTokenExpired(t.accessToken, 0)) {
         await logout()
       }
     }
@@ -191,10 +192,6 @@ export function AuthProvider({ children }) {
 
     return () => {
       clearInterval(id)
-      for (const ev of events) {
-        window.removeEventListener(ev, markActive)
-      }
-      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [employee, refreshSession, logout])
 

@@ -35,3 +35,27 @@ export function saveAuthTokens(tokens) {
 export function clearAuthTokens() {
   backend().removeItem(STORAGE_KEY)
 }
+
+/** Sincroniza tokens entre pestañas cuando se usa localStorage. */
+export function listenCrossTabAuthSync(onChange) {
+  if (tokenStorageKind !== 'local' || typeof window === 'undefined') {
+    return () => {}
+  }
+  const handler = (e) => {
+    if (e.key !== STORAGE_KEY) return
+    if (!e.newValue) {
+      onChange(null)
+      return
+    }
+    try {
+      const p = JSON.parse(e.newValue)
+      if (p?.accessToken && p?.refreshToken) {
+        onChange(p)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  window.addEventListener('storage', handler)
+  return () => window.removeEventListener('storage', handler)
+}
