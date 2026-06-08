@@ -90,8 +90,6 @@ export function buildRmVehiculoMap(vehiculos) {
     const placa = rmFieldStr(v.placa)
     const marca = rmFieldStr(v.marca)
     const chofer = rmFieldStr(v.chofer)
-    const guiaNumero = rmFieldStr(v.guiaNumero, v.guia_numero, v.numeroGuia, v.numero_guia)
-    const ocNumero = rmFieldStr(v.ocNumero, v.oc_numero, v.ordenCompra, v.orden_compra)
     const parts = [placa, marca, chofer].filter(Boolean)
     const numero = v.numeroRegistro ?? v.numeroregistro
     const label =
@@ -105,8 +103,6 @@ export function buildRmVehiculoMap(vehiculos) {
       placa,
       marca,
       chofer,
-      guiaNumero,
-      ocNumero,
       tipoRegistro: v.tipoRegistro ?? v.tiporegistro,
       numeroRegistro: numero,
       label,
@@ -178,8 +174,6 @@ function rowMatchesText(tab, row, vehiculoById, q, guiaById) {
       row.numeroregistro,
       row.registroVehiculoId,
       vehLabel,
-      veh?.guiaNumero,
-      veh?.ocNumero,
       row.fecha,
       row.hora,
       rmRowOcNumero(row, guiaById),
@@ -195,8 +189,6 @@ function rowMatchesText(tab, row, vehiculoById, q, guiaById) {
       row.numeroregistro,
       row.registroVehiculoId,
       vehLabel,
-      veh?.guiaNumero,
-      veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
       rmRowOcNumero(row, guiaById),
@@ -215,8 +207,6 @@ function rowMatchesText(tab, row, vehiculoById, q, guiaById) {
       row.placa,
       row.chofer,
       row.marca,
-      row.guiaNumero,
-      row.ocNumero,
       row.createdAt,
     ).includes(needle)
   }
@@ -252,8 +242,6 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
         veh.marca,
         veh.chofer,
         veh.label,
-        veh.guiaNumero,
-        veh.ocNumero,
         rmRowOcNumero(row, guiaById),
         rmRowNumeroGuia(row, guiaById),
       )
@@ -268,7 +256,7 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
       if (t !== tipoFiltro) return false
     }
     if (placaChofer) {
-      const blob = haystack(row.placa, row.marca, row.chofer, row.guiaNumero, row.ocNumero)
+      const blob = haystack(row.placa, row.marca, row.chofer)
       if (!blob.includes(placaChofer)) return false
     }
   }

@@ -260,7 +260,7 @@ function exportRmPageCsv(tab, rows, vehiculoById, guiaById) {
       )
     }
   } else if (q === 'vehiculos') {
-    head = ['numeroRegistro', 'tipoRegistro', 'fecha', 'placa', 'chofer', 'marca', 'guia', 'oc', 'creado']
+    head = ['numeroRegistro', 'tipoRegistro', 'fecha', 'placa', 'chofer', 'marca', 'creado']
     lines = [head.join(',')]
     for (const r of rows) {
       lines.push(
@@ -271,8 +271,6 @@ function exportRmPageCsv(tab, rows, vehiculoById, guiaById) {
           r.placa,
           r.chofer,
           r.marca,
-          r.guiaNumero,
-          r.ocNumero,
           r.createdAt,
         ]
           .map((c) => csvEscape(c))
@@ -935,8 +933,6 @@ export function InventoryPage() {
                       <th>Placa</th>
                       <th>Chofer</th>
                       <th>Marca</th>
-                      <th>Guía</th>
-                      <th>OC</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -953,8 +949,6 @@ export function InventoryPage() {
                         <td>{esc(r.placa)}</td>
                         <td className="small">{esc(r.chofer)}</td>
                         <td className="small">{esc(r.marca)}</td>
-                        <td className="small">{esc(r.guiaNumero)}</td>
-                        <td className="small">{esc(r.ocNumero)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1204,10 +1198,6 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.marca)}</dd>
                 <dt>Chofer</dt>
                 <dd>{esc(detail.data.chofer)}</dd>
-                <dt>N° guía</dt>
-                <dd>{esc(detail.data.guiaNumero)}</dd>
-                <dt>Orden de compra</dt>
-                <dd>{esc(detail.data.ocNumero)}</dd>
                 <dt>Hora ingreso / salida</dt>
                 <dd className="small">
                   {esc(detail.data.horaIngreso)} / {esc(detail.data.horaSalida)}
