@@ -1,17 +1,45 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
-/** OC en fila RM (oc_numero; alias legacy ordenCompra). */
-export function rmRowOcNumero(row) {
-  if (!row || typeof row !== 'object') return ''
-  const v = row.ocNumero ?? row.ordenCompra
-  return v == null ? '' : String(v).trim()
+function rmRowVehiculoId(row) {
+  if (!row || typeof row !== 'object') return null
+  const id = row.registroVehiculoId ?? row.registro_vehiculo_id
+  if (id == null || id === '') return null
+  const n = Number(id)
+  return Number.isNaN(n) ? null : n
 }
 
-/** N° guía en fila RM (numero_guia; alias legacy guiaNumero). */
-export function rmRowNumeroGuia(row) {
+function rmVehiculoFromRow(row, vehiculoById, detailVehiculo) {
+  if (detailVehiculo) return detailVehiculo
+  const id = rmRowVehiculoId(row)
+  if (id == null || !vehiculoById) return null
+  return vehiculoById.get(id) ?? null
+}
+
+/** OC en fila RM (registro, guía inventario o vehículo RM vinculado). */
+export function rmRowOcNumero(row, vehiculoById, detailVehiculo) {
   if (!row || typeof row !== 'object') return ''
-  const v = row.numeroGuia ?? row.guiaNumero
-  return v == null ? '' : String(v).trim()
+  const direct = row.ocNumero ?? row.ordenCompra ?? row.oc_numero
+  if (direct != null && String(direct).trim()) return String(direct).trim()
+  const veh = rmVehiculoFromRow(row, vehiculoById, detailVehiculo)
+  const fromVeh = veh?.ocNumero ?? veh?.oc_numero
+  return fromVeh == null ? '' : String(fromVeh).trim()
+}
+
+/** N° guía en fila RM (registro, guía inventario o vehículo RM vinculado). */
+export function rmRowNumeroGuia(row, vehiculoById, detailVehiculo) {
+  if (!row || typeof row !== 'object') return ''
+  const direct = row.numeroGuia ?? row.guiaNumero ?? row.numero_guia
+  if (direct != null && String(direct).trim()) return String(direct).trim()
+  const veh = rmVehiculoFromRow(row, vehiculoById, detailVehiculo)
+  const fromVeh = veh?.guiaNumero ?? veh?.guia_numero
+  return fromVeh == null ? '' : String(fromVeh).trim()
+}
+
+/** Texto combinado para columna OC / Guía. */
+export function rmRowOcGuiaLabel(row, vehiculoById, detailVehiculo) {
+  const oc = rmRowOcNumero(row, vehiculoById, detailVehiculo)
+  const guia = rmRowNumeroGuia(row, vehiculoById, detailVehiculo)
+  return `${oc || '—'} / ${guia || '—'}`
 }
 
 export function tipoRegistroLabel(raw) {
@@ -110,20 +138,22 @@ function rowMatchesText(tab, row, vehiculoById, q) {
   const needle = normalizeRmSearchText(q)
   if (!needle) return true
 
-  const veh = vehiculoById.get(Number(row.registroVehiculoId))
+  const vehId = rmRowVehiculoId(row)
+  const veh = vehId != null ? vehiculoById.get(vehId) : null
   const vehLabel = veh?.label ?? ''
 
   if (tab === 'entradas') {
     return haystack(
       row.numeroRegistro,
+      row.numeroregistro,
       row.registroVehiculoId,
       vehLabel,
       veh?.guiaNumero,
       veh?.ocNumero,
       row.fecha,
       row.hora,
-      rmRowOcNumero(row),
-      rmRowNumeroGuia(row),
+      rmRowOcNumero(row, vehiculoById),
+      rmRowNumeroGuia(row, vehiculoById),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -132,14 +162,15 @@ function rowMatchesText(tab, row, vehiculoById, q) {
   if (tab === 'salidas') {
     return haystack(
       row.numeroRegistro,
+      row.numeroregistro,
       row.registroVehiculoId,
       vehLabel,
       veh?.guiaNumero,
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      rmRowOcNumero(row),
-      rmRowNumeroGuia(row),
+      rmRowOcNumero(row, vehiculoById),
+      rmRowNumeroGuia(row, vehiculoById),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -176,13 +207,25 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
 
   if (tab === 'entradas' || tab === 'salidas') {
     if (!dateInRange(row.fecha, fechaDesde, fechaHasta)) return false
-    const veh = vehiculoById.get(Number(row.registroVehiculoId))
-    if (tipoFiltro && veh) {
+    const vehId = rmRowVehiculoId(row)
+    const veh = vehId != null ? vehiculoById.get(vehId) : null
+    if (tipoFiltro) {
+      if (!veh) return false
       const t = String(veh.tipoRegistro ?? '').toLowerCase()
       if (t !== tipoFiltro) return false
     }
-    if (placaChofer && veh) {
-      const blob = haystack(veh.placa, veh.marca, veh.chofer, veh.label, veh.guiaNumero, veh.ocNumero)
+    if (placaChofer) {
+      if (!veh) return false
+      const blob = haystack(
+        veh.placa,
+        veh.marca,
+        veh.chofer,
+        veh.label,
+        veh.guiaNumero,
+        veh.ocNumero,
+        rmRowOcNumero(row, vehiculoById),
+        rmRowNumeroGuia(row, vehiculoById),
+      )
       if (!blob.includes(placaChofer)) return false
     }
   }
@@ -203,7 +246,7 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
     if (!dateInRange(row.createdAt, fechaDesde, fechaHasta)) return false
   }
 
-  if (opts.skipTextSearch) return true
+  if (opts.skipTextSearch && tab !== 'actas') return true
   return rowMatchesText(tab, row, vehiculoById, q)
 }
 

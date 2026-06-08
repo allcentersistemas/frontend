@@ -17,6 +17,7 @@ import {
   rmVehiculoLabel,
   rowMatchesRmFilters,
   rmRowNumeroGuia,
+  rmRowOcGuiaLabel,
   rmRowOcNumero,
   tipoRegistroLabel,
 } from '../rm/inventoryRmUtils.js'
@@ -205,8 +206,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.hora,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          rmRowOcNumero(r),
-          rmRowNumeroGuia(r),
+          rmRowOcNumero(r, vehiculoById),
+          rmRowNumeroGuia(r, vehiculoById),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -243,8 +244,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          rmRowOcNumero(r),
-          rmRowNumeroGuia(r),
+          rmRowOcNumero(r, vehiculoById),
+          rmRowNumeroGuia(r, vehiculoById),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -383,6 +384,7 @@ export function InventoryPage() {
 
   const [allRows, setAllRows] = useState([])
   const [listTruncated, setListTruncated] = useState(false)
+  const [listMaxItems, setListMaxItems] = useState(2000)
   const [listLoading, setListLoading] = useState(false)
   const [listErr, setListErr] = useState(null)
 
@@ -451,12 +453,14 @@ export function InventoryPage() {
       else if (tab === 'vehiculos') listFn = systemApi.listRegistrosVehiculo
       else listFn = systemApi.listActasConformidad
       const searchQ = debouncedQ || undefined
+      const maxItems = searchQ ? 5000 : 2000
       const { items, truncated } = await systemApi.fetchAllPaged(
         (p) => listFn({ ...p, q: searchQ }),
-        { size: 100, maxItems: searchQ ? 5000 : 2000 },
+        { size: 100, maxItems },
       )
       setAllRows(items)
       setListTruncated(truncated)
+      setListMaxItems(maxItems)
     } catch (e) {
       setAllRows([])
       setListErr(e instanceof Error ? e.message : 'Error al cargar')
@@ -802,7 +806,9 @@ export function InventoryPage() {
               </div>
             </div>
             {listTruncated ? (
-              <p className="small muted">Se cargaron como máximo 2000 registros. Ajusta filtros para acotar.</p>
+              <p className="small muted">
+                Se cargaron como máximo {listMaxItems} registros. Ajusta filtros para acotar.
+              </p>
             ) : null}
             <p className="small muted" style={{ margin: 0 }}>
               {filteredRows.length} registro{filteredRows.length !== 1 ? 's' : ''} tras filtros
@@ -840,9 +846,7 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.hora)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
-                        <td className="small">
-                          {esc(rmRowOcNumero(r))} / {esc(rmRowNumeroGuia(r))}
-                        </td>
+                        <td className="small">{rmRowOcGuiaLabel(r, vehiculoById)}</td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
                           <RmCancelListCell record={r} />
@@ -880,9 +884,7 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
-                        <td className="small">
-                          {esc(rmRowOcNumero(r))} / {esc(rmRowNumeroGuia(r))}
-                        </td>
+                        <td className="small">{rmRowOcGuiaLabel(r, vehiculoById)}</td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
                           <RmCancelListCell record={r} />
@@ -1024,9 +1026,9 @@ export function InventoryPage() {
                   ) : null}
                 </dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(rmRowOcNumero(detail.data))}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data, vehiculoById, detailVehiculo))}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(rmRowNumeroGuia(detail.data))}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data, vehiculoById, detailVehiculo))}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
@@ -1097,9 +1099,9 @@ export function InventoryPage() {
                 <dt>Destino</dt>
                 <dd>{esc(detail.data.destino)}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(rmRowNumeroGuia(detail.data))}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data, vehiculoById, detailVehiculo))}</dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(rmRowOcNumero(detail.data))}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data, vehiculoById, detailVehiculo))}</dd>
                 <dt>Vehículo flota (salida)</dt>
                 <dd className="small">{transporteLabel(transportById, detail.data.transporteId)}</dd>
                 <dt>Chofer salida</dt>
@@ -1197,8 +1199,9 @@ export function InventoryPage() {
                 ) : (
                   (detail.data.entradas ?? []).map((e) => (
                     <li key={e.id}>
-                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(rmRowOcNumero(e))} · Guía{' '}
-                      {esc(rmRowNumeroGuia(e))}
+                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC{' '}
+                      {esc(rmRowOcNumero(e, vehiculoById, detail.data))} · Guía{' '}
+                      {esc(rmRowNumeroGuia(e, vehiculoById, detail.data))}
                     </li>
                   ))
                 )}
