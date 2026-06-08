@@ -12,6 +12,7 @@ import { useAppAbility } from '../access/useAppAbility'
 import { OrdersPage } from './OrdersPage'
 import { PalesPage } from './PalesPage'
 import {
+  buildRmGuiaMap,
   buildRmVehiculoMap,
   formatNumeroRegistro,
   rmVehiculoLabel,
@@ -178,7 +179,7 @@ function downloadTextFile(filename, text) {
   URL.revokeObjectURL(a.href)
 }
 
-function exportRmPageCsv(tab, rows, vehiculoById) {
+function exportRmPageCsv(tab, rows, vehiculoById, guiaById) {
   const q = tab
   let head
   let lines
@@ -206,8 +207,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.hora,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          rmRowOcNumero(r, vehiculoById),
-          rmRowNumeroGuia(r, vehiculoById),
+          rmRowOcNumero(r, guiaById),
+          rmRowNumeroGuia(r, guiaById),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -244,8 +245,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          rmRowOcNumero(r, vehiculoById),
-          rmRowNumeroGuia(r, vehiculoById),
+          rmRowOcNumero(r, guiaById),
+          rmRowNumeroGuia(r, guiaById),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -396,6 +397,9 @@ export function InventoryPage() {
   const [vehiculoById, setVehiculoById] = useState(() => new Map())
   const [vehiculoIndexErr, setVehiculoIndexErr] = useState(null)
 
+  const [guiaById, setGuiaById] = useState(() => new Map())
+  const [guiaIndexErr, setGuiaIndexErr] = useState(null)
+
   const [transportById, setTransportById] = useState(() => new Map())
   const [transportCatalogErr, setTransportCatalogErr] = useState(null)
 
@@ -413,9 +417,12 @@ export function InventoryPage() {
   const filteredRows = useMemo(() => {
     const serverTextSearch = Boolean(debouncedQ)
     return allRows.filter((r) =>
-      rowMatchesRmFilters(tab, r, vehiculoById, rmFilters, { skipTextSearch: serverTextSearch }),
+      rowMatchesRmFilters(tab, r, vehiculoById, rmFilters, {
+        skipTextSearch: serverTextSearch,
+        guiaById,
+      }),
     )
-  }, [allRows, tab, vehiculoById, rmFilters, debouncedQ])
+  }, [allRows, tab, vehiculoById, guiaById, rmFilters, debouncedQ])
   const clientTotalPages = Math.max(1, Math.ceil(filteredRows.length / RM_LIST_PAGE_SIZE))
   const pagedRows = useMemo(() => {
     const start = clientPage * RM_LIST_PAGE_SIZE
@@ -439,6 +446,18 @@ export function InventoryPage() {
     } catch (e) {
       setVehiculoById(new Map())
       setVehiculoIndexErr(e instanceof Error ? e.message : 'No se pudo cargar vehículos RM')
+    }
+  }, [canViewRm, areaTab])
+
+  const loadGuiaIndex = useCallback(async () => {
+    if (!canViewRm || areaTab !== 'rm') return
+    setGuiaIndexErr(null)
+    try {
+      const list = await systemApi.listGuias()
+      setGuiaById(buildRmGuiaMap(list))
+    } catch (e) {
+      setGuiaById(new Map())
+      setGuiaIndexErr(e instanceof Error ? e.message : 'No se pudo cargar guías de inventario')
     }
   }, [canViewRm, areaTab])
 
@@ -492,6 +511,10 @@ export function InventoryPage() {
   useEffect(() => {
     void loadVehiculoIndex()
   }, [loadVehiculoIndex])
+
+  useEffect(() => {
+    void loadGuiaIndex()
+  }, [loadGuiaIndex])
 
   useEffect(() => {
     void loadTransportCatalog()
@@ -692,6 +715,11 @@ export function InventoryPage() {
             {vehiculoIndexErr} — el listado puede no mostrar placa/chofer en entradas y salidas.
           </p>
         ) : null}
+        {guiaIndexErr ? (
+          <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
+            {guiaIndexErr} — OC y guía pueden no resolverse desde guías de inventario vinculadas.
+          </p>
+        ) : null}
         {transportCatalogErr ? (
           <p className="muted small" style={{ marginTop: '0.5rem' }}>
             {transportCatalogErr} — en salida no se mostrará el vehículo de flota (transporte interno).
@@ -730,6 +758,7 @@ export function InventoryPage() {
               onClick={() => {
                 void loadList()
                 void loadVehiculoIndex()
+                void loadGuiaIndex()
                 void loadTransportCatalog()
               }}
             >
@@ -739,7 +768,7 @@ export function InventoryPage() {
               type="button"
               className="btn btn--ghost"
               disabled={!filteredRows.length}
-              onClick={() => exportRmPageCsv(tab, filteredRows, vehiculoById)}
+              onClick={() => exportRmPageCsv(tab, filteredRows, vehiculoById, guiaById)}
             >
               CSV (filtrado)
             </button>
@@ -846,7 +875,7 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.hora)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
-                        <td className="small">{rmRowOcGuiaLabel(r, vehiculoById)}</td>
+                        <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
                           <RmCancelListCell record={r} />
@@ -884,7 +913,7 @@ export function InventoryPage() {
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
-                        <td className="small">{rmRowOcGuiaLabel(r, vehiculoById)}</td>
+                        <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
                           <RmCancelListCell record={r} />
@@ -1026,9 +1055,9 @@ export function InventoryPage() {
                   ) : null}
                 </dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(rmRowOcNumero(detail.data, vehiculoById, detailVehiculo))}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data, guiaById))}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(rmRowNumeroGuia(detail.data, vehiculoById, detailVehiculo))}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data, guiaById))}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
@@ -1099,9 +1128,9 @@ export function InventoryPage() {
                 <dt>Destino</dt>
                 <dd>{esc(detail.data.destino)}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(rmRowNumeroGuia(detail.data, vehiculoById, detailVehiculo))}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data, guiaById))}</dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(rmRowOcNumero(detail.data, vehiculoById, detailVehiculo))}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data, guiaById))}</dd>
                 <dt>Vehículo flota (salida)</dt>
                 <dd className="small">{transporteLabel(transportById, detail.data.transporteId)}</dd>
                 <dt>Chofer salida</dt>
@@ -1200,8 +1229,8 @@ export function InventoryPage() {
                   (detail.data.entradas ?? []).map((e) => (
                     <li key={e.id}>
                       {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC{' '}
-                      {esc(rmRowOcNumero(e, vehiculoById, detail.data))} · Guía{' '}
-                      {esc(rmRowNumeroGuia(e, vehiculoById, detail.data))}
+                      {esc(rmRowOcNumero(e, guiaById))} · Guía{' '}
+                      {esc(rmRowNumeroGuia(e, guiaById))}
                     </li>
                   ))
                 )}

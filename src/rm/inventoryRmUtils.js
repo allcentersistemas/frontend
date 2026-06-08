@@ -1,5 +1,46 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
+function rmFieldStr(...values) {
+  for (const value of values) {
+    if (value == null) continue
+    const t = String(value).trim()
+    if (t) return t
+  }
+  return ''
+}
+
+function rmRowGuiaInventarioId(row) {
+  if (!row || typeof row !== 'object') return null
+  const id = row.guiaInventarioId ?? row.guia_inventario_id
+  if (id == null || id === '') return null
+  const n = Number(id)
+  return Number.isNaN(n) ? null : n
+}
+
+function rmGuiaFromRow(row, guiaById) {
+  const id = rmRowGuiaInventarioId(row)
+  if (id == null || !guiaById) return null
+  return guiaById.get(id) ?? null
+}
+
+/** Mapa guiaId → { numeroGuia, ordenCompra } desde listGuias(). */
+export function buildRmGuiaMap(guias) {
+  const m = new Map()
+  if (!Array.isArray(guias)) return m
+  for (const g of guias) {
+    if (!g || typeof g !== 'object') continue
+    const id = g.guiaId ?? g.id ?? g.guia_id
+    if (id == null) continue
+    const n = Number(id)
+    if (Number.isNaN(n)) continue
+    m.set(n, {
+      numeroGuia: rmFieldStr(g.numeroGuia, g.numero_guia),
+      ordenCompra: rmFieldStr(g.ordenCompra, g.orden_compra, g.ocNumero, g.oc_numero),
+    })
+  }
+  return m
+}
+
 function rmRowVehiculoId(row) {
   if (!row || typeof row !== 'object') return null
   const id = row.registroVehiculoId ?? row.registro_vehiculo_id
@@ -8,37 +49,26 @@ function rmRowVehiculoId(row) {
   return Number.isNaN(n) ? null : n
 }
 
-function rmVehiculoFromRow(row, vehiculoById, detailVehiculo) {
-  if (detailVehiculo) return detailVehiculo
-  const id = rmRowVehiculoId(row)
-  if (id == null || !vehiculoById) return null
-  return vehiculoById.get(id) ?? null
-}
-
-/** OC en fila RM (registro, guía inventario o vehículo RM vinculado). */
-export function rmRowOcNumero(row, vehiculoById, detailVehiculo) {
+/** OC del propio registro entrada/salida (oc_numero). Fallback solo a guía de inventario vinculada. */
+export function rmRowOcNumero(row, guiaById) {
   if (!row || typeof row !== 'object') return ''
-  const direct = row.ocNumero ?? row.ordenCompra ?? row.oc_numero
-  if (direct != null && String(direct).trim()) return String(direct).trim()
-  const veh = rmVehiculoFromRow(row, vehiculoById, detailVehiculo)
-  const fromVeh = veh?.ocNumero ?? veh?.oc_numero
-  return fromVeh == null ? '' : String(fromVeh).trim()
+  const direct = rmFieldStr(row.ocNumero, row.oc_numero, row.ordenCompra)
+  if (direct) return direct
+  return rmGuiaFromRow(row, guiaById)?.ordenCompra ?? ''
 }
 
-/** N° guía en fila RM (registro, guía inventario o vehículo RM vinculado). */
-export function rmRowNumeroGuia(row, vehiculoById, detailVehiculo) {
+/** N° guía del propio registro entrada/salida (numero_guia). Fallback solo a guía de inventario vinculada. */
+export function rmRowNumeroGuia(row, guiaById) {
   if (!row || typeof row !== 'object') return ''
-  const direct = row.numeroGuia ?? row.guiaNumero ?? row.numero_guia
-  if (direct != null && String(direct).trim()) return String(direct).trim()
-  const veh = rmVehiculoFromRow(row, vehiculoById, detailVehiculo)
-  const fromVeh = veh?.guiaNumero ?? veh?.guia_numero
-  return fromVeh == null ? '' : String(fromVeh).trim()
+  const direct = rmFieldStr(row.numeroGuia, row.numero_guia)
+  if (direct) return direct
+  return rmGuiaFromRow(row, guiaById)?.numeroGuia ?? ''
 }
 
-/** Texto combinado para columna OC / Guía. */
-export function rmRowOcGuiaLabel(row, vehiculoById, detailVehiculo) {
-  const oc = rmRowOcNumero(row, vehiculoById, detailVehiculo)
-  const guia = rmRowNumeroGuia(row, vehiculoById, detailVehiculo)
+/** Texto combinado para columna OC / Guía en entradas y salidas. */
+export function rmRowOcGuiaLabel(row, guiaById) {
+  const oc = rmRowOcNumero(row, guiaById)
+  const guia = rmRowNumeroGuia(row, guiaById)
   return `${oc || '—'} / ${guia || '—'}`
 }
 
@@ -57,11 +87,11 @@ export function buildRmVehiculoMap(vehiculos) {
     if (v?.id == null) continue
     const id = Number(v.id)
     if (Number.isNaN(id)) continue
-    const placa = typeof v.placa === 'string' ? v.placa.trim() : ''
-    const marca = typeof v.marca === 'string' ? v.marca.trim() : ''
-    const chofer = typeof v.chofer === 'string' ? v.chofer.trim() : ''
-    const guiaNumero = typeof v.guiaNumero === 'string' ? v.guiaNumero.trim() : ''
-    const ocNumero = typeof v.ocNumero === 'string' ? v.ocNumero.trim() : ''
+    const placa = rmFieldStr(v.placa)
+    const marca = rmFieldStr(v.marca)
+    const chofer = rmFieldStr(v.chofer)
+    const guiaNumero = rmFieldStr(v.guiaNumero, v.guia_numero, v.numeroGuia, v.numero_guia)
+    const ocNumero = rmFieldStr(v.ocNumero, v.oc_numero, v.ordenCompra, v.orden_compra)
     const parts = [placa, marca, chofer].filter(Boolean)
     const numero = v.numeroRegistro ?? v.numeroregistro
     const label =
@@ -134,7 +164,7 @@ function dateInRange(value, from, to) {
   return true
 }
 
-function rowMatchesText(tab, row, vehiculoById, q) {
+function rowMatchesText(tab, row, vehiculoById, q, guiaById) {
   const needle = normalizeRmSearchText(q)
   if (!needle) return true
 
@@ -152,8 +182,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.hora,
-      rmRowOcNumero(row, vehiculoById),
-      rmRowNumeroGuia(row, vehiculoById),
+      rmRowOcNumero(row, guiaById),
+      rmRowNumeroGuia(row, guiaById),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -169,8 +199,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      rmRowOcNumero(row, vehiculoById),
-      rmRowNumeroGuia(row, vehiculoById),
+      rmRowOcNumero(row, guiaById),
+      rmRowNumeroGuia(row, guiaById),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -199,6 +229,7 @@ function rowMatchesText(tab, row, vehiculoById, q) {
  * @param {{ skipTextSearch?: boolean }} [opts]
  */
 export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) {
+  const guiaById = opts.guiaById
   const q = filters.q ?? ''
   const fechaDesde = filters.fechaDesde ?? ''
   const fechaHasta = filters.fechaHasta ?? ''
@@ -223,8 +254,8 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
         veh.label,
         veh.guiaNumero,
         veh.ocNumero,
-        rmRowOcNumero(row, vehiculoById),
-        rmRowNumeroGuia(row, vehiculoById),
+        rmRowOcNumero(row, guiaById),
+        rmRowNumeroGuia(row, guiaById),
       )
       if (!blob.includes(placaChofer)) return false
     }
@@ -247,7 +278,7 @@ export function rowMatchesRmFilters(tab, row, vehiculoById, filters, opts = {}) 
   }
 
   if (opts.skipTextSearch && tab !== 'actas') return true
-  return rowMatchesText(tab, row, vehiculoById, q)
+  return rowMatchesText(tab, row, vehiculoById, q, guiaById)
 }
 
 export function formatNumeroRegistro(n) {
