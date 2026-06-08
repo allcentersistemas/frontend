@@ -205,8 +205,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.hora,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          r.ocNumero,
-          r.guiaNumero,
+          rmListOcNumero(r),
+          rmListGuiaNumero(r),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -1024,9 +1024,9 @@ export function InventoryPage() {
                   ) : null}
                 </dd>
                 <dt>OC</dt>
-                <dd>{esc(detail.data.ocNumero)}</dd>
+                <dd>{esc(rmListOcNumero(detail.data))}</dd>
                 <dt>Guía</dt>
-                <dd>{esc(detail.data.guiaNumero)}</dd>
+                <dd>{esc(rmListGuiaNumero(detail.data))}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
@@ -1197,8 +1197,8 @@ export function InventoryPage() {
                 ) : (
                   (detail.data.entradas ?? []).map((e) => (
                     <li key={e.id}>
-                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(e.ocNumero)} · Guía{' '}
-                      {esc(e.guiaNumero)}
+                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(rmListOcNumero(e))} · Guía{' '}
+                      {esc(rmListGuiaNumero(e))}
                     </li>
                   ))
                 )}
