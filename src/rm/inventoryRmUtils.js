@@ -1,9 +1,16 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
-/** N° guía en salidas RM (columna numero_guia; alias guiaNumero en registros antiguos). */
-export function salidaNumeroGuia(row) {
+/** OC en filas de listado RM (entradas y salidas). */
+export function rmListOcNumero(row) {
   if (!row || typeof row !== 'object') return ''
-  const v = row.numeroGuia ?? row.guiaNumero
+  const v = row.ocNumero ?? row.ordenCompra
+  return v == null ? '' : String(v).trim()
+}
+
+/** N° guía en filas de listado RM (entradas y salidas; columna numero_guia en salidas). */
+export function rmListGuiaNumero(row) {
+  if (!row || typeof row !== 'object') return ''
+  const v = row.guiaNumero ?? row.numeroGuia
   return v == null ? '' : String(v).trim()
 }
 
@@ -115,8 +122,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.hora,
-      row.ocNumero,
-      row.guiaNumero,
+      rmListOcNumero(row),
+      rmListGuiaNumero(row),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -131,8 +138,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      salidaNumeroGuia(row),
-      row.ordenCompra,
+      rmListGuiaNumero(row),
+      rmListOcNumero(row),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,

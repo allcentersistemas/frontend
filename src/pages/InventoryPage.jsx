@@ -16,7 +16,8 @@ import {
   formatNumeroRegistro,
   rmVehiculoLabel,
   rowMatchesRmFilters,
-  salidaNumeroGuia,
+  rmListGuiaNumero,
+  rmListOcNumero,
   tipoRegistroLabel,
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
@@ -242,8 +243,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          r.ordenCompra,
-          salidaNumeroGuia(r),
+          rmListOcNumero(r),
+          rmListGuiaNumero(r),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -840,7 +841,7 @@ export function InventoryPage() {
                         <td className="small">{esc(r.hora)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
                         <td className="small">
-                          {esc(r.ocNumero)} / {esc(r.guiaNumero)}
+                          {esc(rmListOcNumero(r))} / {esc(rmListGuiaNumero(r))}
                         </td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
@@ -880,7 +881,7 @@ export function InventoryPage() {
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
                         <td className="small">
-                          {esc(r.ordenCompra)} / {esc(salidaNumeroGuia(r))}
+                          {esc(rmListOcNumero(r))} / {esc(rmListGuiaNumero(r))}
                         </td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
