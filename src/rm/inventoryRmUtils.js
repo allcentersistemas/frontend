@@ -1,19 +1,5 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
-/** OC en filas de listado RM (columna oc_numero). */
-export function rmListOcNumero(row) {
-  if (!row || typeof row !== 'object') return ''
-  const v = row.ocNumero
-  return v == null ? '' : String(v).trim()
-}
-
-/** N° guía en filas de listado RM (columna numero_guia). */
-export function rmListGuiaNumero(row) {
-  if (!row || typeof row !== 'object') return ''
-  const v = row.numeroGuia
-  return v == null ? '' : String(v).trim()
-}
-
 export function tipoRegistroLabel(raw) {
   if (raw == null || raw === '') return '—'
   const t = String(raw).trim().toLowerCase()
@@ -122,8 +108,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.hora,
-      rmListOcNumero(row),
-      rmListGuiaNumero(row),
+      row.ocNumero,
+      row.numeroGuia,
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -138,8 +124,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      rmListGuiaNumero(row),
-      rmListOcNumero(row),
+      row.ocNumero,
+      row.numeroGuia,
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
