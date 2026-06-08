@@ -1,5 +1,19 @@
 /** Utilidades para listados RM en Inventario (recepción mercadería). */
 
+/** OC en fila RM (oc_numero; alias legacy ordenCompra). */
+export function rmRowOcNumero(row) {
+  if (!row || typeof row !== 'object') return ''
+  const v = row.ocNumero ?? row.ordenCompra
+  return v == null ? '' : String(v).trim()
+}
+
+/** N° guía en fila RM (numero_guia; alias legacy guiaNumero). */
+export function rmRowNumeroGuia(row) {
+  if (!row || typeof row !== 'object') return ''
+  const v = row.numeroGuia ?? row.guiaNumero
+  return v == null ? '' : String(v).trim()
+}
+
 export function tipoRegistroLabel(raw) {
   if (raw == null || raw === '') return '—'
   const t = String(raw).trim().toLowerCase()
@@ -108,8 +122,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.hora,
-      row.ocNumero,
-      row.numeroGuia,
+      rmRowOcNumero(row),
+      rmRowNumeroGuia(row),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,
@@ -124,8 +138,8 @@ function rowMatchesText(tab, row, vehiculoById, q) {
       veh?.ocNumero,
       row.fecha,
       row.horaCabecera,
-      row.ocNumero,
-      row.numeroGuia,
+      rmRowOcNumero(row),
+      rmRowNumeroGuia(row),
       row.recepcionEstado,
       row.lineas,
       row.createdAt,

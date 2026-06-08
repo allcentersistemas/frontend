@@ -16,6 +16,8 @@ import {
   formatNumeroRegistro,
   rmVehiculoLabel,
   rowMatchesRmFilters,
+  rmRowNumeroGuia,
+  rmRowOcNumero,
   tipoRegistroLabel,
 } from '../rm/inventoryRmUtils.js'
 import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
@@ -203,8 +205,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.hora,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          r.ocNumero,
-          r.numeroGuia,
+          rmRowOcNumero(r),
+          rmRowNumeroGuia(r),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -241,8 +243,8 @@ function exportRmPageCsv(tab, rows, vehiculoById) {
           r.fecha,
           r.horaCabecera,
           rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
-          r.ocNumero,
-          r.numeroGuia,
+          rmRowOcNumero(r),
+          rmRowNumeroGuia(r),
           r.lineas ?? '',
           r.recepcionEstado,
           r.canceladoPorNombre,
@@ -839,7 +841,7 @@ export function InventoryPage() {
                         <td className="small">{esc(r.hora)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
                         <td className="small">
-                          {esc(r.ocNumero)} / {esc(r.numeroGuia)}
+                          {esc(rmRowOcNumero(r))} / {esc(rmRowNumeroGuia(r))}
                         </td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
@@ -879,7 +881,7 @@ export function InventoryPage() {
                         <td className="small">{esc(r.horaCabecera)}</td>
                         <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
                         <td className="small">
-                          {esc(r.ocNumero)} / {esc(r.numeroGuia)}
+                          {esc(rmRowOcNumero(r))} / {esc(rmRowNumeroGuia(r))}
                         </td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
@@ -1022,9 +1024,9 @@ export function InventoryPage() {
                   ) : null}
                 </dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(detail.data.ocNumero)}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data))}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(detail.data.numeroGuia)}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data))}</dd>
                 <dt>Registrado por</dt>
                 <dd className="small">{esc(detail.data.createdByEmail)}</dd>
                 <dt>Creado</dt>
@@ -1095,9 +1097,9 @@ export function InventoryPage() {
                 <dt>Destino</dt>
                 <dd>{esc(detail.data.destino)}</dd>
                 <dt>N° guía</dt>
-                <dd>{esc(detail.data.numeroGuia)}</dd>
+                <dd>{esc(rmRowNumeroGuia(detail.data))}</dd>
                 <dt>Orden de compra</dt>
-                <dd>{esc(detail.data.ocNumero)}</dd>
+                <dd>{esc(rmRowOcNumero(detail.data))}</dd>
                 <dt>Vehículo flota (salida)</dt>
                 <dd className="small">{transporteLabel(transportById, detail.data.transporteId)}</dd>
                 <dt>Chofer salida</dt>
@@ -1195,8 +1197,8 @@ export function InventoryPage() {
                 ) : (
                   (detail.data.entradas ?? []).map((e) => (
                     <li key={e.id}>
-                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(e.ocNumero)} · Guía{' '}
-                      {esc(e.numeroGuia)}
+                      {formatNumeroRegistro(e.numeroRegistro)} — {esc(e.fecha)} {esc(e.hora)} · OC {esc(rmRowOcNumero(e))} · Guía{' '}
+                      {esc(rmRowNumeroGuia(e))}
                     </li>
                   ))
                 )}
