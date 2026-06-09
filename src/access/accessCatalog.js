@@ -93,7 +93,7 @@ export const PORTAL_ACCESS_MODULES = [
   },
   {
     id: 'proyectos',
-    label: 'Proyectos',
+    label: 'Proyectos Optimizacion',
     description: 'Módulo proyectos',
     features: [FEATURE.PROJECT_LIST],
     suggestedRoles: [ROLE_DESPACHO],
