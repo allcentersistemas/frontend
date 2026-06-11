@@ -266,26 +266,26 @@ export async function listProjects() {
 }
 
 export async function createProject(body) {
-  return systemJson('/api/order/projects', {
+  return systemJson('/api/order/proyectos', {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
 export async function getProjectById(id) {
-  return systemJson(`/api/order/projects/${id}`)
+  return getProyectoOptimizacion(id)
 }
 
 export async function createOrderInProject(projectId, body) {
-  return systemJson(`/api/order/projects/${projectId}/orders`, {
+  return systemJson(`/api/order/proyectos/${projectId}/ordenes`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
 export async function createOrderDetail(orderId, body) {
-  return systemJson(`/api/order/orders/${orderId}/details`, {
-    method: 'POST',
+  return systemJson(`/api/order/ordenes/${orderId}/detalles`, {
+    method: 'PUT',
     body: JSON.stringify(body),
   })
 }
