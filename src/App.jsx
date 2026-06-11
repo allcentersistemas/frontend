@@ -37,7 +37,7 @@ export default function App() {
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
-              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
+              <Route path="proyectos" element={<ProyectoOptimizacionPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
@@ -62,7 +62,7 @@ export default function App() {
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
-              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
+              <Route path="proyectos" element={<ProyectoOptimizacionPage />} />
             </Route>
           </Route>
 
@@ -78,7 +78,7 @@ export default function App() {
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
-              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
+              <Route path="proyectos" element={<ProyectoOptimizacionPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
