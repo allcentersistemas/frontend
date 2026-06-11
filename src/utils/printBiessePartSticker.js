@@ -125,6 +125,11 @@ function buildStyles() {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+    .print-size--label_80x50 body,
+    .print-size--label_80x50 .sticker {
+      font-family: Arial Black, Arial, Helvetica, sans-serif;
+      font-weight: 700;
+    }
 
     .sticker {
       display: flex;
@@ -151,7 +156,7 @@ function buildStyles() {
       max-width: ${LABEL_W_MM}mm;
       max-height: ${LABEL_H_MM}mm;
       min-height: 0;
-      padding: 1mm 1.5mm;
+      padding: 1.5mm 1.5mm 1mm;
       overflow: hidden;
       display: block;
     }
@@ -162,6 +167,11 @@ function buildStyles() {
       padding-bottom: 0.4em;
       margin-bottom: 0.5em;
     }
+    .print-size--label_80x50 .head {
+      border-bottom-width: 0.35mm;
+      padding-bottom: 0.15em;
+      margin-bottom: 0.25em;
+    }
     .head__title {
       font-weight: 700;
       line-height: 1.05;
@@ -171,7 +181,11 @@ function buildStyles() {
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
-    .print-size--label_80x50 .head__title { font-size: 6pt; }
+    .print-size--label_80x50 .head__title {
+      font-size: 7pt;
+      font-weight: 900;
+      -webkit-line-clamp: 1;
+    }
     .print-size--auto .head__title,
     .print-size--fill .head__title { font-size: clamp(6pt, 2.4vmin, 12pt); }
 
@@ -182,7 +196,7 @@ function buildStyles() {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .print-size--label_80x50 .head__sub { font-size: 5pt; }
+    .print-size--label_80x50 .head__sub { font-size: 5.5pt; font-weight: 800; }
     .print-size--auto .head__sub,
     .print-size--fill .head__sub { font-size: clamp(5pt, 1.8vmin, 9pt); }
 
@@ -217,7 +231,7 @@ function buildStyles() {
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
-    .print-size--label_80x50 .mat { font-size: 5.5pt; }
+    .print-size--label_80x50 .mat { font-size: 6pt; font-weight: 900; }
     .print-size--auto .mat,
     .print-size--fill .mat { font-size: clamp(5.5pt, 2vmin, 10pt); }
 
@@ -227,7 +241,7 @@ function buildStyles() {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .print-size--label_80x50 .desc1 { font-size: 5pt; }
+    .print-size--label_80x50 .desc1 { font-size: 5.5pt; font-weight: 800; }
     .print-size--auto .desc1,
     .print-size--fill .desc1 { font-size: clamp(5pt, 1.7vmin, 9pt); }
 
@@ -235,7 +249,7 @@ function buildStyles() {
       font-weight: 700;
       margin-bottom: 0.4em;
     }
-    .print-size--label_80x50 .ref { font-size: 6pt; }
+    .print-size--label_80x50 .ref { font-size: 7pt; font-weight: 900; }
     .print-size--auto .ref,
     .print-size--fill .ref { font-size: clamp(6pt, 2.2vmin, 11pt); }
 
@@ -260,7 +274,7 @@ function buildStyles() {
       word-break: break-word;
       text-align: center;
     }
-    .print-size--label_80x50 .edge { font-size: 4pt; }
+    .print-size--label_80x50 .edge { font-size: 5pt; font-weight: 900; }
     .print-size--auto .edge,
     .print-size--fill .edge { font-size: clamp(4pt, 1.5vmin, 8pt); }
 
@@ -287,6 +301,9 @@ function buildStyles() {
       justify-content: center;
       padding: 0.3mm;
     }
+    .print-size--label_80x50 .piece-shape {
+      border: 0.4mm solid #000;
+    }
     .piece-shape__txt {
       font-weight: 700;
       text-align: center;
@@ -297,7 +314,7 @@ function buildStyles() {
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
-    .print-size--label_80x50 .piece-shape__txt { font-size: 4pt; }
+    .print-size--label_80x50 .piece-shape__txt { font-size: 5pt; font-weight: 900; }
     .print-size--auto .piece-shape__txt,
     .print-size--fill .piece-shape__txt { font-size: clamp(4pt, 1.6vmin, 9pt); }
 
@@ -312,8 +329,9 @@ function buildStyles() {
       vertical-align: top;
     }
     .print-size--label_80x50 .col-right {
-      width: 22mm;
-      font-size: 5.5pt;
+      width: 24mm;
+      font-size: 6pt;
+      font-weight: 900;
     }
     .print-size--auto .col-right,
     .print-size--fill .col-right {
@@ -324,9 +342,11 @@ function buildStyles() {
 
     .qr { line-height: 0; margin-bottom: 0.4em; width: 100%; text-align: center; }
     .print-size--label_80x50 .qr img {
-      width: 16mm;
-      height: 16mm;
+      width: 18mm;
+      height: 18mm;
       display: inline-block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
     .print-size--auto .qr img,
     .print-size--fill .qr img {
@@ -351,12 +371,12 @@ function buildStyles() {
       align-self: stretch;
       padding-left: 0.3em;
     }
-    .print-size--label_80x50 .dims { font-size: 6.5pt; }
+    .print-size--label_80x50 .dims { font-size: 7pt; font-weight: 900; }
     .print-size--auto .dims,
     .print-size--fill .dims { font-size: clamp(6.5pt, 2.4vmin, 12pt); }
 
     .frac { margin-top: 0.25em; font-weight: 700; }
-    .print-size--label_80x50 .frac { font-size: 6pt; }
+    .print-size--label_80x50 .frac { font-size: 7pt; font-weight: 900; }
     .print-size--auto .frac,
     .print-size--fill .frac { font-size: clamp(6pt, 2.2vmin, 11pt); }
 
@@ -369,7 +389,7 @@ function buildStyles() {
       font-weight: 700;
       padding-top: 0.25em;
     }
-    .print-size--label_80x50 .foot { font-size: 5pt; }
+    .print-size--label_80x50 .foot { font-size: 5.5pt; font-weight: 900; }
     .print-size--auto .foot,
     .print-size--fill .foot { font-size: clamp(5pt, 1.8vmin, 9pt); }
 
@@ -411,6 +431,15 @@ function buildStyles() {
         display: flex !important;
         flex-direction: row !important;
       }
+      .print-size--label_80x50,
+      .print-size--label_80x50 * {
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .print-size--label_80x50 .qr img {
+        filter: contrast(1.35);
+      }
     }
   `
 }
@@ -438,7 +467,11 @@ export function openStickerPrintWindow() {
 }
 
 function triggerPrint(win) {
+  let started = false
   const run = () => {
+    if (started) return
+    started = true
+
     const printJob = () => {
       try {
         win.focus()
@@ -460,7 +493,7 @@ function triggerPrint(win) {
       .catch(() => undefined)
       .finally(() => {
         requestAnimationFrame(() => {
-          setTimeout(printJob, 600)
+          setTimeout(printJob, 800)
         })
       })
   }
@@ -468,7 +501,7 @@ function triggerPrint(win) {
   if (img && !img.complete) {
     img.addEventListener('load', run, { once: true })
     img.addEventListener('error', run, { once: true })
-    setTimeout(run, 2500)
+    setTimeout(run, 3000)
   } else {
     run()
   }
@@ -601,15 +634,17 @@ export async function printBiessePartSticker({
   const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
   const printedAt = new Date()
 
+  const qrPixels = printSize === 'label_80x50' ? 512 : 180
   let qrBlock = ''
   try {
     const QRCode = (await import('qrcode')).default
     const dataUrl = await QRCode.toDataURL(scanCode, {
       errorCorrectionLevel: 'M',
-      margin: 1,
-      width: 180,
+      margin: 0,
+      width: qrPixels,
+      color: { dark: '#000000', light: '#ffffff' },
     })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" /></div>`
+    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" width="${qrPixels}" height="${qrPixels}" /></div>`
   } catch {
     qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
   }
