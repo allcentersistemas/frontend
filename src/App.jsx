@@ -26,7 +26,7 @@ export default function App() {
           <Route path="/" element={<HomeRedirect />} />
 
           <Route element={<RequireAuth role="produccion" />}>
-            <Route path="/dashboard/produccion" element={<AppShell role="produccion" />}>
+            <Route path="/dashboard/produccion/*" element={<AppShell role="produccion" />}>
               <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
@@ -43,7 +43,7 @@ export default function App() {
           </Route>
 
           <Route element={<RequireAuth role="admin-produccion" />}>
-            <Route path="/dashboard/admin-produccion" element={<AppShell role="admin-produccion" />}>
+            <Route path="/dashboard/admin-produccion/*" element={<AppShell role="admin-produccion" />}>
               <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
@@ -67,7 +67,7 @@ export default function App() {
           </Route>
 
           <Route element={<RequireAuth role="despacho" />}>
-            <Route path="/dashboard/despacho" element={<AppShell role="despacho" />}>
+            <Route path="/dashboard/despacho/*" element={<AppShell role="despacho" />}>
               <Route index element={<ResumenPage />} />
               <Route path="ordenes" element={<InventarioLegacyRedirect area="ordenes" />} />
               <Route path="ordenes/auditoria" element={<OrderAuditPage />} />
