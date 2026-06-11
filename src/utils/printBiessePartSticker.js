@@ -3,7 +3,9 @@
  * El QR usa el mismo formato que {@code GET /api/biesse/scan/pieces/resolve?code=}.
  */
 
+import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
 import { getStickerPrintSize } from './stickerPrintSize.js'
+import { sendZplToZebra } from './zebraBrowserPrint.js'
 
 function esc(s) {
   if (s == null || s === '') return ''
@@ -618,7 +620,7 @@ function buildStickerHtml(data) {
  * @param {{ numeroPieza?: number, piezaId?: number|null }} opts.piece
  * @param {Window|null} [opts.printWindow]
  * @param {'auto'|'fill'|'label_80x50'} [opts.printSize]
- * @returns {Promise<{ qrCode: string, printedAt: string }>}
+ * @returns {Promise<{ qrCode: string, printedAt: string, printMethod?: 'zpl' | 'html' }>}
  */
 export async function printBiessePartSticker({
   order,
@@ -633,6 +635,30 @@ export async function printBiessePartSticker({
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
   const printedAt = new Date()
+
+  if (printSize === 'label_80x50') {
+    const zpl = buildBiessePartStickerZpl({
+      scanCode,
+      orderName,
+      bookingCode: order?.bookingCode,
+      part,
+      piece,
+      printedAt,
+    })
+    try {
+      await sendZplToZebra(zpl)
+      if (printWindow && !printWindow.closed) {
+        try {
+          printWindow.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      return { qrCode: scanCode, printedAt: printedAt.toISOString(), printMethod: 'zpl' }
+    } catch {
+      /* Browser Print no disponible: continuar con HTML */
+    }
+  }
 
   const qrPixels = printSize === 'label_80x50' ? 512 : 180
   let qrBlock = ''
@@ -692,5 +718,5 @@ export async function printBiessePartSticker({
     }
   }
 
-  return { qrCode: scanCode, printedAt: printedAt.toISOString() }
+  return { qrCode: scanCode, printedAt: printedAt.toISOString(), printMethod: 'html' }
 }

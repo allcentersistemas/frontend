@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { openStickerPrintWindow, printBiessePartSticker } from '../utils/printBiessePartSticker'
+import { ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintSize,
   setStickerPrintSize,
@@ -58,7 +59,8 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrint() {
     if (!detail || !selectedPart) return
-    const printWindow = openStickerPrintWindow()
+    const useZpl = printSize === 'label_80x50'
+    const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
       const piezaSeleccionada = (selectedPart.piezas ?? []).find((z) => z.numeroPieza === numeroPieza)
@@ -126,6 +128,15 @@ export function BiesseStickerPrintButton({ detail }) {
         console.warn('No se pudo auditar la impresión', auditErr)
       }
 
+      if (useZpl && printResult?.printMethod === 'html') {
+        window.alert(
+          'No se detectó Zebra Browser Print.\n\n' +
+            'Para etiquetas nítidas en la ZD230 instala el servicio "Zebra Browser Print" en este equipo, ' +
+            'configura la ZD230 como impresora por defecto y vuelve a imprimir.\n\n' +
+            'Se ha abierto la impresión HTML (menor calidad). Si el driver rasteriza mal, usa Browser Print.'
+        )
+      }
+
       setOpen(false)
     } catch (e) {
       if (printWindow && !printWindow.closed) {
@@ -180,8 +191,17 @@ export function BiesseStickerPrintButton({ detail }) {
               <p className="text-sm leading-relaxed text-slate-400">
                 Elige la parte y el número de pieza. Se abrirá una ventana con la etiqueta lista para imprimir; el
                 código QR coincide con el formato de resolución Biesse (<InlineCode>pieces/resolve</InlineCode>).
-                Con Zebra ZD230 usa tamaño <strong className="font-medium text-slate-300">80 × 50 mm</strong> y
-                comprueba en la vista previa que se vea el contenido antes de imprimir.
+                Con Zebra ZD230 usa <strong className="font-medium text-slate-300">80 × 50 mm</strong>. La app envía
+                ZPL directo si tienes{' '}
+                <a
+                  href={ZEBRA_BROWSER_PRINT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sky-400 underline-offset-2 hover:underline"
+                >
+                  Zebra Browser Print
+                </a>{' '}
+                instalado (recomendado).
               </p>
               <div>
                 <label className={labelClass}>Tamaño de impresión</label>

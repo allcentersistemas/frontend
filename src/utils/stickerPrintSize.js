@@ -19,7 +19,7 @@ export const STICKER_PRINT_SIZES = [
     id: 'label_80x50',
     label: 'Etiqueta 80 × 50 mm (Zebra ZD230)',
     hint:
-      'Zebra ZD230: papel 80×50 mm, escala 100%, sin márgenes. Si sale tenue, sube Oscuridad (Darkness) en el driver y calibra el rollo.',
+      'Zebra ZD230: envía ZPL nativo con Browser Print instalado. Sin él, usa HTML (suele salir borroso por el driver).',
   },
 ]
 
