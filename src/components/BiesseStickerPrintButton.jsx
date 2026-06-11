@@ -180,6 +180,8 @@ export function BiesseStickerPrintButton({ detail }) {
               <p className="text-sm leading-relaxed text-slate-400">
                 Elige la parte y el número de pieza. Se abrirá una ventana con la etiqueta lista para imprimir; el
                 código QR coincide con el formato de resolución Biesse (<InlineCode>pieces/resolve</InlineCode>).
+                Con Zebra ZD230 usa tamaño <strong className="font-medium text-slate-300">80 × 50 mm</strong> y
+                comprueba en la vista previa que se vea el contenido antes de imprimir.
               </p>
               <div>
                 <label className={labelClass}>Tamaño de impresión</label>

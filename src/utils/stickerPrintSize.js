@@ -17,8 +17,9 @@ export const STICKER_PRINT_SIZES = [
   },
   {
     id: 'label_80x50',
-    label: 'Etiqueta 80 × 50 mm',
-    hint: 'Tamaño fijo para Zebra ZD230 u otras etiquetas 8 × 5 cm.',
+    label: 'Etiqueta 80 × 50 mm (Zebra ZD230)',
+    hint:
+      'Recomendado para Zebra ZD230. En el diálogo de impresión elige la ZD230, papel 80×50 mm y escala 100% (sin márgenes).',
   },
 ]
 
@@ -32,7 +33,7 @@ export function getStickerPrintSize() {
   } catch {
     /* ignore */
   }
-  return 'auto'
+  return 'label_80x50'
 }
 
 /** @param {StickerPrintSizeId} id */

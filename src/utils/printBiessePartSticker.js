@@ -98,8 +98,7 @@ function buildStyles() {
   return `
     @page { size: auto; margin: 0; }
     @page fixed-label {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
-      size: 3.15in 1.97in landscape;
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
       margin: 0;
     }
     @page fill-sheet { size: landscape; margin: 0; }
@@ -110,6 +109,14 @@ function buildStyles() {
       padding: 0;
       width: 100%;
       height: 100%;
+    }
+    html.print-size--label_80x50,
+    body.print-size--label_80x50 {
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
+      overflow: hidden;
     }
     body {
       font-family: Arial, Helvetica, sans-serif;
@@ -141,7 +148,12 @@ function buildStyles() {
       page: fixed-label;
       width: ${LABEL_W_MM}mm;
       height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
+      min-height: 0;
       padding: 1mm 1.5mm;
+      overflow: hidden;
+      display: block;
     }
 
     .head {
@@ -181,6 +193,14 @@ function buildStyles() {
       flex-wrap: nowrap;
       align-items: stretch;
       gap: 0.8em;
+      min-height: 0;
+    }
+    .print-size--label_80x50 .body {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      flex: none;
       min-height: 0;
     }
     .col-left {
@@ -286,8 +306,12 @@ function buildStyles() {
       flex-direction: column;
       align-items: center;
     }
+    .print-size--label_80x50 .col-left,
     .print-size--label_80x50 .col-right {
-      flex: 0 0 22mm;
+      display: table-cell;
+      vertical-align: top;
+    }
+    .print-size--label_80x50 .col-right {
       width: 22mm;
       font-size: 5.5pt;
     }
@@ -351,6 +375,15 @@ function buildStyles() {
 
     @media print {
       html, body { width: 100%; height: 100%; }
+      html.print-size--label_80x50,
+      body.print-size--label_80x50 {
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+        min-height: 0 !important;
+        max-width: ${LABEL_W_MM}mm !important;
+        max-height: ${LABEL_H_MM}mm !important;
+        overflow: hidden !important;
+      }
       .print-size--auto .sticker,
       .print-size--fill .sticker {
         width: 100% !important;
@@ -360,8 +393,21 @@ function buildStyles() {
       .print-size--label_80x50 .sticker {
         width: ${LABEL_W_MM}mm !important;
         height: ${LABEL_H_MM}mm !important;
+        min-height: 0 !important;
+        max-height: ${LABEL_H_MM}mm !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
       }
-      .body {
+      .print-size--label_80x50 .body {
+        display: table !important;
+      }
+      .print-size--label_80x50 .col-left,
+      .print-size--label_80x50 .col-right {
+        display: table-cell !important;
+        vertical-align: top !important;
+      }
+      .print-size--auto .body,
+      .print-size--fill .body {
         display: flex !important;
         flex-direction: row !important;
       }
@@ -393,27 +439,38 @@ export function openStickerPrintWindow() {
 
 function triggerPrint(win) {
   const run = () => {
-    try {
-      win.focus()
-    } catch {
-      /* ignore */
-    }
-    setTimeout(() => {
+    const printJob = () => {
+      try {
+        win.focus()
+      } catch {
+        /* ignore */
+      }
       try {
         win.print()
       } catch {
         /* ignore */
       }
-    }, 400)
+    }
+    const doc = win.document
+    const fontsReady =
+      doc.fonts && typeof doc.fonts.ready?.then === 'function'
+        ? doc.fonts.ready
+        : Promise.resolve()
+    fontsReady
+      .catch(() => undefined)
+      .finally(() => {
+        requestAnimationFrame(() => {
+          setTimeout(printJob, 600)
+        })
+      })
   }
   const img = win.document.querySelector('.qr img')
   if (img && !img.complete) {
     img.addEventListener('load', run, { once: true })
     img.addEventListener('error', run, { once: true })
-  } else if (win.document.readyState === 'complete') {
-    run()
+    setTimeout(run, 2500)
   } else {
-    win.addEventListener('load', run, { once: true })
+    run()
   }
 }
 
@@ -474,7 +531,7 @@ function buildStickerHtml(data) {
   const pieceStyle = pieceShapeStyle(longitud, ancho, printSize)
 
   return `<!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="print-size ${sizeClass}">
 <head>
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
