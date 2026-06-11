@@ -35,7 +35,7 @@ export const SIDEBAR_MENU = [
   },
   { id: 'api', segment: 'api', label: 'Catálogo API', feature: FEATURE.API_CATALOG },
   { id: 'profile', segment: 'perfil', label: 'Mi perfil', feature: FEATURE.EMPLOYEE_PROFILE },
-  { id: 'proyectos', segment: 'proyectos', label: 'Proyectos Optimizacion', feature: FEATURE.PROJECT_LIST },
+  { id: 'proyectos', segment: 'proyecto-optimizacion', label: 'Proyecto optimización', feature: FEATURE.PROJECT_LIST },
 ]
 
 export function sidebarSectionsForDashboard(role, ability, employee = null) {

@@ -222,10 +222,47 @@ export async function createLocation(body) {
   })
 }
 
-/* ——— Órdenes / proyectos ——— */
+/* ——— Proyecto optimización ——— */
+
+export async function listProyectosOptimizacion(params = {}) {
+  const q = new URLSearchParams()
+  if (params.scope) q.set('scope', params.scope)
+  if (params.estado) q.set('estado', params.estado)
+  if (params.nombre) q.set('nombre', params.nombre)
+  if (params.cliente) q.set('cliente', params.cliente)
+  if (params.vendedor) q.set('vendedor', params.vendedor)
+  if (params.fechaDesde) q.set('fechaDesde', params.fechaDesde)
+  if (params.fechaHasta) q.set('fechaHasta', params.fechaHasta)
+  const suffix = q.toString() ? `?${q}` : ''
+  return systemJson(`/api/order/proyectos${suffix}`)
+}
+
+export async function getProyectoOptimizacion(id) {
+  return systemJson(`/api/order/proyectos/${id}`)
+}
+
+export async function capturarProyectoOptimizacion(id) {
+  return systemJson(`/api/order/proyectos/${id}/capturar`, { method: 'POST' })
+}
+
+export async function updateProyectoEstado(id, estado) {
+  return systemJson(`/api/order/proyectos/${id}/estado`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
+}
+
+export async function saveProyectoOptimizacionCompleto(payload) {
+  return systemJson('/api/order/proyectos/guardar-completo', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/* ——— Órdenes / proyectos (legacy) ——— */
 
 export async function listProjects() {
-  return systemJson('/api/order/projects')
+  return listProyectosOptimizacion({ scope: 'todos' })
 }
 
 export async function createProject(body) {

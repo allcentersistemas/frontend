@@ -15,6 +15,7 @@ import { OrderAuditPage } from './pages/OrderAuditPage'
 import { GestionPage } from './pages/GestionPage'
 import { InventoryPage } from './pages/InventoryPage.jsx'
 import { ResumenPage } from './pages/ResumenPage.jsx'
+import { ProyectoOptimizacionPage } from './pages/ProyectoOptimizacionPage.jsx'
 
 export default function App() {
   return (
@@ -35,6 +36,8 @@ export default function App() {
               <Route path="gestion" element={<GestionPage />} />
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
+              <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
+              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
@@ -58,6 +61,8 @@ export default function App() {
               />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="inventario" element={<InventoryPage />} />
+              <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
+              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
             </Route>
           </Route>
 
@@ -72,6 +77,8 @@ export default function App() {
               <Route path="gestion" element={<GestionPage />} />
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
+              <Route path="proyecto-optimizacion" element={<ProyectoOptimizacionPage />} />
+              <Route path="proyectos" element={<LegacySegmentRedirect fromSegment="proyectos" toSegment="proyecto-optimizacion" />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
           </Route>
