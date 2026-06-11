@@ -35,7 +35,13 @@ export const SIDEBAR_MENU = [
   },
   { id: 'api', segment: 'api', label: 'Catálogo API', feature: FEATURE.API_CATALOG },
   { id: 'profile', segment: 'perfil', label: 'Mi perfil', feature: FEATURE.EMPLOYEE_PROFILE },
-  { id: 'proyectos', segment: 'proyectos', label: 'Proyecto optimización', menu: 'proyectos', feature: FEATURE.PROJECT_LIST },
+  {
+    id: 'proyecto-optimizacion',
+    segment: 'proyecto-optimizacion',
+    label: 'Proyecto optimización',
+    menu: 'proyecto-optimizacion',
+    feature: FEATURE.PROJECT_LIST,
+  },
 ]
 
 export function sidebarSectionsForDashboard(role, ability, employee = null) {
@@ -57,7 +63,7 @@ export function sidebarSectionsForDashboard(role, ability, employee = null) {
     if (item.menu === 'inventario') {
       return item.features.some((f) => ability.can('view', f))
     }
-    if (item.menu === 'proyectos') {
+    if (item.menu === 'proyecto-optimizacion') {
       return ability.can('view', FEATURE.PROJECT_LIST) || ability.can('manage', 'all')
     }
     if (item.features?.length) {

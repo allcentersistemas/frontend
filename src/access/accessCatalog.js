@@ -92,11 +92,11 @@ export const PORTAL_ACCESS_MODULES = [
     suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS],
   },
   {
-    id: 'proyectos',
+    id: 'proyecto-optimizacion',
     label: 'Proyecto optimización',
-    description: 'Módulo proyectos',
+    description: 'Listado y gestión de proyectos de optimización / planilla de corte',
     features: [FEATURE.PROJECT_LIST],
-    suggestedRoles: [ROLE_DESPACHO],
+    suggestedRoles: [ROLE_VENTAS, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
   },
   {
     id: 'api',
@@ -120,7 +120,7 @@ export const ACCESS_TEMPLATES = [
     id: 'despacho',
     label: 'Operario despacho',
     description: 'Órdenes, palés, guías, stock y flota',
-    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'gestion_flota', 'proyectos'],
+    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'gestion_flota', 'proyecto-optimizacion'],
     roleNames: [ROLE_DESPACHO],
   },
   {
@@ -141,7 +141,7 @@ export const ACCESS_TEMPLATES = [
     id: 'gerencia',
     label: 'Gerencia',
     description: 'Operación con editar/cancelar/imprimir (sin gestión de usuarios)',
-    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'rm', 'proyectos'],
+    moduleIds: ['ordenes', 'pales', 'guias', 'stock', 'rm', 'proyecto-optimizacion'],
     roleNames: [ROLE_GERENCIA],
   },
   {
@@ -176,7 +176,7 @@ export const ACCESS_TEMPLATES = [
     id: 'ventas',
     label: 'Ventas',
     description: 'Consulta operativa (crear/leer)',
-    moduleIds: ['ordenes', 'proyectos'],
+    moduleIds: ['ordenes', 'proyecto-optimizacion'],
     roleNames: [ROLE_VENTAS],
   },
   {
