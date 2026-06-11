@@ -10,85 +10,49 @@ import {
   ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
 import { useAppAbility } from '../access/useAppAbility'
+import {
+  ESTADOS_PROYECTO,
+  downloadProyectoJson,
+  emptyProyectoFilters,
+  formatEstadoProyecto,
+  formatProyectoDate,
+  treeToSavePayload,
+} from '../utils/proyectoOptimizacion.js'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
 
-const ESTADOS = [
-  { value: '', label: 'Todos los estados' },
-  { value: 'ENVIADO', label: 'Enviado' },
-  { value: 'EN_ATENCION', label: 'En atención' },
-  { value: 'COTIZADO', label: 'Cotizado' },
-]
-
-function formatEstado(value) {
-  const map = {
-    ENVIADO: 'Enviado',
-    EN_ATENCION: 'En atención',
-    COTIZADO: 'Cotizado',
-  }
-  return map[value] || value || '—'
-}
-
-function formatDate(value) {
-  if (!value) return '—'
-  try {
-    return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-  } catch {
-    return String(value)
-  }
-}
-
-function emptyFilters() {
-  return {
-    estado: '',
-    nombre: '',
-    cliente: '',
-    vendedor: '',
-    fechaDesde: '',
-    fechaHasta: '',
-  }
-}
-
-function downloadJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 function ProyectoTreeSummary({ tree }) {
-  if (!tree) return <p className="muted">Sin datos.</p>
-  const orders = tree.orders ?? []
+  const project = tree?.project
+  const orders = tree?.orders ?? []
+  if (!project) return <p className="muted">Sin datos.</p>
+
   return (
     <div className="stack gap-4">
       <dl className="detail-dl">
         <div>
           <dt>Cliente</dt>
-          <dd>{tree.cliente || '—'}</dd>
+          <dd>{project.cliente || '—'}</dd>
         </div>
         <div>
           <dt>Referencia</dt>
-          <dd>{tree.referencia || '—'}</dd>
+          <dd>{project.referencia || '—'}</dd>
         </div>
         <div>
           <dt>Descripción</dt>
-          <dd>{tree.descripcion || '—'}</dd>
+          <dd>{project.descripcion || '—'}</dd>
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{formatEstado(tree.estado)}</dd>
+          <dd>{formatEstadoProyecto(project.estado)}</dd>
         </div>
         <div>
           <dt>Vendedor</dt>
-          <dd>{tree.vendedorNombre || 'Sin asignar'}</dd>
+          <dd>{project.vendedorNombre || 'Sin asignar'}</dd>
         </div>
         <div>
           <dt>Fecha</dt>
-          <dd>{formatDate(tree.fechaCreacion)}</dd>
+          <dd>{formatProyectoDate(project.fechaCreacion)}</dd>
         </div>
       </dl>
       {orders.length ? (
@@ -121,8 +85,8 @@ export function ProyectoOptimizacionPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = searchParams.get('tab') === TAB_TODOS ? TAB_TODOS : TAB_MIS
 
-  const [filters, setFilters] = useState(emptyFilters)
-  const [applied, setApplied] = useState(emptyFilters)
+  const [filters, setFilters] = useState(emptyProyectoFilters())
+  const [applied, setApplied] = useState(emptyProyectoFilters())
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -130,19 +94,22 @@ export function ProyectoOptimizacionPage() {
   const [busyId, setBusyId] = useState(null)
 
   const [detailOpen, setDetailOpen] = useState(false)
+  const [detailEditMode, setDetailEditMode] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
   const [detailTree, setDetailTree] = useState(null)
   const [detailRow, setDetailRow] = useState(null)
   const [estadoDraft, setEstadoDraft] = useState('')
+  const [projectDraft, setProjectDraft] = useState({ nombre: '', descripcion: '', cliente: '', referencia: '' })
 
   const setTab = (id) => {
     const next = new URLSearchParams(searchParams)
     if (id === TAB_MIS) next.delete('tab')
     else next.set('tab', id)
     setSearchParams(next, { replace: true })
-    setFilters(emptyFilters())
-    setApplied(emptyFilters())
+    const empty = emptyProyectoFilters()
+    setFilters(empty)
+    setApplied(empty)
   }
 
   const load = useCallback(async () => {
@@ -151,12 +118,14 @@ export function ProyectoOptimizacionPage() {
     try {
       const params = {
         scope: tab === TAB_MIS ? 'mis' : 'todos',
-        estado: applied.estado || undefined,
         nombre: applied.nombre || undefined,
         cliente: applied.cliente || undefined,
         vendedor: tab === TAB_TODOS ? applied.vendedor || undefined : undefined,
         fechaDesde: applied.fechaDesde || undefined,
         fechaHasta: applied.fechaHasta || undefined,
+      }
+      if (tab === TAB_MIS && applied.estado) {
+        params.estado = applied.estado
       }
       const list = await systemApi.listProyectosOptimizacion(params)
       setRows(Array.isArray(list) ? list : [])
@@ -186,13 +155,14 @@ export function ProyectoOptimizacionPage() {
   }
 
   function resetFilters() {
-    const empty = emptyFilters()
+    const empty = emptyProyectoFilters()
     setFilters(empty)
     setApplied(empty)
   }
 
-  async function openDetail(row) {
+  async function openDetail(row, { edit = false } = {}) {
     setDetailRow(row)
+    setDetailEditMode(edit && isAdmin)
     setDetailOpen(true)
     setDetailLoading(true)
     setDetailError('')
@@ -201,7 +171,14 @@ export function ProyectoOptimizacionPage() {
     try {
       const tree = await systemApi.getProyectoOptimizacion(row.id)
       setDetailTree(tree)
-      setEstadoDraft(tree.estado || row.estado || 'ENVIADO')
+      const project = tree?.project
+      setEstadoDraft(project?.estado || row.estado || 'ENVIADO')
+      setProjectDraft({
+        nombre: project?.nombre || row.nombre || '',
+        descripcion: project?.descripcion || '',
+        cliente: project?.cliente || row.cliente || '',
+        referencia: project?.referencia || '',
+      })
     } catch (e) {
       setDetailError(e instanceof Error ? e.message : 'No se pudo cargar el detalle.')
     } finally {
@@ -211,6 +188,7 @@ export function ProyectoOptimizacionPage() {
 
   function closeDetail() {
     setDetailOpen(false)
+    setDetailEditMode(false)
     setDetailRow(null)
     setDetailTree(null)
     setDetailError('')
@@ -222,7 +200,7 @@ export function ProyectoOptimizacionPage() {
     try {
       const tree = await systemApi.getProyectoOptimizacion(row.id)
       const safeName = (row.nombre || `proyecto-${row.id}`).replace(/[^\w.-]+/g, '_')
-      downloadJson(`${safeName}.json`, tree)
+      downloadProyectoJson(`${safeName}.json`, tree)
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el proyecto.')
     } finally {
@@ -239,7 +217,7 @@ export function ProyectoOptimizacionPage() {
     setActionMsg('')
     try {
       await systemApi.capturarProyectoOptimizacion(row.id)
-      setActionMsg(`Proyecto «${row.nombre}» capturado correctamente.`)
+      setActionMsg(`Proyecto «${row.nombre}» capturado y asignado a usted.`)
       await load()
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo capturar el proyecto.')
@@ -258,9 +236,33 @@ export function ProyectoOptimizacionPage() {
       await load()
       const tree = await systemApi.getProyectoOptimizacion(detailRow.id)
       setDetailTree(tree)
-      setDetailRow((prev) => (prev ? { ...prev, estado: tree.estado } : prev))
+      setDetailRow((prev) =>
+        prev ? { ...prev, estado: tree?.project?.estado ?? estadoDraft } : prev,
+      )
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo actualizar el estado.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleProjectSave() {
+    if (!detailRow || !detailTree) return
+    setBusyId(detailRow.id)
+    setActionMsg('')
+    try {
+      const payload = treeToSavePayload(detailTree, projectDraft)
+      await systemApi.saveProyectoOptimizacionCompleto(payload)
+      if (estadoDraft && estadoDraft !== detailTree?.project?.estado) {
+        await systemApi.updateProyectoEstado(detailRow.id, estadoDraft)
+      }
+      setActionMsg('Proyecto actualizado.')
+      await load()
+      const tree = await systemApi.getProyectoOptimizacion(detailRow.id)
+      setDetailTree(tree)
+      setDetailEditMode(false)
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo guardar el proyecto.')
     } finally {
       setBusyId(null)
     }
@@ -276,8 +278,8 @@ export function ProyectoOptimizacionPage() {
         title="Proyecto optimización"
         lead={
           tab === TAB_MIS
-            ? 'Proyectos asignados a usted como vendedor. Puede ver el detalle y descargar la planilla.'
-            : 'Todos los proyectos enviados por clientes. Capture los que no tengan vendedor.'
+            ? 'Proyectos asignados a usted como vendedor. Filtre por estado, cliente, nombre o fechas.'
+            : 'Todos los proyectos enviados por clientes. Capture los que aún no tengan vendedor.'
         }
       />
 
@@ -294,19 +296,21 @@ export function ProyectoOptimizacionPage() {
         toolbar={
           <form onSubmit={applyFilters}>
             <ModuleFilterGrid>
-              <label className="field">
-                <span>Estado</span>
-                <select
-                  value={filters.estado}
-                  onChange={(e) => setFilters((f) => ({ ...f, estado: e.target.value }))}
-                >
-                  {ESTADOS.map((o) => (
-                    <option key={o.value || 'all'} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {tab === TAB_MIS ? (
+                <label className="field">
+                  <span>Estado</span>
+                  <select
+                    value={filters.estado}
+                    onChange={(e) => setFilters((f) => ({ ...f, estado: e.target.value }))}
+                  >
+                    {ESTADOS_PROYECTO.map((o) => (
+                      <option key={o.value || 'all'} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="field">
                 <span>Nombre proyecto</span>
                 <input
@@ -388,11 +392,11 @@ export function ProyectoOptimizacionPage() {
                     <td className="font-medium">{row.nombre}</td>
                     <td>{row.cliente || '—'}</td>
                     <td>
-                      <span className="tag">{formatEstado(row.estado)}</span>
+                      <span className="tag">{formatEstadoProyecto(row.estado)}</span>
                     </td>
                     <td>{row.vendedorNombre || '—'}</td>
                     <td>{row.cantidadOrdenes ?? 0}</td>
-                    <td className="small whitespace-nowrap">{formatDate(row.fechaCreacion)}</td>
+                    <td className="small whitespace-nowrap">{formatProyectoDate(row.fechaCreacion)}</td>
                     <td>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         <button
@@ -418,8 +422,7 @@ export function ProyectoOptimizacionPage() {
                             type="button"
                             className="btn btn--ghost"
                             disabled={busyId === row.id}
-                            onClick={() => void openDetail(row)}
-                            title="Ver y actualizar estado (admin)"
+                            onClick={() => void openDetail(row, { edit: true })}
                           >
                             Editar
                           </button>
@@ -446,22 +449,76 @@ export function ProyectoOptimizacionPage() {
 
       <DetailModal
         open={detailOpen}
-        title={detailRow ? detailRow.nombre : 'Detalle del proyecto'}
-        subtitle={detailRow ? `${formatEstado(detailRow.estado)} · ${formatDate(detailRow.fechaCreacion)}` : ''}
+        title={
+          detailRow
+            ? detailEditMode
+              ? `Editar · ${detailRow.nombre}`
+              : detailRow.nombre
+            : 'Detalle del proyecto'
+        }
+        subtitle={
+          detailRow
+            ? `${formatEstadoProyecto(detailRow.estado)} · ${formatProyectoDate(detailRow.fechaCreacion)}`
+            : ''
+        }
         onClose={closeDetail}
       >
         {detailLoading ? <p className="muted">Cargando detalle…</p> : null}
         {detailError ? <p className="form-error">{detailError}</p> : null}
         {!detailLoading && !detailError && detailTree ? (
           <>
-            <ProyectoTreeSummary tree={detailTree} />
-            {(tab === TAB_MIS || isAdmin) && (
+            {detailEditMode ? (
+              <div className="stack gap-3" style={{ marginBottom: '1rem' }}>
+                <label className="field">
+                  <span>Nombre</span>
+                  <input
+                    value={projectDraft.nombre}
+                    onChange={(e) => setProjectDraft((p) => ({ ...p, nombre: e.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Cliente</span>
+                  <input
+                    value={projectDraft.cliente}
+                    onChange={(e) => setProjectDraft((p) => ({ ...p, cliente: e.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Referencia</span>
+                  <input
+                    value={projectDraft.referencia}
+                    onChange={(e) => setProjectDraft((p) => ({ ...p, referencia: e.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Descripción</span>
+                  <input
+                    value={projectDraft.descripcion}
+                    onChange={(e) => setProjectDraft((p) => ({ ...p, descripcion: e.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Estado</span>
+                  <select value={estadoDraft} onChange={(e) => setEstadoDraft(e.target.value)}>
+                    {ESTADOS_PROYECTO.filter((o) => o.value).map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <ProyectoTreeSummary tree={detailTree} />
+            )}
+
+            {!detailEditMode && tab === TAB_MIS ? (
               <div className="pad" style={{ paddingLeft: 0, paddingRight: 0, marginTop: '1rem' }}>
                 <label className="field">
                   <span>Cambiar estado</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
                     <select value={estadoDraft} onChange={(e) => setEstadoDraft(e.target.value)}>
-                      {ESTADOS.filter((o) => o.value).map((o) => (
+                      {ESTADOS_PROYECTO.filter((o) => o.value).map((o) => (
                         <option key={o.value} value={o.value}>
                           {o.label}
                         </option>
@@ -478,14 +535,21 @@ export function ProyectoOptimizacionPage() {
                   </div>
                 </label>
               </div>
-            )}
+            ) : null}
+
             <div style={{ display: 'flex', gap: 8, marginTop: '1rem', flexWrap: 'wrap' }}>
-              {detailRow ? (
+              {detailEditMode ? (
                 <button
                   type="button"
-                  className="btn btn--ghost"
-                  onClick={() => void handleDownload(detailRow)}
+                  className="btn btn--primary"
+                  disabled={busyId === detailRow?.id}
+                  onClick={() => void handleProjectSave()}
                 >
+                  Guardar cambios
+                </button>
+              ) : null}
+              {detailRow && tab === TAB_MIS ? (
+                <button type="button" className="btn btn--ghost" onClick={() => void handleDownload(detailRow)}>
                   Descargar JSON
                 </button>
               ) : null}
