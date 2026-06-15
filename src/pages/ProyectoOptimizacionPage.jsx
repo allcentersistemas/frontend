@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { DetailModal } from '../components/DetailModal.jsx'
@@ -18,6 +18,7 @@ import {
   formatProyectoDate,
   treeToSavePayload,
 } from '../utils/proyectoOptimizacion.js'
+import { downloadProyectoExcelFromTree } from '../utils/proyectoExcelExport.js'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
@@ -101,6 +102,11 @@ export function ProyectoOptimizacionPage() {
   const [detailRow, setDetailRow] = useState(null)
   const [estadoDraft, setEstadoDraft] = useState('')
   const [projectDraft, setProjectDraft] = useState({ nombre: '', descripcion: '', cliente: '', referencia: '' })
+  const [maquinas, setMaquinas] = useState([])
+  const [maquinaDraftId, setMaquinaDraftId] = useState('')
+  const [maquinaForm, setMaquinaForm] = useState({ codigo: '', nombre: '' })
+  const cotizacionInputRef = useRef(null)
+  const [cotizacionTargetId, setCotizacionTargetId] = useState(null)
 
   const setTab = (id) => {
     const next = new URLSearchParams(searchParams)
@@ -141,6 +147,12 @@ export function ProyectoOptimizacionPage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    void systemApi.listMaquinasOptimizacion(true).then((list) => {
+      setMaquinas(Array.isArray(list) ? list : [])
+    }).catch(() => setMaquinas([]))
+  }, [])
+
   const tabs = useMemo(
     () => [
       { id: TAB_MIS, label: 'Mis proyectos' },
@@ -179,6 +191,7 @@ export function ProyectoOptimizacionPage() {
         cliente: project?.cliente || row.cliente || '',
         referencia: project?.referencia || '',
       })
+      setMaquinaDraftId(project?.maquinaId ? String(project.maquinaId) : '')
     } catch (e) {
       setDetailError(e instanceof Error ? e.message : 'No se pudo cargar el detalle.')
     } finally {
@@ -192,6 +205,20 @@ export function ProyectoOptimizacionPage() {
     setDetailRow(null)
     setDetailTree(null)
     setDetailError('')
+  }
+
+  async function handleDownloadExcel(row) {
+    setBusyId(row.id)
+    setActionMsg('')
+    try {
+      const tree = await systemApi.getProyectoOptimizacion(row.id)
+      const safeName = (row.nombre || `proyecto-${row.id}`).replace(/[^\w.-]+/g, '_')
+      downloadProyectoExcelFromTree(`${safeName}.xlsx`, tree)
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el Excel.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function handleDownload(row) {
@@ -268,12 +295,85 @@ export function ProyectoOptimizacionPage() {
     }
   }
 
+  async function handleMaquinaSave() {
+    if (!detailRow || !maquinaDraftId) return
+    setBusyId(detailRow.id)
+    setActionMsg('')
+    try {
+      await systemApi.updateProyectoMaquina(detailRow.id, Number(maquinaDraftId))
+      setActionMsg('Máquina asignada al proyecto.')
+      const tree = await systemApi.getProyectoOptimizacion(detailRow.id)
+      setDetailTree(tree)
+      await load()
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo asignar la máquina.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function promptUploadCotizacion(rowId) {
+    setCotizacionTargetId(rowId)
+    cotizacionInputRef.current?.click()
+  }
+
+  async function handleCotizacionSelected(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    const rowId = cotizacionTargetId
+    setCotizacionTargetId(null)
+    if (!file || !rowId) return
+    setBusyId(rowId)
+    setActionMsg('')
+    try {
+      await systemApi.uploadProyectoCotizacion(rowId, file)
+      setActionMsg('Cotización subida. El proyecto pasó a estado Cotizado.')
+      await load()
+      if (detailRow?.id === rowId) {
+        const tree = await systemApi.getProyectoOptimizacion(rowId)
+        setDetailTree(tree)
+        setDetailRow((prev) => (prev ? { ...prev, estado: 'COTIZADO', tieneCotizacion: true } : prev))
+        setEstadoDraft('COTIZADO')
+      }
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo subir la cotización.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleAddMaquina(e) {
+    e.preventDefault()
+    if (!maquinaForm.codigo.trim() || !maquinaForm.nombre.trim()) return
+    setActionMsg('')
+    try {
+      await systemApi.createMaquinaOptimizacion({
+        codigo: maquinaForm.codigo.trim(),
+        nombre: maquinaForm.nombre.trim(),
+        activo: true,
+      })
+      setMaquinaForm({ codigo: '', nombre: '' })
+      const list = await systemApi.listMaquinasOptimizacion(true)
+      setMaquinas(Array.isArray(list) ? list : [])
+      setActionMsg('Máquina registrada.')
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo registrar la máquina.')
+    }
+  }
+
   function canCapturar(row) {
     return row.vendedorId == null
   }
 
   return (
     <ModulePage>
+      <input
+        ref={cotizacionInputRef}
+        type="file"
+        accept=".pdf,.xlsx,.xls,.doc,.docx,application/pdf"
+        hidden
+        onChange={(e) => void handleCotizacionSelected(e)}
+      />
       <ModuleHeader
         title="Proyecto optimización"
         lead={
@@ -408,14 +508,24 @@ export function ProyectoOptimizacionPage() {
                           Ver detalle
                         </button>
                         {tab === TAB_MIS ? (
-                          <button
-                            type="button"
-                            className="btn btn--ghost"
-                            disabled={busyId === row.id}
-                            onClick={() => void handleDownload(row)}
-                          >
-                            Descargar
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn--ghost"
+                              disabled={busyId === row.id}
+                              onClick={() => void handleDownloadExcel(row)}
+                            >
+                              Excel
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost"
+                              disabled={busyId === row.id}
+                              onClick={() => promptUploadCotizacion(row.id)}
+                            >
+                              {row.tieneCotizacion ? 'Actualizar cotización' : 'Subir cotización'}
+                            </button>
+                          </>
                         ) : null}
                         {tab === TAB_TODOS && isAdmin ? (
                           <button
@@ -515,6 +625,27 @@ export function ProyectoOptimizacionPage() {
             {!detailEditMode && tab === TAB_MIS ? (
               <div className="pad" style={{ paddingLeft: 0, paddingRight: 0, marginTop: '1rem' }}>
                 <label className="field">
+                  <span>Máquina (P_PARAMS)</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                    <select value={maquinaDraftId} onChange={(e) => setMaquinaDraftId(e.target.value)}>
+                      <option value="">Sin asignar</option>
+                      {maquinas.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nombre} ({m.codigo})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={busyId === detailRow?.id || !maquinaDraftId}
+                      onClick={() => void handleMaquinaSave()}
+                    >
+                      Guardar máquina
+                    </button>
+                  </div>
+                </label>
+                <label className="field" style={{ marginTop: '1rem' }}>
                   <span>Cambiar estado</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
                     <select value={estadoDraft} onChange={(e) => setEstadoDraft(e.target.value)}>
@@ -549,9 +680,21 @@ export function ProyectoOptimizacionPage() {
                 </button>
               ) : null}
               {detailRow && tab === TAB_MIS ? (
-                <button type="button" className="btn btn--ghost" onClick={() => void handleDownload(detailRow)}>
-                  Descargar JSON
-                </button>
+                <>
+                  <button type="button" className="btn btn--ghost" onClick={() => void handleDownloadExcel(detailRow)}>
+                    Descargar Excel
+                  </button>
+                  <button type="button" className="btn btn--ghost" onClick={() => void handleDownload(detailRow)}>
+                    Descargar JSON
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => promptUploadCotizacion(detailRow.id)}
+                  >
+                    Subir cotización
+                  </button>
+                </>
               ) : null}
               <button type="button" className="btn btn--ghost" onClick={closeDetail}>
                 Cerrar
@@ -560,6 +703,47 @@ export function ProyectoOptimizacionPage() {
           </>
         ) : null}
       </DetailModal>
+
+      {isAdmin ? (
+        <section className="card pad" style={{ marginTop: '1.5rem' }}>
+          <h2 className="card__title mb-3">Máquinas de optimización</h2>
+          <p className="small muted mb-4">
+            Código usado en P_PARAMS al exportar a Excel (ej. DEF - SEKTOR470).
+          </p>
+          <form onSubmit={handleAddMaquina} className="toolbar toolbar--wrap mb-4">
+            <label className="field" style={{ flex: '1 1 200px', margin: 0 }}>
+              <span>Código P_PARAMS</span>
+              <input
+                value={maquinaForm.codigo}
+                onChange={(e) => setMaquinaForm((f) => ({ ...f, codigo: e.target.value }))}
+                placeholder="DEF - SEKTOR470"
+              />
+            </label>
+            <label className="field" style={{ flex: '1 1 200px', margin: 0 }}>
+              <span>Nombre</span>
+              <input
+                value={maquinaForm.nombre}
+                onChange={(e) => setMaquinaForm((f) => ({ ...f, nombre: e.target.value }))}
+                placeholder="Sector 470"
+              />
+            </label>
+            <button type="submit" className="btn btn--primary">
+              Agregar máquina
+            </button>
+          </form>
+          {maquinas.length ? (
+            <ul className="stack gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {maquinas.map((m) => (
+                <li key={m.id} className="small">
+                  <strong>{m.nombre}</strong> — <code>{m.codigo}</code>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No hay máquinas registradas.</p>
+          )}
+        </section>
+      ) : null}
     </ModulePage>
   )
 }

@@ -166,7 +166,7 @@ async function readErrorDetail(res) {
 async function backendJson(apiBase, path, init, { mergeSystemHeaders = false } = {}) {
   const { skipAuth, ...rest } = init ?? {}
   const headers = new Headers(rest.headers)
-  if (!headers.has('Content-Type') && rest.body) {
+  if (!headers.has('Content-Type') && rest.body && !(rest.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
   if (mergeSystemHeaders) {

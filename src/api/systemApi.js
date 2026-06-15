@@ -1,4 +1,5 @@
 import { sessionClientHeaders } from '../auth/clientSession'
+import { systemApiBase } from '../config/env'
 import { systemJson } from './http'
 
 /* ——— Auth ——— */
@@ -257,6 +258,46 @@ export async function saveProyectoOptimizacionCompleto(payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export async function listMaquinasOptimizacion(activeOnly = false) {
+  return systemJson(`/api/order/maquinas${activeOnly ? '/activas' : ''}`)
+}
+
+export async function createMaquinaOptimizacion(payload) {
+  return systemJson('/api/order/maquinas', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateMaquinaOptimizacion(id, payload) {
+  return systemJson(`/api/order/maquinas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateProyectoMaquina(id, maquinaId) {
+  return systemJson(`/api/order/proyectos/${id}/maquina`, {
+    method: 'PATCH',
+    body: JSON.stringify({ maquinaId }),
+  })
+}
+
+export async function uploadProyectoCotizacion(id, file) {
+  const form = new FormData()
+  form.append('file', file)
+  return systemJson(`/api/order/proyectos/${id}/cotizacion`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
+export function cotizacionProyectoUrl(id) {
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`
+  return `${apiPath.replace(/\/+$/, '')}/api/order/proyectos/${id}/cotizacion`
 }
 
 /* ——— Órdenes / proyectos (legacy) ——— */
