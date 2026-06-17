@@ -226,6 +226,18 @@
     @apply border-emerald-500/25 bg-emerald-500/10 text-emerald-200;
   }
 
+  .tag--estado-enviado {
+    @apply border-sky-500/30 bg-sky-500/15 font-semibold text-sky-800 dark:border-sky-400/35 dark:bg-sky-400/15 dark:text-sky-100;
+  }
+
+  .tag--estado-atencion {
+    @apply border-amber-500/35 bg-amber-400/20 font-semibold text-amber-900 dark:border-amber-400/40 dark:bg-amber-400/15 dark:text-amber-100;
+  }
+
+  .tag--estado-cotizado {
+    @apply border-emerald-500/35 bg-emerald-500/15 font-semibold text-emerald-800 dark:border-emerald-400/35 dark:bg-emerald-400/15 dark:text-emerald-100;
+  }
+
   .code-inline {
     @apply rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[0.8rem] text-amber-800 dark:border-white/10 dark:bg-black/40 dark:text-amber-100/90;
   }

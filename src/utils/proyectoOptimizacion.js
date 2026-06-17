@@ -14,6 +14,15 @@ export function formatEstadoProyecto(value) {
   return map[value] || value || '—'
 }
 
+export function estadoTagClass(estado) {
+  const map = {
+    ENVIADO: 'tag tag--estado-enviado',
+    EN_ATENCION: 'tag tag--estado-atencion',
+    COTIZADO: 'tag tag--estado-cotizado',
+  }
+  return map[estado] || 'tag'
+}
+
 export function formatProyectoDate(value) {
   if (!value) return '—'
   try {

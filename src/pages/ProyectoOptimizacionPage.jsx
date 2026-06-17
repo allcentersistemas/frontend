@@ -15,6 +15,7 @@ import {
   downloadProyectoJson,
   emptyProyectoFilters,
   formatEstadoProyecto,
+  estadoTagClass,
   formatProyectoDate,
   treeToSavePayload,
 } from '../utils/proyectoOptimizacion.js'
@@ -492,7 +493,7 @@ export function ProyectoOptimizacionPage() {
                     <td className="font-medium">{row.nombre}</td>
                     <td>{row.cliente || '—'}</td>
                     <td>
-                      <span className="tag">{formatEstadoProyecto(row.estado)}</span>
+                      <span className={estadoTagClass(row.estado)}>{formatEstadoProyecto(row.estado)}</span>
                     </td>
                     <td>{row.vendedorNombre || '—'}</td>
                     <td>{row.cantidadOrdenes ?? 0}</td>
