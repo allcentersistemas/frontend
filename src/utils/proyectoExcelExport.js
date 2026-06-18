@@ -55,27 +55,29 @@ function mapDetalleRow(detalle, { pParams, pIdesc }) {
   }
 }
 
-/** @param {import('../utils/proyectoOptimizacion.js').ProyectoTree} tree */
-export function downloadProyectoExcelFromTree(filename, tree) {
+export function orderExcelFilename(order, projectName = 'proyecto') {
+  const projectSlug = String(projectName || 'proyecto').replace(/[^\w.-]+/g, '_')
+  const orderSlug = String(order.codigo || `orden-${order.id}`).replace(/[^\w.-]+/g, '_')
+  return `${projectSlug}_${orderSlug}.xlsx`
+}
+
+/** Descarga Excel de una sola orden. */
+export function downloadOrderExcelFromTree(order, tree, filename) {
   const project = tree?.project
-  const orders = tree?.orders ?? []
   const maquinaParametros = project?.maquinaParametros || ''
   const projectName = project?.nombre || ''
+  const pIdesc = order.descripcion || projectName || ''
+  const name = filename || orderExcelFilename(order, projectName)
 
   const technicalRow = EXCEL_EXPORT_COLUMNS.map((c) => c.technical)
   const labelRow = EXCEL_EXPORT_COLUMNS.map((c) => c.label)
-  const dataRows = []
-
-  for (const order of orders) {
-    const pIdesc = order.descripcion || projectName || ''
-    for (const detalle of order.detalles || []) {
-      const cells = mapDetalleRow(detalle, { pParams: maquinaParametros, pIdesc })
-      dataRows.push(EXCEL_EXPORT_COLUMNS.map((col) => cells[col.key] ?? ''))
-    }
-  }
+  const dataRows = (order.detalles || []).map((detalle) => {
+    const cells = mapDetalleRow(detalle, { pParams: maquinaParametros, pIdesc })
+    return EXCEL_EXPORT_COLUMNS.map((col) => cells[col.key] ?? '')
+  })
 
   const ws = XLSX.utils.aoa_to_sheet([technicalRow, labelRow, ...dataRows])
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Planilla')
-  XLSX.writeFile(wb, filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`)
+  XLSX.writeFile(wb, name.endsWith('.xlsx') ? name : `${name}.xlsx`)
 }

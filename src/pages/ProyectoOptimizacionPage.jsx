@@ -19,12 +19,12 @@ import {
   formatProyectoDate,
   treeToSavePayload,
 } from '../utils/proyectoOptimizacion.js'
-import { downloadProyectoExcelFromTree } from '../utils/proyectoExcelExport.js'
+import { downloadOrderExcelFromTree } from '../utils/proyectoExcelExport.js'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
 
-function ProyectoTreeSummary({ tree }) {
+function ProyectoTreeSummary({ tree, onDownloadOrderExcel }) {
   const project = tree?.project
   const orders = tree?.orders ?? []
   if (!project) return <p className="muted">Sin datos.</p>
@@ -46,7 +46,9 @@ function ProyectoTreeSummary({ tree }) {
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{formatEstadoProyecto(project.estado)}</dd>
+          <dd>
+            <span className={estadoTagClass(project.estado)}>{formatEstadoProyecto(project.estado)}</span>
+          </dd>
         </div>
         <div>
           <dt>Vendedor</dt>
@@ -56,6 +58,12 @@ function ProyectoTreeSummary({ tree }) {
           <dt>Fecha</dt>
           <dd>{formatProyectoDate(project.fechaCreacion)}</dd>
         </div>
+        {project.maquinaParametros ? (
+          <div>
+            <dt>Parámetros (P_PARAMS)</dt>
+            <dd>{project.maquinaParametros}</dd>
+          </div>
+        ) : null}
       </dl>
       {orders.length ? (
         <div>
@@ -65,11 +73,20 @@ function ProyectoTreeSummary({ tree }) {
           <ul className="stack gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {orders.map((o) => (
               <li key={o.id} className="card pad" style={{ margin: 0 }}>
-                <strong>{o.codigo || `Orden ${o.id}`}</strong>
-                {o.descripcion ? <span className="muted small"> — {o.descripcion}</span> : null}
-                <p className="small muted" style={{ marginTop: 4 }}>
-                  {(o.detalles ?? []).length} pieza(s)
-                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div>
+                    <strong>{o.codigo || `Orden ${o.id}`}</strong>
+                    {o.descripcion ? <span className="muted small"> — {o.descripcion}</span> : null}
+                    <p className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
+                      {(o.detalles ?? []).length} pieza(s)
+                    </p>
+                  </div>
+                  {(o.detalles ?? []).length && onDownloadOrderExcel ? (
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
+                      Excel
+                    </button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -208,17 +225,12 @@ export function ProyectoOptimizacionPage() {
     setDetailError('')
   }
 
-  async function handleDownloadExcel(row) {
-    setBusyId(row.id)
-    setActionMsg('')
+  function handleDownloadOrderExcel(order) {
+    if (!detailTree) return
     try {
-      const tree = await systemApi.getProyectoOptimizacion(row.id)
-      const safeName = (row.nombre || `proyecto-${row.id}`).replace(/[^\w.-]+/g, '_')
-      downloadProyectoExcelFromTree(`${safeName}.xlsx`, tree)
+      downloadOrderExcelFromTree(order, detailTree)
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el Excel.')
-    } finally {
-      setBusyId(null)
     }
   }
 
@@ -514,14 +526,6 @@ export function ProyectoOptimizacionPage() {
                               type="button"
                               className="btn btn--ghost"
                               disabled={busyId === row.id}
-                              onClick={() => void handleDownloadExcel(row)}
-                            >
-                              Excel
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn--ghost"
-                              disabled={busyId === row.id}
                               onClick={() => promptUploadCotizacion(row.id)}
                             >
                               {row.tieneCotizacion ? 'Actualizar cotización' : 'Subir cotización'}
@@ -620,7 +624,7 @@ export function ProyectoOptimizacionPage() {
                 </label>
               </div>
             ) : (
-              <ProyectoTreeSummary tree={detailTree} />
+              <ProyectoTreeSummary tree={detailTree} onDownloadOrderExcel={handleDownloadOrderExcel} />
             )}
 
             {!detailEditMode && tab === TAB_MIS ? (
@@ -682,9 +686,6 @@ export function ProyectoOptimizacionPage() {
               ) : null}
               {detailRow && tab === TAB_MIS ? (
                 <>
-                  <button type="button" className="btn btn--ghost" onClick={() => void handleDownloadExcel(detailRow)}>
-                    Descargar Excel
-                  </button>
                   <button type="button" className="btn btn--ghost" onClick={() => void handleDownload(detailRow)}>
                     Descargar JSON
                   </button>
