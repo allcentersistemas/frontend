@@ -24,6 +24,10 @@ import { downloadOrderExcelFromTree } from '../utils/proyectoExcelExport.js'
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
 
+function resolveProyectoTab(raw) {
+  return raw === TAB_TODOS ? TAB_TODOS : TAB_MIS
+}
+
 function ProyectoTreeSummary({ tree, onDownloadOrderExcel }) {
   const project = tree?.project
   const orders = tree?.orders ?? []
@@ -102,7 +106,7 @@ export function ProyectoOptimizacionPage() {
   const ability = useAppAbility()
   const isAdmin = ability.can('manage', 'all')
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab = searchParams.get('tab') === TAB_TODOS ? TAB_TODOS : TAB_MIS
+  const [tab, setTabState] = useState(() => resolveProyectoTab(searchParams.get('tab')))
 
   const [filters, setFilters] = useState(emptyProyectoFilters())
   const [applied, setApplied] = useState(emptyProyectoFilters())
@@ -126,32 +130,50 @@ export function ProyectoOptimizacionPage() {
   const cotizacionInputRef = useRef(null)
   const [cotizacionTargetId, setCotizacionTargetId] = useState(null)
 
-  const setTab = (id) => {
-    const next = new URLSearchParams(searchParams)
-    if (id === TAB_MIS) next.delete('tab')
-    else next.set('tab', id)
-    setSearchParams(next, { replace: true })
-    const empty = emptyProyectoFilters()
-    setFilters(empty)
-    setApplied(empty)
-  }
+  const setTab = useCallback(
+    (id) => {
+      setTabState(id)
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          if (id === TAB_MIS) p.delete('tab')
+          else p.set('tab', id)
+          return p
+        },
+        { replace: true },
+      )
+      const empty = emptyProyectoFilters()
+      setFilters(empty)
+      setApplied(empty)
+    },
+    [setSearchParams],
+  )
+
+  useEffect(() => {
+    const fromUrl = resolveProyectoTab(searchParams.get('tab'))
+    setTabState((current) => (current === fromUrl ? current : fromUrl))
+  }, [searchParams])
+
+  const buildListParams = useCallback(() => {
+    const params = {
+      scope: tab === TAB_MIS ? 'mis' : 'todos',
+      nombre: applied.nombre || undefined,
+      cliente: applied.cliente || undefined,
+      vendedor: tab === TAB_TODOS ? applied.vendedor || undefined : undefined,
+      fechaDesde: applied.fechaDesde || undefined,
+      fechaHasta: applied.fechaHasta || undefined,
+    }
+    if (tab === TAB_MIS && applied.estado) {
+      params.estado = applied.estado
+    }
+    return params
+  }, [tab, applied])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const params = {
-        scope: tab === TAB_MIS ? 'mis' : 'todos',
-        nombre: applied.nombre || undefined,
-        cliente: applied.cliente || undefined,
-        vendedor: tab === TAB_TODOS ? applied.vendedor || undefined : undefined,
-        fechaDesde: applied.fechaDesde || undefined,
-        fechaHasta: applied.fechaHasta || undefined,
-      }
-      if (tab === TAB_MIS && applied.estado) {
-        params.estado = applied.estado
-      }
-      const list = await systemApi.listProyectosOptimizacion(params)
+      const list = await systemApi.listProyectosOptimizacion(buildListParams())
       setRows(Array.isArray(list) ? list : [])
     } catch (e) {
       setRows([])
@@ -159,11 +181,30 @@ export function ProyectoOptimizacionPage() {
     } finally {
       setLoading(false)
     }
-  }, [tab, applied])
+  }, [buildListParams])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    void systemApi
+      .listProyectosOptimizacion(buildListParams())
+      .then((list) => {
+        if (!cancelled) setRows(Array.isArray(list) ? list : [])
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setRows([])
+          setError(e instanceof Error ? e.message : 'No se pudieron cargar los proyectos.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [buildListParams])
 
   useEffect(() => {
     void systemApi.listMaquinasOptimizacion(true).then((list) => {

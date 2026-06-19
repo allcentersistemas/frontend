@@ -1,4 +1,4 @@
-export const ESTADOS_PROYECTO = [
+  export const ESTADOS_PROYECTO = [
   { value: '', label: 'Todos los estados' },
   { value: 'ENVIADO', label: 'Enviando' },
   { value: 'EN_ATENCION', label: 'En atención' },
