@@ -19,7 +19,11 @@ import {
   formatProyectoDate,
   treeToSavePayload,
 } from '../utils/proyectoOptimizacion.js'
-import { downloadOrderExcelFromTree } from '../utils/proyectoExcelExport.js'
+import {
+  downloadOrderCsvFromTree,
+  downloadOrderExcelFromTree,
+  downloadOrderTextFromTree,
+} from '../utils/proyectoExcelExport.js'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
@@ -28,7 +32,7 @@ function resolveProyectoTab(raw) {
   return raw === TAB_TODOS ? TAB_TODOS : TAB_MIS
 }
 
-function ProyectoTreeSummary({ tree, onDownloadOrderExcel }) {
+function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, onDownloadOrderCsv }) {
   const project = tree?.project
   const orders = tree?.orders ?? []
   if (!project) return <p className="muted">Sin datos.</p>
@@ -85,10 +89,24 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel }) {
                       {(o.detalles ?? []).length} pieza(s)
                     </p>
                   </div>
-                  {(o.detalles ?? []).length && onDownloadOrderExcel ? (
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
-                      Excel
-                    </button>
+                  {(o.detalles ?? []).length ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {onDownloadOrderExcel ? (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
+                          Excel
+                        </button>
+                      ) : null}
+                      {onDownloadOrderText ? (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderText(o)}>
+                          TXT
+                        </button>
+                      ) : null}
+                      {onDownloadOrderCsv ? (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderCsv(o)}>
+                          CSV
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               </li>
@@ -272,6 +290,24 @@ export function ProyectoOptimizacionPage() {
       downloadOrderExcelFromTree(order, detailTree)
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el Excel.')
+    }
+  }
+
+  function handleDownloadOrderText(order) {
+    if (!detailTree) return
+    try {
+      downloadOrderTextFromTree(order, detailTree)
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el TXT.')
+    }
+  }
+
+  function handleDownloadOrderCsv(order) {
+    if (!detailTree) return
+    try {
+      downloadOrderCsvFromTree(order, detailTree)
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el CSV.')
     }
   }
 
@@ -665,7 +701,12 @@ export function ProyectoOptimizacionPage() {
                 </label>
               </div>
             ) : (
-              <ProyectoTreeSummary tree={detailTree} onDownloadOrderExcel={handleDownloadOrderExcel} />
+              <ProyectoTreeSummary
+                tree={detailTree}
+                onDownloadOrderExcel={handleDownloadOrderExcel}
+                onDownloadOrderText={handleDownloadOrderText}
+                onDownloadOrderCsv={handleDownloadOrderCsv}
+              />
             )}
 
             {!detailEditMode && tab === TAB_MIS ? (
