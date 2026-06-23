@@ -4,8 +4,10 @@ import { FEATURE } from '../access/permissionCatalog'
 import { canViewGestion, defaultInventoryPath } from '../access/permissions'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
+import { canViewBackupMenu, roleNamesFromEmployee } from '../auth/roles'
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionAuditoriaPanel } from './GestionAuditoriaPanel.jsx'
+import { GestionBackupPanel } from './GestionBackupPanel.jsx'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
 import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
@@ -13,7 +15,7 @@ const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
 
 function resolveGestionTab(raw, allowedIds) {
   if (raw === 'audit') raw = 'auditoria'
-  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones']
+  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'backups']
   if (raw && valid.includes(raw) && allowedIds.includes(raw)) return raw
   return allowedIds[0] ?? 'auditoria'
 }
@@ -25,6 +27,7 @@ export function GestionPage() {
   const [vehiculoToEdit, setVehiculoToEdit] = useState(null)
 
   const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
+  const roleNames = useMemo(() => roleNamesFromEmployee(employee), [employee])
 
   const tabs = useMemo(
     () =>
@@ -44,12 +47,14 @@ export function GestionPage() {
         { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
+        { id: 'backups', label: 'Backups', masterOnly: true },
       ].filter((t) => {
+        if (t.masterOnly) return canViewBackupMenu(roleNames)
         if (ability.can('manage', 'all')) return true
         if (t.features?.length) return t.features.some((f) => ability.can('view', f))
         return ability.can('view', t.feature)
       }),
-    [ability],
+    [ability, roleNames],
   )
 
   const allowedIds = useMemo(() => tabs.map((t) => t.id), [tabs])
@@ -127,6 +132,8 @@ export function GestionPage() {
 
       {section === 'auditoria' ? (
         <GestionAuditoriaPanel />
+      ) : section === 'backups' ? (
+        <GestionBackupPanel />
       ) : isAdminPanel ? (
         <AdminToolsPage embedded panel={section} onPanelChange={selectSection} />
       ) : (

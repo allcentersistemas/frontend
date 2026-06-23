@@ -41,6 +41,12 @@ export function canViewGestionMenu(roleNames) {
   return canViewResumenMenu(roleNames)
 }
 
+/** Backups de BD: solo rol MASTER. */
+export function canViewBackupMenu(roleNames) {
+  const set = new Set(roleNames.map(normalizeRoleName))
+  return set.has(ROLE_MASTER)
+}
+
 /**
  * Shell de dashboard según rol principal.
  * Todos los roles operativos entran por uno de estos tres paths existentes.

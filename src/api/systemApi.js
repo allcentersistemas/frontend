@@ -1,6 +1,6 @@
 import { sessionClientHeaders } from '../auth/clientSession'
 import { systemApiBase } from '../config/env'
-import { systemJson } from './http'
+import { getStoredTokens, systemJson } from './http'
 
 /* ——— Auth ——— */
 
@@ -728,4 +728,43 @@ export async function updateClient(id, body) {
 
 export async function deleteClient(id) {
   await systemJson(`/api/clients/${id}`, { method: 'DELETE' })
+}
+
+/* ——— Backups (admin) ——— */
+
+export async function fetchBackupConfig() {
+  return systemJson('/api/admin/backup/config')
+}
+
+export async function updateBackupConfig(body) {
+  return systemJson('/api/admin/backup/config', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function runBackupNow() {
+  return systemJson('/api/admin/backup/run', { method: 'POST' })
+}
+
+export async function fetchBackupHistory() {
+  return systemJson('/api/admin/backup/history')
+}
+
+export async function downloadBackupFile(runId, filename) {
+  const tokens = getStoredTokens()
+  const url = `${systemApiBase}/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`
+  const res = await fetch(url, {
+    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
 }

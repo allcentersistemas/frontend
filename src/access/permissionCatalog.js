@@ -26,6 +26,7 @@ export const FEATURE = {
   INVENTORY_RM: 'inventory.rm',
   PROJECT_LIST: 'project.list',
   DASHBOARD_RESUMEN: 'dashboard.resumen',
+  BACKUP_ADMIN: 'backup.admin',
 }
 
 export const ENDPOINT_CATALOG = [
@@ -198,6 +199,17 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/inventory/cantos/{id}'],
       ['POST', '/api/inventory/cantos'],
       ['PUT', '/api/inventory/cantos/{id}'],
+    ],
+  },
+  {
+    module: 'module-system',
+    feature: FEATURE.BACKUP_ADMIN,
+    endpoints: [
+      ['GET', '/api/admin/backup/config'],
+      ['PUT', '/api/admin/backup/config'],
+      ['POST', '/api/admin/backup/run'],
+      ['GET', '/api/admin/backup/history'],
+      ['GET', '/api/admin/backup/history/{runId}/files/{filename}'],
     ],
   },
 ]
