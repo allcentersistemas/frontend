@@ -81,6 +81,8 @@ export function detalleToPayload(detalle) {
     ranuraDist: detalle.ranuraDist ?? '',
     ranuraProf: detalle.ranuraProf ?? '',
     ranuraEs: detalle.ranuraEs ?? '',
+    ranuraLado: detalle.ranuraLado ?? '',
+    ranuraEspecial: Boolean(detalle.ranuraEspecial),
     observado: Boolean(detalle.observado),
     observacion: detalle.observacion ?? '',
   }
