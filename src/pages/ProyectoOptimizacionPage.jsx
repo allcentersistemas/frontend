@@ -10,6 +10,9 @@ import {
   ModuleTabs,
 } from '../components/module/ModuleChrome.jsx'
 import { useAppAbility } from '../access/useAppAbility'
+import { FEATURE } from '../access/permissionCatalog'
+import { useFeatureActions } from '../access/useFeatureActions'
+import { ProyectoOrdenPiezasModal } from '../components/ProyectoOrdenPiezasModal.jsx'
 import {
   ESTADOS_PROYECTO,
   downloadProyectoJson,
@@ -35,6 +38,7 @@ function resolveProyectoTab(raw) {
 function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, onDownloadOrderCsv }) {
   const project = tree?.project
   const orders = tree?.orders ?? []
+  const [ordenPiezas, setOrdenPiezas] = useState(null)
   if (!project) return <p className="muted">Sin datos.</p>
 
   return (
@@ -91,6 +95,13 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
                   </div>
                   {(o.detalles ?? []).length ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => setOrdenPiezas(o)}
+                      >
+                        Ver detalle
+                      </button>
                       {onDownloadOrderExcel ? (
                         <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
                           Excel
@@ -116,6 +127,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
       ) : (
         <p className="muted">Sin órdenes registradas.</p>
       )}
+      <ProyectoOrdenPiezasModal order={ordenPiezas} onClose={() => setOrdenPiezas(null)} />
     </div>
   )
 }
@@ -123,6 +135,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
 export function ProyectoOptimizacionPage() {
   const ability = useAppAbility()
   const isAdmin = ability.can('manage', 'all')
+  const { canDelete } = useFeatureActions(FEATURE.PROJECT_LIST)
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTabState] = useState(() => resolveProyectoTab(searchParams.get('tab')))
 
@@ -308,6 +321,25 @@ export function ProyectoOptimizacionPage() {
       downloadOrderCsvFromTree(order, detailTree)
     } catch (e) {
       setActionMsg(e instanceof Error ? e.message : 'No se pudo descargar el CSV.')
+    }
+  }
+
+  async function handleDelete(row) {
+    const nombre = row.nombre || `proyecto ${row.id}`
+    if (!window.confirm(`¿Eliminar el proyecto «${nombre}» y todas sus órdenes? Esta acción no se puede deshacer.`)) {
+      return
+    }
+    setBusyId(row.id)
+    setActionMsg('')
+    try {
+      await systemApi.deleteProyectoOptimizacion(row.id)
+      if (detailRow?.id === row.id) closeDetail()
+      setActionMsg(`Proyecto «${nombre}» eliminado.`)
+      await load()
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo eliminar el proyecto.')
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -629,6 +661,17 @@ export function ProyectoOptimizacionPage() {
                             Capturar
                           </button>
                         ) : null}
+                        {canDelete ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            disabled={busyId === row.id}
+                            style={{ color: 'var(--danger, #b00020)' }}
+                            onClick={() => void handleDelete(row)}
+                          >
+                            Eliminar
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -779,6 +822,17 @@ export function ProyectoOptimizacionPage() {
                     Subir cotización
                   </button>
                 </>
+              ) : null}
+              {canDelete && detailRow ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={busyId === detailRow.id}
+                  style={{ color: 'var(--danger, #b00020)' }}
+                  onClick={() => void handleDelete(detailRow)}
+                >
+                  Eliminar proyecto
+                </button>
               ) : null}
               <button type="button" className="btn btn--ghost" onClick={closeDetail}>
                 Cerrar

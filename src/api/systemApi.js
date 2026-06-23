@@ -242,6 +242,10 @@ export async function getProyectoOptimizacion(id) {
   return systemJson(`/api/order/proyectos/${id}`)
 }
 
+export async function deleteProyectoOptimizacion(id) {
+  return systemJson(`/api/order/proyectos/${id}`, { method: 'DELETE' })
+}
+
 export async function capturarProyectoOptimizacion(id) {
   return systemJson(`/api/order/proyectos/${id}/capturar`, { method: 'POST' })
 }

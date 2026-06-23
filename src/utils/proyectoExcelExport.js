@@ -37,6 +37,13 @@ const FLAT_EXPORT_COLUMNS = [
   { key: 'pIdesc' },
 ]
 
+function formatMeasureForOptimizer(value) {
+  if (value === '' || value == null) return ''
+  const n = parseInt(String(value).replace(/\D/g, ''), 10)
+  if (!Number.isFinite(n)) return ''
+  return String(n * 100)
+}
+
 function formatInt(value) {
   if (value === '' || value == null) return ''
   const n = parseInt(String(value).replace(/\D/g, ''), 10)
@@ -64,8 +71,8 @@ function mapDetalleRow(detalle, { pParams }) {
     pCodeMat: withTrailingSpace(detalle.tablero),
     pParams: pParams || '',
     pMinq: formatInt(detalle.cantidad),
-    pLength: formatInt(detalle.largoVeta),
-    pWidth: formatInt(detalle.ancho),
+    pLength: formatMeasureForOptimizer(detalle.largoVeta),
+    pWidth: formatMeasureForOptimizer(detalle.ancho),
     pGrain: vetaToPayload(vetaLongitud).toLowerCase(),
     pEdgeMaSup: withTrailingSpace(detalle.l1),
     pEdgeMaInf: withTrailingSpace(detalle.l2),
