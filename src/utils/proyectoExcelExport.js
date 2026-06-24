@@ -41,7 +41,7 @@ function formatMeasureForOptimizer(value) {
   if (value === '' || value == null) return ''
   const n = parseInt(String(value).replace(/\D/g, ''), 10)
   if (!Number.isFinite(n)) return ''
-  return String(n * 100)
+  return String(n * 10)
 }
 
 function formatInt(value) {

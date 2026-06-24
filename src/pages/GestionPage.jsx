@@ -8,6 +8,7 @@ import { canViewBackupMenu, roleNamesFromEmployee } from '../auth/roles'
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionAuditoriaPanel } from './GestionAuditoriaPanel.jsx'
 import { GestionBackupPanel } from './GestionBackupPanel.jsx'
+import { GestionClientesPanel } from './GestionClientesPanel.jsx'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
 import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
@@ -15,7 +16,7 @@ const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
 
 function resolveGestionTab(raw, allowedIds) {
   if (raw === 'audit') raw = 'auditoria'
-  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'backups']
+  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'clientes', 'backups']
   if (raw && valid.includes(raw) && allowedIds.includes(raw)) return raw
   return allowedIds[0] ?? 'auditoria'
 }
@@ -45,6 +46,7 @@ export function GestionPage() {
           ],
         },
         { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
+        { id: 'clientes', label: 'Clientes portal', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'backups', label: 'Backups', masterOnly: true },
@@ -132,6 +134,8 @@ export function GestionPage() {
 
       {section === 'auditoria' ? (
         <GestionAuditoriaPanel />
+      ) : section === 'clientes' ? (
+        <GestionClientesPanel />
       ) : section === 'backups' ? (
         <GestionBackupPanel />
       ) : isAdminPanel ? (

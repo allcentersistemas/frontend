@@ -4,6 +4,7 @@ import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { EmployeeAccessPicker } from '../components/EmployeeAccessPicker'
+import { validatePassword, isStrongPassword } from '../utils/passwordPolicy'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
 
@@ -93,6 +94,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   const [eeNotifyEmail, setEeNotifyEmail] = useState(false)
   const [eeResetBusy, setEeResetBusy] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
+  const [employeeMode, setEmployeeMode] = useState('list')
   const [eeBusy, setEeBusy] = useState(false)
   const [eeErr, setEeErr] = useState(null)
   const [eeOk, setEeOk] = useState(null)
@@ -188,6 +190,11 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       setCeErr('La contraseña debe tener al menos 8 caracteres.')
       return
     }
+    const pwdErr = validatePassword(cePassword)
+    if (pwdErr) {
+      setCeErr(pwdErr)
+      return
+    }
     if (ceRoleIds.size === 0) {
       setCeErr('Selecciona al menos un rol para el usuario.')
       return
@@ -234,6 +241,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       setCeGender('')
       setCeBranchId('')
       setCeRoleIds(new Set())
+      setEmployeeMode('list')
       bump()
     } catch (ex) {
       setCeErr(ex instanceof Error ? ex.message : 'Error al crear usuario')
@@ -243,6 +251,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   }
 
   function startEditEmployee(row) {
+    setEmployeeMode('edit')
     setEditingEmployeeId(row.id)
     setEeFirstName(row.firstName ?? '')
     setEeLastName(row.lastName ?? '')
@@ -258,6 +267,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   }
 
   function cancelEditEmployee() {
+    setEmployeeMode('list')
     setEditingEmployeeId(null)
     setEeResetPassword('')
     setEeNotifyEmail(false)
@@ -269,6 +279,11 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
     if (!editingEmployeeId) return
     if (eeResetPassword.length < 8) {
       setEeErr('La nueva contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    const pwdErr = validatePassword(eeResetPassword)
+    if (pwdErr) {
+      setEeErr(pwdErr)
       return
     }
     const row = emp?.find((e) => e.id === editingEmployeeId)
@@ -329,6 +344,8 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       }
       await systemApi.patchEmployee(editingEmployeeId, body)
       setEeOk('Empleado actualizado correctamente.')
+      setEmployeeMode('list')
+      setEditingEmployeeId(null)
       bump()
     } catch (ex) {
       setEeErr(ex instanceof Error ? ex.message : 'Error al actualizar empleado')
@@ -503,9 +520,31 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
         <p className="muted">Cargando…</p>
       ) : panel === 'employees' && emp ? (
         <>
-          {canManage ? (
+          <div
+            className="card pad"
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}
+          >
+            <div style={{ flex: '1 1 220px' }}>
+              <h2 className="card__title">Empleados</h2>
+              <p className="muted small" style={{ marginTop: '0.35rem' }}>
+                Usuarios del portal interno. Solo se listan empleados activos.
+              </p>
+            </div>
+            {canManage && employeeMode === 'list' ? (
+              <button type="button" className="btn btn--primary" onClick={() => setEmployeeMode('create')}>
+                Nuevo empleado
+              </button>
+            ) : null}
+            {employeeMode !== 'list' ? (
+              <button type="button" className="btn btn--ghost" onClick={cancelEditEmployee}>
+                ← Volver al listado
+              </button>
+            ) : null}
+          </div>
+
+          {canManage && employeeMode === 'create' ? (
             <div className="card pad form-section">
-              <h2>Nuevo empleado</h2>
+              <h3 className="card__title mb-4">Alta de empleado</h3>
               <form onSubmit={(e) => void submitCreateEmployee(e)}>
                 <div className="form-row-2">
                   <label className="field">
@@ -532,7 +571,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                 </div>
                 <div className="form-row-2">
                   <label className="field">
-                    <span>Contraseña inicial (mín. 8)</span>
+                    <span>Contraseña inicial</span>
                     <input
                       type="password"
                       autoComplete="new-password"
@@ -541,6 +580,9 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                       minLength={8}
                       required
                     />
+                    <span className="muted small form-hint">
+                      Mín. 8 caracteres, mayúscula, número y símbolo.
+                    </span>
                   </label>
                 </div>
                 <div className="field">
@@ -669,30 +711,30 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                 </div>
               </form>
             </div>
-          ) : (
+          ) : !canManage ? (
             <div className="card pad">
               <p className="muted">
                 Solo usuarios con rol Master, Admin o Admin producción pueden dar de alta empleados.
               </p>
             </div>
-          )}
+          ) : null}
 
-          <div className="card pad" style={{ paddingBottom: 0 }}>
-            <label className="field">
-              <span>Buscar usuario</span>
-              <input
-                type="search"
-                placeholder="Nombre, email, código o usuario de login…"
-                value={empSearch}
-                onChange={(e) => setEmpSearch(e.target.value)}
-                autoComplete="off"
-              />
-            </label>
-            <p className="muted small form-hint" style={{ marginTop: '0.25rem' }}>
-              Solo se listan empleados activos.
-            </p>
-          </div>
+          {employeeMode === 'list' ? (
+            <div className="card pad" style={{ paddingBottom: 0 }}>
+              <label className="field">
+                <span>Buscar usuario</span>
+                <input
+                  type="search"
+                  placeholder="Nombre, email, código o usuario de login…"
+                  value={empSearch}
+                  onChange={(e) => setEmpSearch(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+          ) : null}
 
+          {employeeMode === 'list' ? (
           <div className="card card--table">
             <div className="table-wrap">
               <table className="table">
@@ -752,9 +794,11 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
               </table>
             </div>
           </div>
-          {canManage && editingEmployeeId ? (
+          ) : null}
+
+          {canManage && employeeMode === 'edit' && editingEmployeeId ? (
             <div className="card pad form-section">
-              <h2>Editar empleado</h2>
+              <h3 className="card__title mb-4">Editar empleado</h3>
               <form onSubmit={(e) => void submitEditEmployee(e)}>
                 <div className="form-row-2">
                   <label className="field">
@@ -830,7 +874,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   </p>
                   <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
                     <label className="field">
-                      <span>Nueva contraseña (mín. 8)</span>
+                      <span>Nueva contraseña</span>
                       <input
                         type="password"
                         autoComplete="new-password"
@@ -839,6 +883,9 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                         minLength={8}
                         placeholder="••••••••"
                       />
+                      <span className="muted small form-hint">
+                        Mín. 8 caracteres, mayúscula, número y símbolo.
+                      </span>
                     </label>
                     <label
                       className="field"
@@ -855,7 +902,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   <button
                     type="button"
                     className="btn btn--ghost"
-                    disabled={eeResetBusy || eeResetPassword.length < 8}
+                    disabled={eeResetBusy || !isStrongPassword(eeResetPassword)}
                     onClick={() => void submitResetPassword()}
                   >
                     {eeResetBusy ? 'Restableciendo…' : 'Restablecer contraseña'}

@@ -709,29 +709,29 @@ export async function clientChangePassword(body) {
 }
 
 export async function listClients() {
-  return systemJson('/api/clients')
+  return systemJson('/api/gestion/clientes')
 }
 
 export async function getClient(id) {
-  return systemJson(`/api/clients/${id}`)
+  return systemJson(`/api/gestion/clientes/${id}`)
 }
 
 export async function createClient(body) {
-  return systemJson('/api/clients', {
+  return systemJson('/api/gestion/clientes', {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
 export async function updateClient(id, body) {
-  return systemJson(`/api/clients/${id}`, {
+  return systemJson(`/api/gestion/clientes/${id}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   })
 }
 
 export async function deleteClient(id) {
-  await systemJson(`/api/clients/${id}`, { method: 'DELETE' })
+  await systemJson(`/api/gestion/clientes/${id}`, { method: 'DELETE' })
 }
 
 /* ——— Backups (admin) ——— */
