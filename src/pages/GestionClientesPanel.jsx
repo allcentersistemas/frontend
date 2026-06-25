@@ -1,6 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
-import { validatePassword } from '../utils/passwordPolicy'
+import { isStrongPassword, validatePassword } from '../utils/passwordPolicy'
+
+const TIPOS_DOCUMENTO = ['DNI', 'CE', 'PASAPORTE']
+
+function rowToEditForm(row) {
+  return {
+    email: row.email || '',
+    username: row.username || '',
+    displayName: row.displayName || '',
+    phone: row.phone || '',
+    juridica: Boolean(row.juridica),
+    tipoDocumento: row.tipoDocumento || 'DNI',
+    numeroDocumento: row.numeroDocumento || '',
+    direccion: row.direccion || '',
+    ciudad: row.ciudad || '',
+    distrito: row.distrito || '',
+    departamento: row.departamento || '',
+    razonSocial: row.razonSocial || '',
+    ruc: row.ruc || '',
+    nombre: row.nombre || '',
+    active: Boolean(row.active),
+  }
+}
 
 function emptyCreateForm() {
   return {
@@ -24,9 +46,9 @@ export function GestionClientesPanel() {
   const [createErr, setCreateErr] = useState(null)
   const [createOk, setCreateOk] = useState(null)
   const [editingId, setEditingId] = useState(null)
-  const [editDisplayName, setEditDisplayName] = useState('')
-  const [editPhone, setEditPhone] = useState('')
-  const [editActive, setEditActive] = useState(true)
+  const [editForm, setEditForm] = useState(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetBusy, setResetBusy] = useState(false)
   const [editBusy, setEditBusy] = useState(false)
   const [editErr, setEditErr] = useState(null)
   const [editOk, setEditOk] = useState(null)
@@ -80,18 +102,23 @@ export function GestionClientesPanel() {
   function startEdit(row) {
     setMode('edit')
     setEditingId(row.id)
-    setEditDisplayName(row.displayName || '')
-    setEditPhone(row.phone || '')
-    setEditActive(Boolean(row.active))
+    setEditForm(rowToEditForm(row))
+    setResetPassword('')
     setEditErr(null)
     setEditOk(null)
     setCreateErr(null)
     setCreateOk(null)
   }
 
+  function patchEdit(key, value) {
+    setEditForm((f) => (f ? { ...f, [key]: value } : f))
+  }
+
   function backToList() {
     setMode('list')
     setEditingId(null)
+    setEditForm(null)
+    setResetPassword('')
     setCreateErr(null)
     setCreateOk(null)
     setEditErr(null)
@@ -133,15 +160,27 @@ export function GestionClientesPanel() {
 
   async function submitEdit(e) {
     e.preventDefault()
-    if (!editingId) return
+    if (!editingId || !editForm) return
     setEditErr(null)
     setEditOk(null)
     setEditBusy(true)
     try {
       await systemApi.updateClient(editingId, {
-        displayName: editDisplayName.trim(),
-        phone: editPhone.trim() || null,
-        active: editActive,
+        email: editForm.email.trim(),
+        username: editForm.username.trim(),
+        displayName: editForm.displayName.trim(),
+        phone: editForm.phone.trim() || null,
+        juridica: editForm.juridica,
+        tipoDocumento: editForm.tipoDocumento,
+        numeroDocumento: editForm.numeroDocumento.trim() || null,
+        direccion: editForm.direccion.trim() || null,
+        ciudad: editForm.ciudad.trim() || null,
+        distrito: editForm.distrito.trim() || null,
+        departamento: editForm.departamento.trim() || null,
+        razonSocial: editForm.razonSocial.trim() || null,
+        ruc: editForm.ruc.trim() || null,
+        nombre: editForm.nombre.trim() || null,
+        active: editForm.active,
       })
       setEditOk('Cliente actualizado.')
       await load()
@@ -150,6 +189,27 @@ export function GestionClientesPanel() {
       setEditErr(ex instanceof Error ? ex.message : 'Error al guardar')
     } finally {
       setEditBusy(false)
+    }
+  }
+
+  async function submitResetPassword() {
+    if (!editingId || !resetPassword) return
+    const pwdErr = validatePassword(resetPassword)
+    if (pwdErr) {
+      setEditErr(pwdErr)
+      return
+    }
+    if (!window.confirm('¿Restablecer la contraseña de este cliente?')) return
+    setEditErr(null)
+    setResetBusy(true)
+    try {
+      await systemApi.resetClientPassword(editingId, { newPassword: resetPassword })
+      setEditOk('Contraseña restablecida.')
+      setResetPassword('')
+    } catch (ex) {
+      setEditErr(ex instanceof Error ? ex.message : 'No se pudo restablecer la contraseña')
+    } finally {
+      setResetBusy(false)
     }
   }
 
@@ -267,34 +327,155 @@ export function GestionClientesPanel() {
         </div>
       ) : null}
 
-      {mode === 'edit' && editingRow ? (
+      {mode === 'edit' && editingRow && editForm ? (
         <div className="card pad form-section">
-          <h3 className="card__title mb-2">Editar cliente</h3>
-          <p className="muted small mb-4">
-            {editingRow.email} · @{editingRow.username}
-            {editingRow.juridica && editingRow.ruc ? ` · RUC ${editingRow.ruc}` : ''}
-            {!editingRow.juridica && editingRow.numeroDocumento
-              ? ` · ${editingRow.tipoDocumento || 'Doc'} ${editingRow.numeroDocumento}`
-              : ''}
-          </p>
+          <h3 className="card__title mb-4">Editar cliente</h3>
           <form onSubmit={(e) => void submitEdit(e)}>
             <div className="form-row-2">
               <label className="field">
-                <span>Nombre para mostrar</span>
-                <input value={editDisplayName} onChange={(e) => setEditDisplayName(e.target.value)} required />
+                <span>Correo</span>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => patchEdit('email', e.target.value)}
+                  required
+                />
               </label>
               <label className="field">
-                <span>Teléfono</span>
-                <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                <span>Usuario</span>
+                <input
+                  value={editForm.username}
+                  onChange={(e) => patchEdit('username', e.target.value)}
+                  required
+                />
               </label>
             </div>
-            <label className="field">
-              <span>Estado</span>
-              <select value={editActive ? 'true' : 'false'} onChange={(e) => setEditActive(e.target.value === 'true')}>
-                <option value="true">Activo</option>
-                <option value="false">Inactivo</option>
-              </select>
+            <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={editForm.juridica}
+                onChange={(e) => patchEdit('juridica', e.target.checked)}
+              />
+              <span>Persona jurídica</span>
             </label>
+            {editForm.juridica ? (
+              <div className="form-row-2">
+                <label className="field">
+                  <span>Razón social</span>
+                  <input
+                    value={editForm.razonSocial}
+                    onChange={(e) => patchEdit('razonSocial', e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>RUC</span>
+                  <input value={editForm.ruc} onChange={(e) => patchEdit('ruc', e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Nombre de contacto</span>
+                  <input value={editForm.nombre} onChange={(e) => patchEdit('nombre', e.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Nombre para mostrar</span>
+                  <input
+                    value={editForm.displayName}
+                    onChange={(e) => patchEdit('displayName', e.target.value)}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="form-row-2">
+                <label className="field">
+                  <span>Nombre para mostrar</span>
+                  <input
+                    value={editForm.displayName}
+                    onChange={(e) => patchEdit('displayName', e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="field">
+                  <span>Tipo documento</span>
+                  <select
+                    value={editForm.tipoDocumento}
+                    onChange={(e) => patchEdit('tipoDocumento', e.target.value)}
+                  >
+                    {TIPOS_DOCUMENTO.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Número documento</span>
+                  <input
+                    value={editForm.numeroDocumento}
+                    onChange={(e) => patchEdit('numeroDocumento', e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+            <div className="form-row-2">
+              <label className="field">
+                <span>Teléfono</span>
+                <input value={editForm.phone} onChange={(e) => patchEdit('phone', e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Estado</span>
+                <select
+                  value={editForm.active ? 'true' : 'false'}
+                  onChange={(e) => patchEdit('active', e.target.value === 'true')}
+                >
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
+                </select>
+              </label>
+            </div>
+            <div className="form-row-2">
+              <label className="field">
+                <span>Dirección</span>
+                <input value={editForm.direccion} onChange={(e) => patchEdit('direccion', e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Ciudad</span>
+                <input value={editForm.ciudad} onChange={(e) => patchEdit('ciudad', e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Distrito</span>
+                <input value={editForm.distrito} onChange={(e) => patchEdit('distrito', e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Departamento</span>
+                <input
+                  value={editForm.departamento}
+                  onChange={(e) => patchEdit('departamento', e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="field" style={{ marginTop: '1rem' }}>
+              <span>Restablecer contraseña</span>
+              <p className="muted small form-hint">No se pide la contraseña anterior del cliente.</p>
+              <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+                <label className="field">
+                  <span>Nueva contraseña</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={resetBusy || !isStrongPassword(resetPassword)}
+                  onClick={() => void submitResetPassword()}
+                >
+                  {resetBusy ? 'Restableciendo…' : 'Restablecer contraseña'}
+                </button>
+              </div>
+            </div>
             {editErr ? <p className="form-inline-error">{editErr}</p> : null}
             {editOk ? <p className="form-success">{editOk}</p> : null}
             <div className="form-actions">

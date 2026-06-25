@@ -734,6 +734,13 @@ export async function deleteClient(id) {
   await systemJson(`/api/gestion/clientes/${id}`, { method: 'DELETE' })
 }
 
+export async function resetClientPassword(id, body) {
+  await systemJson(`/api/gestion/clientes/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 /* ——— Backups (admin) ——— */
 
 export async function fetchBackupConfig() {

@@ -13,6 +13,7 @@ import { useAppAbility } from '../access/useAppAbility'
 import { FEATURE } from '../access/permissionCatalog'
 import { useFeatureActions } from '../access/useFeatureActions'
 import { ProyectoOrdenPiezasModal } from '../components/ProyectoOrdenPiezasModal.jsx'
+import { ClientDetailModal } from '../components/ClientDetailModal.jsx'
 import {
   ESTADOS_PROYECTO,
   downloadProyectoJson,
@@ -39,6 +40,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
   const project = tree?.project
   const orders = tree?.orders ?? []
   const [ordenPiezas, setOrdenPiezas] = useState(null)
+  const [clientModalOpen, setClientModalOpen] = useState(false)
   if (!project) return <p className="muted">Sin datos.</p>
 
   return (
@@ -46,7 +48,18 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
       <dl className="detail-dl">
         <div>
           <dt>Cliente</dt>
-          <dd>{project.cliente || '—'}</dd>
+          <dd style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+            <span>{project.cliente || '—'}</span>
+            {project.clientUserId ? (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setClientModalOpen(true)}
+              >
+                Ver cliente
+              </button>
+            ) : null}
+          </dd>
         </div>
         <div>
           <dt>Referencia</dt>
@@ -128,6 +141,12 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
         <p className="muted">Sin órdenes registradas.</p>
       )}
       <ProyectoOrdenPiezasModal order={ordenPiezas} onClose={() => setOrdenPiezas(null)} />
+      <ClientDetailModal
+        open={clientModalOpen}
+        clientUserId={project.clientUserId}
+        clientLabel={project.cliente}
+        onClose={() => setClientModalOpen(false)}
+      />
     </div>
   )
 }

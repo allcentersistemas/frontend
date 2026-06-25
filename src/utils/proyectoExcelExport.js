@@ -1,4 +1,8 @@
 import * as XLSX from 'xlsx'
+import {
+  formatObservacionForExport,
+  formatPerforacionRanuraForExport,
+} from './exportDescHelpers'
 
 const VETA_NO = '0-No'
 const VETA_LONGITUD = '1-Longitud'
@@ -35,6 +39,22 @@ const FLAT_EXPORT_COLUMNS = [
   { key: 'pEdgeMaIzq' },
   { key: 'pEdgeMaDer' },
   { key: 'pIdesc' },
+  { key: 'pIidesc' },
+]
+
+const TXT_HEADER_ROW = [
+  '[P_CODE_MAT]',
+  '[parametros]',
+  '[P_LEGHT]',
+  '[P_WIDTH]',
+  '[P_MINQ]',
+  '[P_GRAIN]',
+  '[P_EDGE_MAT_UP]',
+  '[P_EDGE_MAT_LO]',
+  '[P_EDGE_MAT_SX]',
+  '[P_EDGE_MAT_DX]',
+  '[P_IDESC]',
+  '[P_IIDESC]',
 ]
 
 function formatMeasureForOptimizer(value) {
@@ -78,8 +98,8 @@ function mapDetalleRow(detalle, { pParams }) {
     pEdgeMaInf: withTrailingSpace(detalle.l2),
     pEdgeMaIzq: withTrailingSpace(detalle.a1),
     pEdgeMaDer: withTrailingSpace(detalle.a2),
-    pIdesc: blankOrString(detalle.observacion),
-    pIidesc: '',
+    pIdesc: formatPerforacionRanuraForExport(detalle),
+    pIidesc: formatObservacionForExport(detalle),
   }
 }
 
@@ -144,7 +164,8 @@ export function downloadOrderTextFromTree(order, tree, filename) {
   const { projectName } = orderExportContext(tree)
   const name = filename || orderExcelFilename(order, projectName, 'txt')
   const rows = buildFlatRows(order, tree)
-  const body = [...rows.map((row) => row.join('\t')), 'eof'].join('\n')
+  const dataLines = rows.map((row) => row.join('\t'))
+  const body = [TXT_HEADER_ROW.join('\t'), ...dataLines, 'eof'].join('\n')
   downloadTextFile(name.endsWith('.txt') ? name : `${name}.txt`, `${body}\n`, 'text/plain;charset=utf-8')
 }
 
