@@ -34,9 +34,15 @@ function formatStickerDate(date = new Date()) {
 
 function buildScanCode(orderName, partNumber, numeroPieza) {
   const name = String(orderName ?? '').trim()
-  const pn = partNumber != null && partNumber !== '' ? String(partNumber).trim() : ''
+  const pnRaw = partNumber != null && partNumber !== '' ? String(partNumber).trim() : ''
+  const pn =
+    pnRaw !== '' && Number.parseInt(pnRaw, 10) > 0
+      ? String(Number.parseInt(pnRaw, 10))
+      : pnRaw !== ''
+        ? pnRaw
+        : '0'
   const nz = numeroPieza != null ? String(numeroPieza).trim() : '1'
-  if (!name || !pn) return `${name || 'orden'}-P0-${nz}`
+  if (!name || pn === '0') return `${name || 'orden'}-P0-${nz}`
   return `${name}-P${pn}-${nz}`
 }
 
@@ -630,10 +636,18 @@ export async function printBiessePartSticker({
   printSize = getStickerPrintSize(),
 }) {
   const orderName = order?.orderName ?? ''
-  const partNumber = part?.partNumber ?? part?.partId ?? 0
+  const partNumberRaw = part?.partNumber ?? part?.partnumber
+  const partNumber =
+    partNumberRaw != null && Number(partNumberRaw) > 0
+      ? Number(partNumberRaw)
+      : null
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
-  const scanCode = buildScanCode(orderName, partNumber, numeroPieza)
+  const scanCode = buildScanCode(
+    orderName,
+    partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
+    numeroPieza,
+  )
   const printedAt = new Date()
 
   if (printSize === 'label_80x50') {
