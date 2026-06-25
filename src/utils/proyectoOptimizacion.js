@@ -1,4 +1,6 @@
-  export const ESTADOS_PROYECTO = [
+import { formatAppDateTime, parseAppDateTime } from './appDateTime.js'
+
+export const ESTADOS_PROYECTO = [
   { value: '', label: 'Todos los estados' },
   { value: 'ENVIADO', label: 'Enviando' },
   { value: 'EN_ATENCION', label: 'En atención' },
@@ -24,12 +26,7 @@ export function estadoTagClass(estado) {
 }
 
 export function formatProyectoDate(value) {
-  if (!value) return '—'
-  try {
-    return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-  } catch {
-    return String(value)
-  }
+  return formatAppDateTime(value)
 }
 
 export function emptyProyectoFilters() {
@@ -47,15 +44,15 @@ export function filterProyectosClientSide(rows, filters) {
   const nombreQ = filters.nombre?.trim().toLowerCase()
   const clienteQ = filters.cliente?.trim().toLowerCase()
   const estado = filters.estado?.trim()
-  const desde = filters.fechaDesde ? new Date(`${filters.fechaDesde}T00:00:00`) : null
-  const hasta = filters.fechaHasta ? new Date(`${filters.fechaHasta}T23:59:59`) : null
+  const desde = filters.fechaDesde ? parseAppDateTime(`${filters.fechaDesde}T00:00:00`) : null
+  const hasta = filters.fechaHasta ? parseAppDateTime(`${filters.fechaHasta}T23:59:59`) : null
 
   return rows.filter((row) => {
     if (estado && row.estado !== estado) return false
     if (nombreQ && !`${row.nombre || ''}`.toLowerCase().includes(nombreQ)) return false
     if (clienteQ && !`${row.cliente || ''}`.toLowerCase().includes(clienteQ)) return false
     if (desde || hasta) {
-      const d = row.fechaCreacion ? new Date(row.fechaCreacion) : null
+      const d = parseAppDateTime(row.fechaCreacion)
       if (!d || Number.isNaN(d.getTime())) return false
       if (desde && d < desde) return false
       if (hasta && d > hasta) return false

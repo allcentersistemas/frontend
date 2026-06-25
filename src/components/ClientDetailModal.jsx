@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DetailModal } from './DetailModal.jsx'
 import * as systemApi from '../api/systemApi'
+import { formatAppDateTime } from '../utils/appDateTime'
 
 function Field({ label, value }) {
   return (
@@ -79,7 +80,7 @@ export function ClientDetailModal({ clientUserId, clientLabel, open, onClose }) 
           {client.createdAt ? (
             <Field
               label="Registrado"
-              value={new Date(client.createdAt).toLocaleString('es-PE', { dateStyle: 'medium' })}
+              value={formatAppDateTime(client.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
             />
           ) : null}
         </dl>
