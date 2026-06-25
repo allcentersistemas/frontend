@@ -12,13 +12,13 @@ function Field({ label, value }) {
   )
 }
 
-export function ClientDetailModal({ clientUserId, clientLabel, open, onClose }) {
+export function ClientDetailModal({ clientUserId, proyectoId, clientLabel, open, onClose }) {
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!open || !clientUserId) {
+    if (!open || (!clientUserId && !proyectoId)) {
       setClient(null)
       setError('')
       return
@@ -28,7 +28,9 @@ export function ClientDetailModal({ clientUserId, clientLabel, open, onClose }) 
       setLoading(true)
       setError('')
       try {
-        const data = await systemApi.getClient(clientUserId)
+        const data = proyectoId
+          ? await systemApi.getProyectoPortalCliente(proyectoId)
+          : await systemApi.getClient(clientUserId)
         if (!cancelled) setClient(data)
       } catch (e) {
         if (!cancelled) {
@@ -42,7 +44,7 @@ export function ClientDetailModal({ clientUserId, clientLabel, open, onClose }) 
     return () => {
       cancelled = true
     }
-  }, [open, clientUserId])
+  }, [open, clientUserId, proyectoId])
 
   return (
     <DetailModal

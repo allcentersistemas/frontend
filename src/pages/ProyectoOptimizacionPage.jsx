@@ -143,7 +143,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
       <ProyectoOrdenPiezasModal order={ordenPiezas} onClose={() => setOrdenPiezas(null)} />
       <ClientDetailModal
         open={clientModalOpen}
-        clientUserId={project.clientUserId}
+        proyectoId={project.id}
         clientLabel={project.cliente}
         onClose={() => setClientModalOpen(false)}
       />
