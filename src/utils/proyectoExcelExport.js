@@ -42,21 +42,6 @@ const FLAT_EXPORT_COLUMNS = [
   { key: 'pIidesc' },
 ]
 
-const TXT_HEADER_ROW = [
-  '[P_CODE_MAT]',
-  '[parametros]',
-  '[P_LEGHT]',
-  '[P_WIDTH]',
-  '[P_MINQ]',
-  '[P_GRAIN]',
-  '[P_EDGE_MAT_UP]',
-  '[P_EDGE_MAT_LO]',
-  '[P_EDGE_MAT_SX]',
-  '[P_EDGE_MAT_DX]',
-  '[P_IDESC]',
-  '[P_IIDESC]',
-]
-
 function formatMeasureForOptimizer(value) {
   if (value === '' || value == null) return ''
   const n = parseInt(String(value).replace(/\D/g, ''), 10)
@@ -159,13 +144,12 @@ export function downloadOrderExcelFromTree(order, tree, filename) {
   XLSX.writeFile(wb, name.endsWith('.xlsx') ? name : `${name}.xlsx`)
 }
 
-/** TXT tabulado para optimizador: solo filas de datos + línea final `eof`. */
+/** TXT tabulado para optimizador: solo filas de datos + línea final `eof` (sin fila de encabezados). */
 export function downloadOrderTextFromTree(order, tree, filename) {
   const { projectName } = orderExportContext(tree)
   const name = filename || orderExcelFilename(order, projectName, 'txt')
   const rows = buildFlatRows(order, tree)
-  const dataLines = rows.map((row) => row.join('\t'))
-  const body = [TXT_HEADER_ROW.join('\t'), ...dataLines, 'eof'].join('\n')
+  const body = [...rows.map((row) => row.join('\t')), 'eof'].join('\n')
   downloadTextFile(name.endsWith('.txt') ? name : `${name}.txt`, `${body}\n`, 'text/plain;charset=utf-8')
 }
 
