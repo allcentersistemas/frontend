@@ -7,6 +7,7 @@ export function ProyectoOrdenPiezasModal({ order, onClose }) {
   return (
     <DetailModal
       open={Boolean(order)}
+      wide
       title={order ? `Detalle · ${order.codigo || `Orden ${order.id}`}` : 'Detalle de orden'}
       subtitle={order?.descripcion || ''}
       onClose={onClose}
@@ -14,7 +15,7 @@ export function ProyectoOrdenPiezasModal({ order, onClose }) {
       {!detalles.length ? (
         <p className="muted">Sin piezas registradas en esta orden.</p>
       ) : (
-        <div className="table-wrap" style={{ maxHeight: 'min(70vh, 520px)', overflow: 'auto' }}>
+        <div className="table-wrap" style={{ maxHeight: 'min(82vh, 720px)', overflow: 'auto' }}>
           <table className="table">
             <thead>
               <tr>

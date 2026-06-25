@@ -42,6 +42,7 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/biesse/scan/orders'],
       ['GET', '/api/biesse/scan/orders/{orderId}'],
       ['PATCH', '/api/biesse/scan/orders/{orderId}'],
+      ['DELETE', '/api/biesse/scan/orders/{orderId}'],
       ['POST', '/api/biesse/scan/orders/{orderId}/complete'],
       ['GET', '/api/biesse/scan/stats/general'],
       ['GET', '/api/biesse/scan/pieces/resolve'],

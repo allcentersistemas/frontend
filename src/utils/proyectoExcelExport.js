@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import {
+  exportCantoValue,
   formatObservacionForExport,
   formatPerforacionRanuraForExport,
 } from './exportDescHelpers'
@@ -55,11 +56,9 @@ function formatInt(value) {
   return Number.isFinite(n) ? String(n) : ''
 }
 
-/** Material y cantos con espacio final requerido por el optimizador. */
+/** Material y cantos con espacio final requerido por el optimizador (NA → vacío). */
 function withTrailingSpace(value) {
-  const s = String(value ?? '').trim()
-  if (!s) return ''
-  return `${s} `
+  return exportCantoValue(value)
 }
 
 function blankOrString(value) {

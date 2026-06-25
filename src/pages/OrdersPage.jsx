@@ -73,6 +73,7 @@ export function OrdersPage({ embedded = false }) {
   const [toolMsg, setToolMsg] = useState(null)
   const [orderEditNotes, setOrderEditNotes] = useState('')
   const [orderEditBusy, setOrderEditBusy] = useState(false)
+  const [orderDeleteBusy, setOrderDeleteBusy] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(searchInput), 350)
@@ -198,6 +199,32 @@ export function OrdersPage({ embedded = false }) {
       setToolErr(ex instanceof Error ? ex.message : 'No se pudo editar la orden')
     } finally {
       setOrderEditBusy(false)
+    }
+  }
+
+  async function handleDeleteOrder() {
+    if (selectedId == null || !detail) return
+    const label = detail.orderName || `#${selectedId}`
+    let confirmMsg = `¿Eliminar la orden «${label}» y todas sus partes y piezas? Esta acción no se puede deshacer.`
+    if (orderPallets.length > 0) {
+      confirmMsg = `Esta orden figura en ${orderPallets.length} palé(s). Debes quitarla de los palés antes de eliminarla.`
+      window.alert(confirmMsg)
+      return
+    }
+    if (!window.confirm(confirmMsg)) return
+    setOrderDeleteBusy(true)
+    setToolErr(null)
+    setToolMsg(null)
+    try {
+      await biesseApi.deleteOrder(selectedId)
+      setList((prev) => prev.filter((row) => row.orderId !== selectedId))
+      setTotal((prev) => Math.max(0, prev - 1))
+      closeDetail()
+      setToolMsg('Orden eliminada.')
+    } catch (ex) {
+      setToolErr(ex instanceof Error ? ex.message : 'No se pudo eliminar la orden')
+    } finally {
+      setOrderDeleteBusy(false)
     }
   }
 
@@ -378,15 +405,26 @@ export function OrdersPage({ embedded = false }) {
                     <span>Observaciones</span>
                     <textarea rows={3} value={orderEditNotes} onChange={(e) => setOrderEditNotes(e.target.value)} />
                   </label>
-                  <div className="form-actions">
+                  <div className="form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <CanButton
                       I={ACTION.UPDATE}
                       a={FEATURE.BIESSE_ORDERS}
                       type="submit"
                       className="btn btn--primary"
-                      disabled={orderEditBusy}
+                      disabled={orderEditBusy || orderDeleteBusy}
                     >
                       {orderEditBusy ? 'Guardando…' : 'Guardar cambios'}
+                    </CanButton>
+                    <CanButton
+                      I={ACTION.UPDATE}
+                      a={FEATURE.BIESSE_ORDERS}
+                      type="button"
+                      className="btn btn--ghost"
+                      style={{ color: 'var(--danger, #b00020)' }}
+                      disabled={orderEditBusy || orderDeleteBusy}
+                      onClick={() => void handleDeleteOrder()}
+                    >
+                      {orderDeleteBusy ? 'Eliminando…' : 'Eliminar orden'}
                     </CanButton>
                   </div>
                 </form>

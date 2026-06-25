@@ -20,7 +20,7 @@ export const PIEZA_TABLE_COLUMNS = [
 
 export function formatPiezaCell(key, detalle) {
   const v = detalle?.[key]
-  if (v == null || v === '') return '—'
+  if (v == null || v === '' || String(v).trim().toUpperCase() === 'NA') return '—'
   if (key === 'veta') {
     const s = String(v)
     if (s.startsWith('1-') || s === '1') return '1-Long'

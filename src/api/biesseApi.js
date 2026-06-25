@@ -157,6 +157,12 @@ export async function updateOrder(orderId, body) {
   })
 }
 
+export async function deleteOrder(orderId) {
+  return biesseJson(`/api/biesse/scan/orders/${orderId}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function fetchDespachoDashboard() {
   try {
     const raw = await biesseJson('/api/biesse/scan/users/me/stats')
