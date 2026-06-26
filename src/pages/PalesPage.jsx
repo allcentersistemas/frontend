@@ -144,33 +144,124 @@ async function printPalletOrderSummary(header, details) {
   <meta charset="utf-8" />
   <title>${esc(header.codigo)} — Resumen pale</title>
   <style>
-    @page { size: A4; margin: 10mm; }
-    body { font-family: system-ui, Segoe UI, sans-serif; margin: 0; padding: 0; color: #111; font-size: 9pt; line-height: 1.25; }
-    .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    @page { 
+      size: 215.9mm 139.7mm;  /* Media carta horizontal */
+      margin: 6mm 8mm;
+    }
+    
+    body { 
+      font-family: system-ui, Segoe UI, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      color: #111; 
+      font-size: 11pt; 
+      line-height: 1.35; 
+    }
+    
+    .top { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: flex-start; 
+      gap: 10px; 
+      margin-bottom: 8px; 
+    }
+    
     .top-text { flex: 1; min-width: 0; }
-    h1 { font-size: 11pt; margin: 0 0 4px; font-weight: 700; }
-    .qr-wrap { text-align: center; flex-shrink: 0; }
-    .qr-wrap img { display: block; margin: 0 auto; }
-    .qr-cap { font-size: 7pt; margin-top: 2px; color: #333; max-width: 130px; word-break: break-all; }
+    
+    h1 { 
+      font-size: 14pt; 
+      margin: 0 0 4px; 
+      font-weight: 700; 
+    }
+    
+    .qr-wrap { 
+      text-align: center; 
+      flex-shrink: 0; 
+    }
+    
+    .qr-wrap img { 
+      display: block; 
+      margin: 0 auto; 
+    }
+    
+    .qr-cap { 
+      font-size: 8pt; 
+      margin-top: 2px; 
+      color: #333; 
+      max-width: 130px; 
+      word-break: break-all; 
+    }
+    
     .meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2px 12px;
-      font-size: 8pt;
+      font-size: 10pt;
       margin-bottom: 8px;
-      line-height: 1.35;
+      line-height: 1.4;
     }
-    .meta strong { display: inline-block; min-width: 6.5rem; font-weight: 600; color: #222; }
-    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; table-layout: fixed; }
-    th, td { border: 1px solid #bbb; padding: 3px 4px; text-align: left; vertical-align: top; word-wrap: break-word; }
-    th { background: #eee; font-weight: 600; }
-    td.num, td.dt { white-space: nowrap; width: 1%; }
+    
+    .meta strong { 
+      display: inline-block; 
+      min-width: 7.5rem; 
+      font-weight: 600; 
+      color: #222; 
+    }
+    
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 9.5pt; 
+      table-layout: fixed; 
+    }
+    
+    th, td { 
+      border: 1px solid #bbb; 
+      padding: 4px 5px; 
+      text-align: left; 
+      vertical-align: top; 
+      word-wrap: break-word; 
+    }
+    
+    th { 
+      background: #eee; 
+      font-weight: 600; 
+    }
+    
+    td.num, td.dt { 
+      white-space: nowrap; 
+      width: 1%; 
+    }
+    
     td.dt { font-variant-numeric: tabular-nums; }
-    .ord-cell .ord-desc { font-size: 7.5pt; color: #333; margin-top: 1px; }
-    .ord-cell .ord-med { font-size: 7.5pt; color: #222; margin-top: 2px; }
-    .ord-cell .ord-med__lbl { font-weight: 600; color: #444; margin-right: 4px; }
-    caption { text-align: left; font-weight: 600; margin-bottom: 4px; font-size: 8pt; }
+    
+    .ord-cell .ord-desc { 
+      font-size: 9.5pt; 
+      color: #333; 
+      margin-top: 1px; 
+    }
+    
+    .ord-cell .ord-med { 
+      font-size: 9.5pt; 
+      color: #222; 
+      margin-top: 2px; 
+    }
+    
+    .ord-cell .ord-med__lbl { 
+      font-weight: 600; 
+      color: #444; 
+      margin-right: 4px; 
+    }
+    
+    caption { 
+      text-align: left; 
+      font-weight: 600; 
+      margin-bottom: 4px; 
+      font-size: 10pt; 
+    }
+    
     tr { break-inside: avoid; }
+    
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }

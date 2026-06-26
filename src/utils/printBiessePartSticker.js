@@ -56,12 +56,12 @@ function materialLine(material, descripcion) {
 
 const LABEL_W_MM = 80
 const LABEL_H_MM = 50
+const DIAGRAM_MAX_W_MM = 20
+const DIAGRAM_MAX_H_MM = 10
 
 function pieceShapeMm(longitud, ancho) {
   const L = roundDim(longitud)
   const A = roundDim(ancho)
-  const maxW = 20
-  const maxH = 10
   if (L == null || A == null || L <= 0 || A <= 0) {
     return { width: 16, height: 8 }
   }
@@ -69,47 +69,36 @@ function pieceShapeMm(longitud, ancho) {
   let w
   let h
   if (ratio >= 1) {
-    w = maxW
-    h = maxW / ratio
-    if (h > maxH) {
-      h = maxH
-      w = maxH * ratio
+    w = DIAGRAM_MAX_W_MM
+    h = DIAGRAM_MAX_W_MM / ratio
+    if (h > DIAGRAM_MAX_H_MM) {
+      h = DIAGRAM_MAX_H_MM
+      w = DIAGRAM_MAX_H_MM * ratio
     }
   } else {
-    h = maxH
-    w = maxH * ratio
-    if (w > maxW) {
-      w = maxW
-      h = maxW / ratio
+    h = DIAGRAM_MAX_H_MM
+    w = DIAGRAM_MAX_H_MM * ratio
+    if (w > DIAGRAM_MAX_W_MM) {
+      w = DIAGRAM_MAX_W_MM
+      h = DIAGRAM_MAX_W_MM / ratio
     }
   }
-  return { width: Math.round(w), height: Math.round(h) }
+  return { width: Math.round(w * 10) / 10, height: Math.round(h * 10) / 10 }
 }
 
-function pieceShapeStyle(longitud, ancho, printSize) {
-  if (printSize === 'label_80x50') {
-    const s = pieceShapeMm(longitud, ancho)
-    return `width:${s.width}mm;height:${s.height}mm;`
-  }
-  const L = roundDim(longitud)
-  const A = roundDim(ancho)
-  if (L == null || A == null || L <= 0 || A <= 0) {
-    return 'width:72%;height:38%;'
-  }
-  if (L >= A) {
-    return `width:82%;height:auto;aspect-ratio:${L}/${A};max-height:58%;`
-  }
-  return `height:58%;width:auto;aspect-ratio:${L}/${A};max-width:82%;`
+function pieceShapeStyle(longitud, ancho) {
+  const s = pieceShapeMm(longitud, ancho)
+  return `width:${s.width}mm;height:${s.height}mm;`
 }
 
 function buildStyles() {
   return `
-    @page { size: auto; margin: 0; }
+    @page { size: landscape; margin: 0; }
     @page fixed-label {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
       margin: 0;
     }
-    @page fill-sheet { size: landscape; margin: 0; }
+    @page fill-sheet { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape; margin: 0; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -145,17 +134,26 @@ function buildStyles() {
     }
 
     .print-size--auto .sticker {
-      width: 100%;
-      height: 100%;
-      min-height: 100vh;
-      padding: 1.5%;
+      page: fixed-label;
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
+      min-height: 0;
+      padding: 1.5mm 1.5mm 1mm;
+      overflow: hidden;
+      display: block;
     }
     .print-size--fill .sticker {
       page: fill-sheet;
-      width: 100%;
-      height: 100%;
-      min-height: 100vh;
-      padding: 2%;
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
+      min-height: 0;
+      padding: 1.5mm 1.5mm 1mm;
+      overflow: hidden;
+      display: block;
     }
     .print-size--label_80x50 .sticker {
       page: fixed-label;
@@ -217,7 +215,9 @@ function buildStyles() {
       gap: 0.8em;
       min-height: 0;
     }
-    .print-size--label_80x50 .body {
+    .print-size--label_80x50 .body,
+    .print-size--auto .body,
+    .print-size--fill .body {
       display: table;
       width: 100%;
       table-layout: fixed;
@@ -298,9 +298,11 @@ function buildStyles() {
       align-items: center;
       justify-content: center;
     }
-    .print-size--label_80x50 .piece-wrap { min-height: 10mm; }
+    .print-size--label_80x50 .piece-wrap,
     .print-size--auto .piece-wrap,
-    .print-size--fill .piece-wrap { min-height: 18%; }
+    .print-size--fill .piece-wrap {
+      min-height: ${DIAGRAM_MAX_H_MM}mm;
+    }
 
     .piece-shape {
       border: 1pt solid #000;
@@ -332,20 +334,20 @@ function buildStyles() {
       align-items: center;
     }
     .print-size--label_80x50 .col-left,
-    .print-size--label_80x50 .col-right {
+    .print-size--label_80x50 .col-right,
+    .print-size--auto .col-left,
+    .print-size--auto .col-right,
+    .print-size--fill .col-left,
+    .print-size--fill .col-right {
       display: table-cell;
       vertical-align: top;
     }
-    .print-size--label_80x50 .col-right {
+    .print-size--label_80x50 .col-right,
+    .print-size--auto .col-right,
+    .print-size--fill .col-right {
       width: 24mm;
       font-size: 6pt;
       font-weight: 900;
-    }
-    .print-size--auto .col-right,
-    .print-size--fill .col-right {
-      flex: 0 0 30%;
-      width: 30%;
-      font-size: clamp(5.5pt, 2vmin, 10pt);
     }
 
     .qr { line-height: 0; margin-bottom: 0.4em; width: 100%; text-align: center; }
@@ -414,9 +416,17 @@ function buildStyles() {
       }
       .print-size--auto .sticker,
       .print-size--fill .sticker {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 100% !important;
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+        min-height: 0 !important;
+        max-height: ${LABEL_H_MM}mm !important;
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+      .print-size--auto .sticker:last-child,
+      .print-size--fill .sticker:last-child,
+      .print-size--label_80x50 .sticker:last-child {
+        page-break-after: avoid;
       }
       .print-size--label_80x50 .sticker {
         width: ${LABEL_W_MM}mm !important;
@@ -426,18 +436,19 @@ function buildStyles() {
         page-break-after: avoid;
         page-break-inside: avoid;
       }
-      .print-size--label_80x50 .body {
+      .print-size--label_80x50 .body,
+      .print-size--auto .body,
+      .print-size--fill .body {
         display: table !important;
       }
       .print-size--label_80x50 .col-left,
-      .print-size--label_80x50 .col-right {
+      .print-size--label_80x50 .col-right,
+      .print-size--auto .col-left,
+      .print-size--auto .col-right,
+      .print-size--fill .col-left,
+      .print-size--fill .col-right {
         display: table-cell !important;
         vertical-align: top !important;
-      }
-      .print-size--auto .body,
-      .print-size--fill .body {
-        display: flex !important;
-        flex-direction: row !important;
       }
       .print-size--label_80x50,
       .print-size--label_80x50 * {
@@ -543,7 +554,7 @@ function printViaIframe(html) {
   }, 120_000)
 }
 
-function buildStickerHtml(data) {
+function buildStickerInnerHtml(data) {
   const {
     scanCode,
     headerTitle,
@@ -563,22 +574,13 @@ function buildStickerHtml(data) {
     cantidad,
     pCode,
     printedAt,
-    printSize,
     longitud,
     ancho,
   } = data
   const booking = bookingCode ? String(bookingCode).trim() : ''
-  const sizeClass = `print-size--${printSize}`
-  const pieceStyle = pieceShapeStyle(longitud, ancho, printSize)
+  const pieceStyle = pieceShapeStyle(longitud, ancho)
 
-  return `<!DOCTYPE html>
-<html lang="es" class="print-size ${sizeClass}">
-<head>
-  <meta charset="utf-8" />
-  <title>Etiqueta ${esc(scanCode)}</title>
-  <style>${buildStyles()}</style>
-</head>
-<body class="print-size ${sizeClass}">
+  return `
   <div class="sticker">
     <header class="head">
       <h1 class="head__title">${esc(headerTitle)}</h1>
@@ -614,9 +616,166 @@ function buildStickerHtml(data) {
         </div>
       </div>
     </div>
-  </div>
+  </div>`
+}
+
+function buildStickerHtml(data) {
+  const { scanCode, printSize } = data
+  const sizeClass = `print-size--${printSize}`
+
+  return `<!DOCTYPE html>
+<html lang="es" class="print-size ${sizeClass}">
+<head>
+  <meta charset="utf-8" />
+  <title>Etiqueta ${esc(scanCode)}</title>
+  <style>${buildStyles()}</style>
+</head>
+<body class="print-size ${sizeClass}">
+  ${buildStickerInnerHtml(data)}
 </body>
 </html>`
+}
+
+function buildBulkStickerHtml(items, printSize) {
+  const sizeClass = `print-size--${printSize}`
+  const bodies = items.map((item) => buildStickerInnerHtml(item)).join('\n')
+  return `<!DOCTYPE html>
+<html lang="es" class="print-size ${sizeClass}">
+<head>
+  <meta charset="utf-8" />
+  <title>Etiquetas (${items.length})</title>
+  <style>${buildStyles()}</style>
+</head>
+<body class="print-size ${sizeClass}">
+  ${bodies}
+</body>
+</html>`
+}
+
+export async function resolveStickerItemData({ order, part, piece, printSize }) {
+  const orderName = order?.orderName ?? ''
+  const partNumberRaw = part?.partNumber ?? part?.partnumber
+  const partNumber =
+    partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
+  const numeroPieza = piece?.numeroPieza ?? 1
+  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
+  const scanCode = buildScanCode(
+    orderName,
+    partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
+    numeroPieza,
+  )
+  const printedAt = new Date()
+  const qrPixels = printSize === 'label_80x50' ? 512 : 180
+  let qrBlock = ''
+  try {
+    const QRCode = (await import('qrcode')).default
+    const dataUrl = await QRCode.toDataURL(scanCode, {
+      errorCorrectionLevel: 'M',
+      margin: 0,
+      width: qrPixels,
+      color: { dark: '#000000', light: '#ffffff' },
+    })
+    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" width="${qrPixels}" height="${qrPixels}" /></div>`
+  } catch {
+    qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
+  }
+
+  return {
+    scanCode,
+    headerTitle: String(orderName).toUpperCase(),
+    bookingCode: order?.bookingCode,
+    matLine: materialLine(part?.material, part?.descripcion),
+    subDesc: joinNonEmpty([part?.descripcion1]),
+    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
+    centerLabel: String(part?.descripcion ?? '—').trim(),
+    upLabel: String(part?.matedgeup ?? '').trim(),
+    loLabel: String(part?.matedgelo ?? '').trim(),
+    leftLabel: String(part?.matedgel ?? '').trim(),
+    rightLabel: String(part?.matedger ?? '').trim(),
+    qrBlock,
+    L: roundDim(part?.longitud),
+    A: roundDim(part?.ancho),
+    longitud: part?.longitud,
+    ancho: part?.ancho,
+    numeroPieza,
+    cantidad,
+    pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
+    printedAt,
+    printSize,
+    partId: part?.partId ?? null,
+    piezaId: piece?.piezaId ?? null,
+  }
+}
+
+/**
+ * @param {object} opts
+ * @param {Array<{ order: object, part: object, piece: object }>} opts.items
+ * @param {'auto'|'fill'|'label_80x50'} [opts.printSize]
+ * @param {Window|null} [opts.printWindow]
+ */
+export async function printBiessePartStickersBulk({
+  items,
+  printSize = getStickerPrintSize(),
+  printWindow = null,
+}) {
+  if (!items?.length) {
+    throw new Error('No hay etiquetas para imprimir.')
+  }
+  if (items.length > 10) {
+    throw new Error('Máximo 10 etiquetas por impresión masiva.')
+  }
+
+  const resolved = await Promise.all(
+    items.map(({ order, part, piece }) => resolveStickerItemData({ order, part, piece, printSize })),
+  )
+
+  if (printSize === 'label_80x50') {
+    try {
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i]
+        const zpl = buildBiessePartStickerZpl({
+          scanCode: resolved[i].scanCode,
+          orderName: item.order?.orderName,
+          bookingCode: item.order?.bookingCode,
+          part: item.part,
+          piece: item.piece,
+          printedAt: resolved[i].printedAt,
+        })
+        await sendZplToZebra(zpl)
+      }
+      if (printWindow && !printWindow.closed) {
+        try {
+          printWindow.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      return resolved.map((r) => ({
+        qrCode: r.scanCode,
+        printedAt: r.printedAt.toISOString(),
+        printMethod: 'zpl',
+      }))
+    } catch {
+      /* continuar con HTML */
+    }
+  }
+
+  const html = buildBulkStickerHtml(resolved, printSize)
+  let w = printWindow && !printWindow.closed ? printWindow : null
+  if (!w) {
+    w = window.open('about:blank', '_blank')
+  }
+  if (w) {
+    writeAndPrint(w, html)
+  } else {
+    printViaIframe(html)
+  }
+
+  return resolved.map((r) => ({
+    qrCode: r.scanCode,
+    printedAt: r.printedAt.toISOString(),
+    printMethod: 'html',
+  }))
 }
 
 /**
@@ -674,44 +833,8 @@ export async function printBiessePartSticker({
     }
   }
 
-  const qrPixels = printSize === 'label_80x50' ? 512 : 180
-  let qrBlock = ''
-  try {
-    const QRCode = (await import('qrcode')).default
-    const dataUrl = await QRCode.toDataURL(scanCode, {
-      errorCorrectionLevel: 'M',
-      margin: 0,
-      width: qrPixels,
-      color: { dark: '#000000', light: '#ffffff' },
-    })
-    qrBlock = `<div class="qr"><img src="${dataUrl}" alt="" width="${qrPixels}" height="${qrPixels}" /></div>`
-  } catch {
-    qrBlock = `<div class="qr qr--empty">${esc(scanCode)}</div>`
-  }
-
-  const html = buildStickerHtml({
-    scanCode,
-    headerTitle: String(orderName).toUpperCase(),
-    bookingCode: order?.bookingCode,
-    matLine: materialLine(part?.material, part?.descripcion),
-    subDesc: joinNonEmpty([part?.descripcion1]),
-    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
-    centerLabel: String(part?.descripcion ?? '—').trim(),
-    upLabel: String(part?.matedgeup ?? '').trim(),
-    loLabel: String(part?.matedgelo ?? '').trim(),
-    leftLabel: String(part?.matedgel ?? '').trim(),
-    rightLabel: String(part?.matedger ?? '').trim(),
-    qrBlock,
-    L: roundDim(part?.longitud),
-    A: roundDim(part?.ancho),
-    longitud: part?.longitud,
-    ancho: part?.ancho,
-    numeroPieza,
-    cantidad,
-    pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
-    printedAt,
-    printSize,
-  })
+  const stickerData = await resolveStickerItemData({ order, part, piece, printSize })
+  const html = buildStickerHtml(stickerData)
 
   let w = printWindow && !printWindow.closed ? printWindow : null
   if (!w) {

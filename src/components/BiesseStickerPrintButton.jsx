@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { openStickerPrintWindow, printBiessePartSticker } from '../utils/printBiessePartSticker'
+import {
+  openStickerPrintWindow,
+  printBiessePartSticker,
+  printBiessePartStickersBulk,
+} from '../utils/printBiessePartSticker'
 import { ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintSize,
@@ -11,22 +15,85 @@ import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
 import { inputClass, labelClass } from '../ui/fields.js'
 
+const MAX_BULK = 10
+
+function partPayload(selectedPart) {
+  return {
+    partId: selectedPart.partId,
+    partCode: selectedPart.partCode,
+    partNumber: selectedPart.partNumber || selectedPart.partId,
+    descripcion: selectedPart.descripcion,
+    descripcion1: selectedPart.descripcion1,
+    matedgeup: selectedPart.matedgeup,
+    matedgelo: selectedPart.matedgelo,
+    matedgel: selectedPart.matedgel,
+    matedger: selectedPart.matedger,
+    material: selectedPart.material,
+    longitud: selectedPart.longitud,
+    ancho: selectedPart.ancho,
+    cantidad: selectedPart.cantidad,
+  }
+}
+
+function queueLabel(part, numeroPieza) {
+  const code = part?.partCode ?? part?.partId ?? '—'
+  const desc = part?.descripcion ? ` — ${String(part.descripcion).slice(0, 32)}` : ''
+  return `${code}${desc} · pieza ${numeroPieza}`
+}
+
+async function auditStickerPrint(detail, entries) {
+  try {
+    await systemApi.recordStickerPrint({
+      orderId: detail.orderId,
+      metodo: entries.length > 1 ? 'MANUAL_MASIVO' : 'MANUAL',
+      equipo:
+        typeof navigator !== 'undefined' ? `${navigator.platform || 'web'}`.slice(0, 64) : 'web',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      ubicacion: typeof window !== 'undefined' ? window.location?.pathname ?? null : null,
+      detalles: entries.map(({ part, piece, printResult }) => ({
+        partId: part.partId,
+        piezaId: piece?.piezaId ?? null,
+        numeroPieza: piece?.numeroPieza ?? 1,
+        codigoQr: printResult?.qrCode ?? null,
+        snapshot: JSON.stringify({
+          orderName: detail.orderName,
+          partCode: part.partCode,
+          partNumber: part.partNumber,
+          material: part.material,
+          descripcion: part.descripcion,
+          descripcion1: part.descripcion1,
+          longitud: part.longitud,
+          ancho: part.ancho,
+          cantidad: part.cantidad,
+          printedAt: printResult?.printedAt ?? null,
+        }),
+      })),
+    })
+  } catch (auditErr) {
+    console.warn('No se pudo auditar la impresión', auditErr)
+  }
+}
+
 /**
  * Botón + diálogo para imprimir etiqueta de pieza (datos del detalle Biesse / OSI).
  * @param {{ detail: object | null }} props
  */
 export function BiesseStickerPrintButton({ detail }) {
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState('single')
   const [partId, setPartId] = useState(null)
   const [numeroPieza, setNumeroPieza] = useState(1)
   const [printing, setPrinting] = useState(false)
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
+  const [bulkQueue, setBulkQueue] = useState([])
 
   const partes = useMemo(() => (Array.isArray(detail?.partes) ? detail.partes : []), [detail])
 
   useEffect(() => {
     setPartId(null)
     setNumeroPieza(1)
+    setBulkQueue([])
+    setMode('single')
   }, [detail?.orderId])
 
   const selectedPart = useMemo(
@@ -57,76 +124,53 @@ export function BiesseStickerPrintButton({ detail }) {
     if (open) setPrintSize(getStickerPrintSize())
   }, [open])
 
-  async function handlePrint() {
+  function buildOrderPayload() {
+    return {
+      orderName: detail.orderName,
+      bookingCode: detail.bookingCode,
+    }
+  }
+
+  function buildPiecePayload(part, nPieza) {
+    const piezaSeleccionada = (part.piezas ?? []).find((z) => z.numeroPieza === nPieza)
+    return { numeroPieza: nPieza, piezaId: piezaSeleccionada?.piezaId ?? null }
+  }
+
+  function addToBulkQueue() {
+    if (!selectedPart || bulkQueue.length >= MAX_BULK) return
+    const key = `${selectedPart.partId}-${numeroPieza}`
+    if (bulkQueue.some((q) => q.key === key)) {
+      window.alert('Esa pieza ya está en la cola.')
+      return
+    }
+    setBulkQueue((prev) => [
+      ...prev,
+      {
+        key,
+        partId: selectedPart.partId,
+        numeroPieza,
+        label: queueLabel(selectedPart, numeroPieza),
+      },
+    ])
+  }
+
+  async function handlePrintSingle() {
     if (!detail || !selectedPart) return
     const useZpl = printSize === 'label_80x50'
     const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
-      const piezaSeleccionada = (selectedPart.piezas ?? []).find((z) => z.numeroPieza === numeroPieza)
+      const part = partPayload(selectedPart)
+      const piece = buildPiecePayload(selectedPart, numeroPieza)
       const printResult = await printBiessePartSticker({
         printWindow,
         printSize,
-        order: {
-          orderName: detail.orderName,
-          bookingCode: detail.bookingCode,
-        },
-        part: {
-          partId: selectedPart.partId,
-          partCode: selectedPart.partCode,
-          partNumber: selectedPart.partNumber || selectedPart.partId,
-          descripcion: selectedPart.descripcion,
-          descripcion1: selectedPart.descripcion1,
-          matedgeup: selectedPart.matedgeup,
-          matedgelo: selectedPart.matedgelo,
-          matedgel: selectedPart.matedgel,
-          matedger: selectedPart.matedger,
-          material: selectedPart.material,
-          longitud: selectedPart.longitud,
-          ancho: selectedPart.ancho,
-          cantidad: selectedPart.cantidad,
-        },
-        piece: { numeroPieza, piezaId: piezaSeleccionada?.piezaId ?? null },
+        order: buildOrderPayload(),
+        part,
+        piece,
       })
 
-      try {
-        await systemApi.recordStickerPrint({
-          orderId: detail.orderId,
-          metodo: 'MANUAL',
-          equipo:
-            typeof navigator !== 'undefined'
-              ? `${navigator.platform || 'web'}`.slice(0, 64)
-              : 'web',
-          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-          ubicacion: typeof window !== 'undefined' ? window.location?.pathname ?? null : null,
-          detalles: [
-            {
-              partId: selectedPart.partId,
-              piezaId: piezaSeleccionada?.piezaId ?? null,
-              numeroPieza,
-              codigoQr: printResult?.qrCode ?? null,
-              snapshot: JSON.stringify({
-                orderName: detail.orderName,
-                partCode: selectedPart.partCode,
-                partNumber: selectedPart.partNumber,
-                material: selectedPart.material,
-                descripcion: selectedPart.descripcion,
-                descripcion1: selectedPart.descripcion1,
-                longitud: selectedPart.longitud,
-                ancho: selectedPart.ancho,
-                cantidad: selectedPart.cantidad,
-                matedgeup: selectedPart.matedgeup,
-                matedgelo: selectedPart.matedgelo,
-                matedgel: selectedPart.matedgel,
-                matedger: selectedPart.matedger,
-                printedAt: printResult?.printedAt ?? null,
-              }),
-            },
-          ],
-        })
-      } catch (auditErr) {
-        console.warn('No se pudo auditar la impresión', auditErr)
-      }
+      await auditStickerPrint(detail, [{ part, piece, printResult }])
 
       if (useZpl && printResult?.printMethod === 'html') {
         window.alert(
@@ -147,10 +191,63 @@ export function BiesseStickerPrintButton({ detail }) {
         }
       }
       if (e instanceof Error && e.message === 'impresión no disponible') {
-        /* mensaje ya mostrado en printBiessePartSticker */
+        /* mensaje ya mostrado */
       } else {
         window.alert(e instanceof Error ? e.message : 'No se pudo generar la etiqueta.')
       }
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  async function handlePrintBulk() {
+    if (!detail || !bulkQueue.length) return
+    const useZpl = printSize === 'label_80x50'
+    const printWindow = useZpl ? null : openStickerPrintWindow()
+    setPrinting(true)
+    try {
+      const items = bulkQueue.map((q) => {
+        const partRow = partes.find((p) => p.partId === q.partId)
+        if (!partRow) throw new Error('Parte no encontrada en la cola.')
+        return {
+          order: buildOrderPayload(),
+          part: partPayload(partRow),
+          piece: buildPiecePayload(partRow, q.numeroPieza),
+        }
+      })
+
+      const results = await printBiessePartStickersBulk({
+        items,
+        printSize,
+        printWindow,
+      })
+
+      await auditStickerPrint(
+        detail,
+        items.map((item, index) => ({
+          part: item.part,
+          piece: item.piece,
+          printResult: results[index],
+        })),
+      )
+
+      if (useZpl && results[0]?.printMethod === 'html') {
+        window.alert(
+          'No se detectó Zebra Browser Print. Se abrió impresión HTML para todas las etiquetas.'
+        )
+      }
+
+      setBulkQueue([])
+      setOpen(false)
+    } catch (e) {
+      if (printWindow && !printWindow.closed) {
+        try {
+          printWindow.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      window.alert(e instanceof Error ? e.message : 'No se pudo imprimir las etiquetas.')
     } finally {
       setPrinting(false)
     }
@@ -174,7 +271,7 @@ export function BiesseStickerPrintButton({ detail }) {
           }}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-depth backdrop-blur-xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-depth backdrop-blur-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sticker-dialog-title"
@@ -188,11 +285,26 @@ export function BiesseStickerPrintButton({ detail }) {
               </Button>
             </div>
             <div className="flex flex-col gap-4 p-5">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`btn btn--sm ${mode === 'single' ? 'btn--primary' : 'btn--ghost'}`}
+                  onClick={() => setMode('single')}
+                >
+                  Una etiqueta
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn--sm ${mode === 'bulk' ? 'btn--primary' : 'btn--ghost'}`}
+                  onClick={() => setMode('bulk')}
+                >
+                  Masivo (hasta {MAX_BULK})
+                </button>
+              </div>
+
               <p className="text-sm leading-relaxed text-slate-400">
-                Elige la parte y el número de pieza. Se abrirá una ventana con la etiqueta lista para imprimir; el
-                código QR coincide con el formato de resolución Biesse (<InlineCode>pieces/resolve</InlineCode>).
-                Con Zebra ZD230 usa <strong className="font-medium text-slate-300">80 × 50 mm</strong>. La app envía
-                ZPL directo si tienes{' '}
+                El código QR coincide con el formato Biesse (<InlineCode>pieces/resolve</InlineCode>).
+                Etiqueta horizontal 80 × 50 mm. Con Zebra ZD230 usa{' '}
                 <a
                   href={ZEBRA_BROWSER_PRINT_URL}
                   target="_blank"
@@ -200,9 +312,10 @@ export function BiesseStickerPrintButton({ detail }) {
                   className="text-sky-400 underline-offset-2 hover:underline"
                 >
                   Zebra Browser Print
-                </a>{' '}
-                instalado (recomendado).
+                </a>
+                .
               </p>
+
               <div>
                 <label className={labelClass}>Tamaño de impresión</label>
                 <select
@@ -220,10 +333,8 @@ export function BiesseStickerPrintButton({ detail }) {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                  {STICKER_PRINT_SIZES.find((s) => s.id === printSize)?.hint}
-                </p>
               </div>
+
               <div>
                 <label className={labelClass}>Parte</label>
                 <select
@@ -239,6 +350,7 @@ export function BiesseStickerPrintButton({ detail }) {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label className={labelClass}>Pieza (número)</label>
                 <select
@@ -255,13 +367,64 @@ export function BiesseStickerPrintButton({ detail }) {
                   ))}
                 </select>
               </div>
+
+              {mode === 'bulk' ? (
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-slate-200">
+                      Cola ({bulkQueue.length}/{MAX_BULK})
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="!py-1.5 text-xs"
+                      disabled={!selectedPart || bulkQueue.length >= MAX_BULK}
+                      onClick={addToBulkQueue}
+                    >
+                      Agregar a cola
+                    </Button>
+                  </div>
+                  {!bulkQueue.length ? (
+                    <p className="text-xs text-slate-500">Seleccione parte y pieza, luego agregue a la cola.</p>
+                  ) : (
+                    <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                      {bulkQueue.map((q) => (
+                        <li
+                          key={q.key}
+                          className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1.5 text-xs text-slate-300"
+                        >
+                          <span className="min-w-0 truncate">{q.label}</span>
+                          <button
+                            type="button"
+                            className="shrink-0 text-slate-400 hover:text-white"
+                            onClick={() => setBulkQueue((prev) => prev.filter((x) => x.key !== q.key))}
+                          >
+                            Quitar
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap justify-end gap-2 pt-1">
                 <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
-                  Cancelar
+                  Cerrar
                 </Button>
-                <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrint()}>
-                  {printing ? 'Generando…' : 'Imprimir'}
-                </Button>
+                {mode === 'bulk' ? (
+                  <Button
+                    type="button"
+                    disabled={printing || !bulkQueue.length}
+                    onClick={() => void handlePrintBulk()}
+                  >
+                    {printing ? 'Generando…' : `Imprimir ${bulkQueue.length || ''} etiqueta(s)`}
+                  </Button>
+                ) : (
+                  <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrintSingle()}>
+                    {printing ? 'Generando…' : 'Imprimir'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
