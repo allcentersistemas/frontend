@@ -1,0 +1,48 @@
+/** Orientación de la etiqueta al imprimir (80×50 mm). */
+
+export const STICKER_PRINT_ORIENTATION_KEY = 'biesse-sticker-print-orientation'
+
+/** @typedef {'landscape' | 'portrait'} StickerPrintOrientationId */
+
+export const STICKER_PRINT_ORIENTATIONS = [
+  {
+    id: 'landscape',
+    label: 'Horizontal (80 × 50 mm)',
+    hint: 'Etiqueta ancha: diagrama a la izquierda y QR a la derecha.',
+  },
+  {
+    id: 'portrait',
+    label: 'Vertical (50 × 80 mm)',
+    hint: 'Etiqueta alta: contenido apilado en vertical.',
+  },
+]
+
+/** @returns {StickerPrintOrientationId} */
+export function getStickerPrintOrientation() {
+  try {
+    const v = localStorage.getItem(STICKER_PRINT_ORIENTATION_KEY)
+    if (STICKER_PRINT_ORIENTATIONS.some((o) => o.id === v)) {
+      return /** @type {StickerPrintOrientationId} */ (v)
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'landscape'
+}
+
+/** @param {StickerPrintOrientationId} id */
+export function setStickerPrintOrientation(id) {
+  try {
+    localStorage.setItem(STICKER_PRINT_ORIENTATION_KEY, id)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @param {StickerPrintOrientationId} orientation */
+export function labelDimensionsMm(orientation) {
+  if (orientation === 'portrait') {
+    return { widthMm: 50, heightMm: 80 }
+  }
+  return { widthMm: 80, heightMm: 50 }
+}

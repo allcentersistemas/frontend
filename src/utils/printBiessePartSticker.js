@@ -54,51 +54,65 @@ function materialLine(material, descripcion) {
   return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
 }
 
-const LABEL_W_MM = 80
-const LABEL_H_MM = 50
-const DIAGRAM_MAX_W_MM = 20
-const DIAGRAM_MAX_H_MM = 10
+const LABEL_LANDSCAPE_W_MM = 80
+const LABEL_LANDSCAPE_H_MM = 50
 
-function pieceShapeMm(longitud, ancho) {
+/** Marco del diagrama de pieza: tamaño fijo en todas las etiquetas. */
+const PIECE_FRAME_W_MM = 18
+const PIECE_FRAME_H_MM = 10
+const PIECE_INNER_MAX_W_MM = 16
+const PIECE_INNER_MAX_H_MM = 8
+const DIAGRAM_COL_SIDE_MM = 6
+const DIAGRAM_COL_CENTER_MM = 20
+const DIAGRAM_ROW_EDGE_MM = 4
+const DIAGRAM_ROW_CENTER_MM = 12
+
+function labelSizeMm(orientation) {
+  if (orientation === 'portrait') {
+    return { w: LABEL_LANDSCAPE_H_MM, h: LABEL_LANDSCAPE_W_MM }
+  }
+  return { w: LABEL_LANDSCAPE_W_MM, h: LABEL_LANDSCAPE_H_MM }
+}
+
+/** Proporción L/A dentro del marco fijo (solo relleno visual, no cambia el borde). */
+function pieceShapeInnerStyle(longitud, ancho) {
   const L = roundDim(longitud)
   const A = roundDim(ancho)
   if (L == null || A == null || L <= 0 || A <= 0) {
-    return { width: 16, height: 8 }
+    return `width:${PIECE_INNER_MAX_W_MM * 0.85}mm;height:${PIECE_INNER_MAX_H_MM * 0.85}mm;`
   }
   const ratio = L / A
   let w
   let h
   if (ratio >= 1) {
-    w = DIAGRAM_MAX_W_MM
-    h = DIAGRAM_MAX_W_MM / ratio
-    if (h > DIAGRAM_MAX_H_MM) {
-      h = DIAGRAM_MAX_H_MM
-      w = DIAGRAM_MAX_H_MM * ratio
+    w = PIECE_INNER_MAX_W_MM
+    h = PIECE_INNER_MAX_W_MM / ratio
+    if (h > PIECE_INNER_MAX_H_MM) {
+      h = PIECE_INNER_MAX_H_MM
+      w = PIECE_INNER_MAX_H_MM * ratio
     }
   } else {
-    h = DIAGRAM_MAX_H_MM
-    w = DIAGRAM_MAX_H_MM * ratio
-    if (w > DIAGRAM_MAX_W_MM) {
-      w = DIAGRAM_MAX_W_MM
-      h = DIAGRAM_MAX_W_MM / ratio
+    h = PIECE_INNER_MAX_H_MM
+    w = PIECE_INNER_MAX_H_MM * ratio
+    if (w > PIECE_INNER_MAX_W_MM) {
+      w = PIECE_INNER_MAX_W_MM
+      h = PIECE_INNER_MAX_W_MM / ratio
     }
   }
-  return { width: Math.round(w * 10) / 10, height: Math.round(h * 10) / 10 }
+  return `width:${Math.round(w * 10) / 10}mm;height:${Math.round(h * 10) / 10}mm;`
 }
 
-function pieceShapeStyle(longitud, ancho) {
-  const s = pieceShapeMm(longitud, ancho)
-  return `width:${s.width}mm;height:${s.height}mm;`
-}
+function buildStyles(orientation = 'landscape') {
+  const { w: LABEL_W_MM, h: LABEL_H_MM } = labelSizeMm(orientation)
+  const pageOrient = orientation === 'portrait' ? 'portrait' : 'landscape'
 
-function buildStyles() {
   return `
-    @page { size: landscape; margin: 0; }
+    @page { size: ${pageOrient}; margin: 0; }
     @page fixed-label {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape;
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm ${pageOrient};
       margin: 0;
     }
-    @page fill-sheet { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm landscape; margin: 0; }
+    @page fill-sheet { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm ${pageOrient}; margin: 0; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -263,16 +277,13 @@ function buildStyles() {
 
     .diagram-grid {
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 0.2em 0.3em;
+      grid-template-rows: ${DIAGRAM_ROW_EDGE_MM}mm ${DIAGRAM_ROW_CENTER_MM}mm ${DIAGRAM_ROW_EDGE_MM}mm;
+      grid-template-columns: ${DIAGRAM_COL_SIDE_MM}mm ${DIAGRAM_COL_CENTER_MM}mm ${DIAGRAM_COL_SIDE_MM}mm;
+      gap: 0;
       align-items: center;
-    }
-    .print-size--label_80x50 .diagram-grid {
-      grid-template-columns: 6mm 1fr 6mm;
-    }
-    .print-size--auto .diagram-grid,
-    .print-size--fill .diagram-grid {
-      grid-template-columns: 9% 1fr 9%;
+      justify-items: center;
+      width: ${DIAGRAM_COL_SIDE_MM * 2 + DIAGRAM_COL_CENTER_MM}mm;
+      flex-shrink: 0;
     }
 
     .edge {
@@ -297,36 +308,56 @@ function buildStyles() {
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-    .print-size--label_80x50 .piece-wrap,
-    .print-size--auto .piece-wrap,
-    .print-size--fill .piece-wrap {
-      min-height: ${DIAGRAM_MAX_H_MM}mm;
+      width: ${DIAGRAM_COL_CENTER_MM}mm;
+      height: ${DIAGRAM_ROW_CENTER_MM}mm;
+      min-width: ${DIAGRAM_COL_CENTER_MM}mm;
+      min-height: ${DIAGRAM_ROW_CENTER_MM}mm;
+      max-width: ${DIAGRAM_COL_CENTER_MM}mm;
+      max-height: ${DIAGRAM_ROW_CENTER_MM}mm;
+      overflow: hidden;
     }
 
     .piece-shape {
-      border: 1pt solid #000;
+      width: ${PIECE_FRAME_W_MM}mm;
+      height: ${PIECE_FRAME_H_MM}mm;
+      min-width: ${PIECE_FRAME_W_MM}mm;
+      min-height: ${PIECE_FRAME_H_MM}mm;
+      max-width: ${PIECE_FRAME_W_MM}mm;
+      max-height: ${PIECE_FRAME_H_MM}mm;
+      border: 0.4mm solid #000;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0.3mm;
+      padding: 0.4mm;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-sizing: border-box;
     }
-    .print-size--label_80x50 .piece-shape {
-      border: 0.4mm solid #000;
+
+    .piece-shape__inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: ${PIECE_INNER_MAX_W_MM}mm;
+      max-height: ${PIECE_INNER_MAX_H_MM}mm;
+      overflow: hidden;
+      flex-shrink: 0;
     }
+
     .piece-shape__txt {
       font-weight: 700;
       text-align: center;
       line-height: 1.05;
+      font-size: 5pt;
+      max-width: ${PIECE_INNER_MAX_W_MM}mm;
+      max-height: ${PIECE_INNER_MAX_H_MM}mm;
       overflow: hidden;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
     .print-size--label_80x50 .piece-shape__txt { font-size: 5pt; font-weight: 900; }
-    .print-size--auto .piece-shape__txt,
-    .print-size--fill .piece-shape__txt { font-size: clamp(4pt, 1.6vmin, 9pt); }
 
     .col-right {
       display: flex;
@@ -403,6 +434,40 @@ function buildStyles() {
     .print-size--auto .foot,
     .print-size--fill .foot { font-size: clamp(5pt, 1.8vmin, 9pt); }
 
+    .print-orient--portrait .body {
+      display: block !important;
+    }
+    .print-orient--portrait .col-left,
+    .print-orient--portrait .col-right {
+      display: block !important;
+      width: 100% !important;
+    }
+    .print-orient--portrait .col-right {
+      margin-top: 1.5mm;
+      display: flex !important;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1mm;
+    }
+    .print-orient--portrait .col-right .qr {
+      flex: 0 0 auto;
+      margin-bottom: 0;
+    }
+    .print-orient--portrait .col-right .dims,
+    .print-orient--portrait .col-right .frac {
+      flex: 1 1 auto;
+    }
+    .print-orient--portrait .col-right .foot {
+      flex: 1 1 100%;
+      margin-top: 0.5mm;
+    }
+    .print-orient--portrait .col-right .qr img {
+      width: 16mm;
+      height: 16mm;
+    }
+
     @media print {
       html, body { width: 100%; height: 100%; }
       html.print-size--label_80x50,
@@ -450,11 +515,13 @@ function buildStyles() {
         display: table-cell !important;
         vertical-align: top !important;
       }
-      .print-size--label_80x50,
-      .print-size--label_80x50 * {
-        color: #000 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+      .print-orient--portrait .body {
+        display: block !important;
+      }
+      .print-orient--portrait .col-left,
+      .print-orient--portrait .col-right {
+        display: block !important;
+        width: 100% !important;
       }
       .print-size--label_80x50 .qr img {
         filter: contrast(1.35);
@@ -578,7 +645,7 @@ function buildStickerInnerHtml(data) {
     ancho,
   } = data
   const booking = bookingCode ? String(bookingCode).trim() : ''
-  const pieceStyle = pieceShapeStyle(longitud, ancho)
+  const innerStyle = pieceShapeInnerStyle(longitud, ancho)
 
   return `
   <div class="sticker">
@@ -595,8 +662,10 @@ function buildStickerInnerHtml(data) {
           ${upLabel ? `<div class="edge edge--up">${esc(upLabel)}</div>` : '<div class="edge edge--up"></div>'}
           <div class="edge edge--left">${leftLabel ? esc(leftLabel) : ''}</div>
           <div class="piece-wrap">
-            <div class="piece-shape" style="${pieceStyle}">
-              <div class="piece-shape__txt">${esc(centerLabel)}</div>
+            <div class="piece-shape">
+              <div class="piece-shape__inner" style="${innerStyle}">
+                <div class="piece-shape__txt">${esc(centerLabel)}</div>
+              </div>
             </div>
           </div>
           <div class="edge edge--right">${rightLabel ? esc(rightLabel) : ''}</div>
@@ -620,39 +689,41 @@ function buildStickerInnerHtml(data) {
 }
 
 function buildStickerHtml(data) {
-  const { scanCode, printSize } = data
+  const { scanCode, printSize, printOrientation = 'landscape' } = data
   const sizeClass = `print-size--${printSize}`
+  const orientClass = `print-orient--${printOrientation}`
 
   return `<!DOCTYPE html>
-<html lang="es" class="print-size ${sizeClass}">
+<html lang="es" class="print-size ${sizeClass} ${orientClass}">
 <head>
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
-  <style>${buildStyles()}</style>
+  <style>${buildStyles(printOrientation)}</style>
 </head>
-<body class="print-size ${sizeClass}">
+<body class="print-size ${sizeClass} ${orientClass}">
   ${buildStickerInnerHtml(data)}
 </body>
 </html>`
 }
 
-function buildBulkStickerHtml(items, printSize) {
+function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape') {
   const sizeClass = `print-size--${printSize}`
+  const orientClass = `print-orient--${printOrientation}`
   const bodies = items.map((item) => buildStickerInnerHtml(item)).join('\n')
   return `<!DOCTYPE html>
-<html lang="es" class="print-size ${sizeClass}">
+<html lang="es" class="print-size ${sizeClass} ${orientClass}">
 <head>
   <meta charset="utf-8" />
   <title>Etiquetas (${items.length})</title>
-  <style>${buildStyles()}</style>
+  <style>${buildStyles(printOrientation)}</style>
 </head>
-<body class="print-size ${sizeClass}">
+<body class="print-size ${sizeClass} ${orientClass}">
   ${bodies}
 </body>
 </html>`
 }
 
-export async function resolveStickerItemData({ order, part, piece, printSize }) {
+export async function resolveStickerItemData({ order, part, piece, printSize, printOrientation = 'landscape' }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
@@ -702,6 +773,7 @@ export async function resolveStickerItemData({ order, part, piece, printSize }) 
     pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
     printedAt,
     printSize,
+    printOrientation,
     partId: part?.partId ?? null,
     piezaId: piece?.piezaId ?? null,
   }
@@ -716,6 +788,7 @@ export async function resolveStickerItemData({ order, part, piece, printSize }) 
 export async function printBiessePartStickersBulk({
   items,
   printSize = getStickerPrintSize(),
+  printOrientation = 'landscape',
   printWindow = null,
 }) {
   if (!items?.length) {
@@ -726,7 +799,9 @@ export async function printBiessePartStickersBulk({
   }
 
   const resolved = await Promise.all(
-    items.map(({ order, part, piece }) => resolveStickerItemData({ order, part, piece, printSize })),
+    items.map(({ order, part, piece }) =>
+      resolveStickerItemData({ order, part, piece, printSize, printOrientation }),
+    ),
   )
 
   if (printSize === 'label_80x50') {
@@ -740,6 +815,7 @@ export async function printBiessePartStickersBulk({
           part: item.part,
           piece: item.piece,
           printedAt: resolved[i].printedAt,
+          orientation: printOrientation,
         })
         await sendZplToZebra(zpl)
       }
@@ -760,7 +836,7 @@ export async function printBiessePartStickersBulk({
     }
   }
 
-  const html = buildBulkStickerHtml(resolved, printSize)
+  const html = buildBulkStickerHtml(resolved, printSize, printOrientation)
   let w = printWindow && !printWindow.closed ? printWindow : null
   if (!w) {
     w = window.open('about:blank', '_blank')
@@ -793,6 +869,7 @@ export async function printBiessePartSticker({
   piece,
   printWindow = null,
   printSize = getStickerPrintSize(),
+  printOrientation = 'landscape',
 }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
@@ -817,6 +894,7 @@ export async function printBiessePartSticker({
       part,
       piece,
       printedAt,
+      orientation: printOrientation,
     })
     try {
       await sendZplToZebra(zpl)
@@ -833,7 +911,7 @@ export async function printBiessePartSticker({
     }
   }
 
-  const stickerData = await resolveStickerItemData({ order, part, piece, printSize })
+  const stickerData = await resolveStickerItemData({ order, part, piece, printSize, printOrientation })
   const html = buildStickerHtml(stickerData)
 
   let w = printWindow && !printWindow.closed ? printWindow : null

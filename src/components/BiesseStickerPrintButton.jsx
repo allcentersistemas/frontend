@@ -6,6 +6,11 @@ import {
 } from '../utils/printBiessePartSticker'
 import { ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
+  getStickerPrintOrientation,
+  setStickerPrintOrientation,
+  STICKER_PRINT_ORIENTATIONS,
+} from '../utils/stickerPrintOrientation'
+import {
   getStickerPrintSize,
   setStickerPrintSize,
   STICKER_PRINT_SIZES,
@@ -85,6 +90,7 @@ export function BiesseStickerPrintButton({ detail }) {
   const [numeroPieza, setNumeroPieza] = useState(1)
   const [printing, setPrinting] = useState(false)
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
+  const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [bulkQueue, setBulkQueue] = useState([])
 
   const partes = useMemo(() => (Array.isArray(detail?.partes) ? detail.partes : []), [detail])
@@ -121,7 +127,10 @@ export function BiesseStickerPrintButton({ detail }) {
   }, [selectedPart, numeroPieza])
 
   useEffect(() => {
-    if (open) setPrintSize(getStickerPrintSize())
+    if (open) {
+      setPrintSize(getStickerPrintSize())
+      setPrintOrientation(getStickerPrintOrientation())
+    }
   }, [open])
 
   function buildOrderPayload() {
@@ -165,6 +174,7 @@ export function BiesseStickerPrintButton({ detail }) {
       const printResult = await printBiessePartSticker({
         printWindow,
         printSize,
+        printOrientation,
         order: buildOrderPayload(),
         part,
         piece,
@@ -219,6 +229,7 @@ export function BiesseStickerPrintButton({ detail }) {
       const results = await printBiessePartStickersBulk({
         items,
         printSize,
+        printOrientation,
         printWindow,
       })
 
@@ -304,7 +315,7 @@ export function BiesseStickerPrintButton({ detail }) {
 
               <p className="text-sm leading-relaxed text-slate-400">
                 El código QR coincide con el formato Biesse (<InlineCode>pieces/resolve</InlineCode>).
-                Etiqueta horizontal 80 × 50 mm. Con Zebra ZD230 usa{' '}
+                Elija orientación y tamaño. Con Zebra ZD230 usa{' '}
                 <a
                   href={ZEBRA_BROWSER_PRINT_URL}
                   target="_blank"
@@ -315,6 +326,28 @@ export function BiesseStickerPrintButton({ detail }) {
                 </a>
                 .
               </p>
+
+              <div>
+                <label className={labelClass}>Orientación</label>
+                <select
+                  className={`${inputClass} mt-2 cursor-pointer`}
+                  value={printOrientation}
+                  onChange={(e) => {
+                    const next = e.target.value
+                    setPrintOrientation(next)
+                    setStickerPrintOrientation(next)
+                  }}
+                >
+                  {STICKER_PRINT_ORIENTATIONS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                  {STICKER_PRINT_ORIENTATIONS.find((o) => o.id === printOrientation)?.hint}
+                </p>
+              </div>
 
               <div>
                 <label className={labelClass}>Tamaño de impresión</label>
