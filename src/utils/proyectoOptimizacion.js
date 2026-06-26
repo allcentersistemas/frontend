@@ -5,6 +5,8 @@ export const ESTADOS_PROYECTO = [
   { value: 'ENVIADO', label: 'Enviando' },
   { value: 'EN_ATENCION', label: 'En atención' },
   { value: 'COTIZADO', label: 'Cotizado' },
+  { value: 'VENDIDO', label: 'Vendido' },
+  { value: 'CANCELADO', label: 'Cancelado' },
 ]
 
 export function formatEstadoProyecto(value) {
@@ -12,6 +14,8 @@ export function formatEstadoProyecto(value) {
     ENVIADO: 'Enviando',
     EN_ATENCION: 'En atención',
     COTIZADO: 'Cotizado',
+    VENDIDO: 'Vendido',
+    CANCELADO: 'Cancelado',
   }
   return map[value] || value || '—'
 }
@@ -21,8 +25,23 @@ export function estadoTagClass(estado) {
     ENVIADO: 'tag tag--estado-enviado',
     EN_ATENCION: 'tag tag--estado-atencion',
     COTIZADO: 'tag tag--estado-cotizado',
+    VENDIDO: 'tag tag--estado-vendido',
+    CANCELADO: 'tag tag--estado-cancelado',
   }
   return map[estado] || 'tag'
+}
+
+export function formatProyectoEstadoTiempo(estadoTiempos, estado) {
+  if (!estadoTiempos || !estado) return null
+  const keyMap = {
+    ENVIADO: 'enviado',
+    EN_ATENCION: 'enAtencion',
+    COTIZADO: 'cotizado',
+    VENDIDO: 'vendido',
+    CANCELADO: 'cancelado',
+  }
+  const field = keyMap[estado]
+  return field ? estadoTiempos[field] : null
 }
 
 export function formatProyectoDate(value) {

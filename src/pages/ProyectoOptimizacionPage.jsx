@@ -21,7 +21,6 @@ import {
   formatEstadoProyecto,
   estadoTagClass,
   formatProyectoDate,
-  treeToSavePayload,
 } from '../utils/proyectoOptimizacion.js'
 import {
   downloadOrderCsvFromTree,
@@ -42,6 +41,15 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
   const [ordenPiezas, setOrdenPiezas] = useState(null)
   const [clientModalOpen, setClientModalOpen] = useState(false)
   if (!project) return <p className="muted">Sin datos.</p>
+
+  const tiempos = project.estadoTiempos
+  const historial = [
+    ['Enviado', tiempos?.enviado],
+    ['En atención', tiempos?.enAtencion],
+    ['Cotizado', tiempos?.cotizado],
+    ['Vendido', tiempos?.vendido],
+    ['Cancelado', tiempos?.cancelado],
+  ].filter(([, value]) => value)
 
   return (
     <div className="stack gap-4">
@@ -87,6 +95,20 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
           <div>
             <dt>Parámetros (P_PARAMS)</dt>
             <dd>{project.maquinaParametros}</dd>
+          </div>
+        ) : null}
+        {historial.length ? (
+          <div>
+            <dt>Historial de estados</dt>
+            <dd>
+              <ul className="stack gap-1" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {historial.map(([label, value]) => (
+                  <li key={label} className="small">
+                    <strong>{label}:</strong> {formatProyectoDate(value)}
+                  </li>
+                ))}
+              </ul>
+            </dd>
           </div>
         ) : null}
       </dl>
@@ -167,13 +189,10 @@ export function ProyectoOptimizacionPage() {
   const [busyId, setBusyId] = useState(null)
 
   const [detailOpen, setDetailOpen] = useState(false)
-  const [detailEditMode, setDetailEditMode] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
   const [detailTree, setDetailTree] = useState(null)
   const [detailRow, setDetailRow] = useState(null)
-  const [estadoDraft, setEstadoDraft] = useState('')
-  const [projectDraft, setProjectDraft] = useState({ nombre: '', descripcion: '', cliente: '', referencia: '' })
   const [maquinas, setMaquinas] = useState([])
   const [maquinaDraftId, setMaquinaDraftId] = useState('')
   const [maquinaForm, setMaquinaForm] = useState({ codigo: '', nombre: '' })
@@ -281,25 +300,16 @@ export function ProyectoOptimizacionPage() {
     setApplied(empty)
   }
 
-  async function openDetail(row, { edit = false } = {}) {
+  async function openDetail(row) {
     setDetailRow(row)
-    setDetailEditMode(edit && isAdmin)
     setDetailOpen(true)
     setDetailLoading(true)
     setDetailError('')
     setDetailTree(null)
-    setEstadoDraft(row.estado || 'ENVIADO')
     try {
       const tree = await systemApi.getProyectoOptimizacion(row.id)
       setDetailTree(tree)
       const project = tree?.project
-      setEstadoDraft(project?.estado || row.estado || 'ENVIADO')
-      setProjectDraft({
-        nombre: project?.nombre || row.nombre || '',
-        descripcion: project?.descripcion || '',
-        cliente: project?.cliente || row.cliente || '',
-        referencia: project?.referencia || '',
-      })
       setMaquinaDraftId(project?.maquinaId ? String(project.maquinaId) : '')
     } catch (e) {
       setDetailError(e instanceof Error ? e.message : 'No se pudo cargar el detalle.')
@@ -310,7 +320,6 @@ export function ProyectoOptimizacionPage() {
 
   function closeDetail() {
     setDetailOpen(false)
-    setDetailEditMode(false)
     setDetailRow(null)
     setDetailTree(null)
     setDetailError('')
@@ -394,43 +403,24 @@ export function ProyectoOptimizacionPage() {
     }
   }
 
-  async function handleEstadoSave() {
-    if (!detailRow || !estadoDraft) return
-    setBusyId(detailRow.id)
-    setActionMsg('')
-    try {
-      await systemApi.updateProyectoEstado(detailRow.id, estadoDraft)
-      setActionMsg('Estado actualizado.')
-      await load()
-      const tree = await systemApi.getProyectoOptimizacion(detailRow.id)
-      setDetailTree(tree)
-      setDetailRow((prev) =>
-        prev ? { ...prev, estado: tree?.project?.estado ?? estadoDraft } : prev,
-      )
-    } catch (e) {
-      setActionMsg(e instanceof Error ? e.message : 'No se pudo actualizar el estado.')
-    } finally {
-      setBusyId(null)
+  async function handleVendido(row) {
+    const nombre = row.nombre || `proyecto ${row.id}`
+    if (!window.confirm(`¿Marcar el proyecto «${nombre}» como vendido?`)) {
+      return
     }
-  }
-
-  async function handleProjectSave() {
-    if (!detailRow || !detailTree) return
-    setBusyId(detailRow.id)
+    setBusyId(row.id)
     setActionMsg('')
     try {
-      const payload = treeToSavePayload(detailTree, projectDraft)
-      await systemApi.saveProyectoOptimizacionCompleto(payload)
-      if (estadoDraft && estadoDraft !== detailTree?.project?.estado) {
-        await systemApi.updateProyectoEstado(detailRow.id, estadoDraft)
-      }
-      setActionMsg('Proyecto actualizado.')
+      await systemApi.markProyectoVendido(row.id)
+      setActionMsg(`Proyecto «${nombre}» marcado como vendido.`)
       await load()
-      const tree = await systemApi.getProyectoOptimizacion(detailRow.id)
-      setDetailTree(tree)
-      setDetailEditMode(false)
+      if (detailRow?.id === row.id) {
+        const tree = await systemApi.getProyectoOptimizacion(row.id)
+        setDetailTree(tree)
+        setDetailRow((prev) => (prev ? { ...prev, estado: 'VENDIDO' } : prev))
+      }
     } catch (e) {
-      setActionMsg(e instanceof Error ? e.message : 'No se pudo guardar el proyecto.')
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo marcar como vendido.')
     } finally {
       setBusyId(null)
     }
@@ -474,7 +464,6 @@ export function ProyectoOptimizacionPage() {
         const tree = await systemApi.getProyectoOptimizacion(rowId)
         setDetailTree(tree)
         setDetailRow((prev) => (prev ? { ...prev, estado: 'COTIZADO', tieneCotizacion: true } : prev))
-        setEstadoDraft('COTIZADO')
       }
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'No se pudo subir la cotización.')
@@ -500,6 +489,10 @@ export function ProyectoOptimizacionPage() {
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'No se pudo registrar la máquina.')
     }
+  }
+
+  function canMarcarVendido(row) {
+    return row?.estado === 'COTIZADO'
   }
 
   function canCapturar(row) {
@@ -658,17 +651,17 @@ export function ProyectoOptimizacionPage() {
                             >
                               {row.tieneCotizacion ? 'Actualizar cotización' : 'Subir cotización'}
                             </button>
+                            {canMarcarVendido(row) ? (
+                              <button
+                                type="button"
+                                className="btn btn--primary"
+                                disabled={busyId === row.id}
+                                onClick={() => void handleVendido(row)}
+                              >
+                                Vendido
+                              </button>
+                            ) : null}
                           </>
-                        ) : null}
-                        {tab === TAB_TODOS && isAdmin ? (
-                          <button
-                            type="button"
-                            className="btn btn--ghost"
-                            disabled={busyId === row.id}
-                            onClick={() => void openDetail(row, { edit: true })}
-                          >
-                            Editar
-                          </button>
                         ) : null}
                         {tab === TAB_TODOS && canCapturar(row) ? (
                           <button
@@ -703,13 +696,7 @@ export function ProyectoOptimizacionPage() {
 
       <DetailModal
         open={detailOpen}
-        title={
-          detailRow
-            ? detailEditMode
-              ? `Editar · ${detailRow.nombre}`
-              : detailRow.nombre
-            : 'Detalle del proyecto'
-        }
+        title={detailRow ? detailRow.nombre : 'Detalle del proyecto'}
         subtitle={
           detailRow
             ? `${formatEstadoProyecto(detailRow.estado)} · ${formatProyectoDate(detailRow.fechaCreacion)}`
@@ -721,113 +708,42 @@ export function ProyectoOptimizacionPage() {
         {detailError ? <p className="form-error">{detailError}</p> : null}
         {!detailLoading && !detailError && detailTree ? (
           <>
-            {detailEditMode ? (
-              <div className="stack gap-3" style={{ marginBottom: '1rem' }}>
-                <label className="field">
-                  <span>Nombre</span>
-                  <input
-                    value={projectDraft.nombre}
-                    onChange={(e) => setProjectDraft((p) => ({ ...p, nombre: e.target.value }))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Cliente</span>
-                  <input
-                    value={projectDraft.cliente}
-                    onChange={(e) => setProjectDraft((p) => ({ ...p, cliente: e.target.value }))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Referencia</span>
-                  <input
-                    value={projectDraft.referencia}
-                    onChange={(e) => setProjectDraft((p) => ({ ...p, referencia: e.target.value }))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Descripción</span>
-                  <input
-                    value={projectDraft.descripcion}
-                    onChange={(e) => setProjectDraft((p) => ({ ...p, descripcion: e.target.value }))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Estado</span>
-                  <select value={estadoDraft} onChange={(e) => setEstadoDraft(e.target.value)}>
-                    {ESTADOS_PROYECTO.filter((o) => o.value).map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            ) : (
-              <ProyectoTreeSummary
-                tree={detailTree}
-                onDownloadOrderExcel={handleDownloadOrderExcel}
-                onDownloadOrderText={handleDownloadOrderText}
-                onDownloadOrderCsv={handleDownloadOrderCsv}
-              />
-            )}
+            <ProyectoTreeSummary
+              tree={detailTree}
+              onDownloadOrderExcel={handleDownloadOrderExcel}
+              onDownloadOrderText={handleDownloadOrderText}
+              onDownloadOrderCsv={handleDownloadOrderCsv}
+            />
 
-            {!detailEditMode && tab === TAB_MIS ? (
-              <div className="pad" style={{ paddingLeft: 0, paddingRight: 0, marginTop: '1rem' }}>
-                <label className="field">
-                  <span>Máquina (P_PARAMS)</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                    <select value={maquinaDraftId} onChange={(e) => setMaquinaDraftId(e.target.value)}>
-                      <option value="">Sin asignar</option>
-                      {maquinas.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nombre} ({m.codigo})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn--primary"
-                      disabled={busyId === detailRow?.id || !maquinaDraftId}
-                      onClick={() => void handleMaquinaSave()}
-                    >
-                      Guardar máquina
-                    </button>
-                  </div>
-                </label>
-                <label className="field" style={{ marginTop: '1rem' }}>
-                  <span>Cambiar estado</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                    <select value={estadoDraft} onChange={(e) => setEstadoDraft(e.target.value)}>
-                      {ESTADOS_PROYECTO.filter((o) => o.value).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn--primary"
-                      disabled={busyId === detailRow?.id}
-                      onClick={() => void handleEstadoSave()}
-                    >
-                      Guardar estado
-                    </button>
-                  </div>
-                </label>
-              </div>
+            {!detailRow?.estado || detailRow.estado === 'ENVIADO' || detailRow.estado === 'EN_ATENCION' || detailRow.estado === 'COTIZADO' ? (
+              tab === TAB_MIS ? (
+                <div className="pad" style={{ paddingLeft: 0, paddingRight: 0, marginTop: '1rem' }}>
+                  <label className="field">
+                    <span>Máquina (P_PARAMS)</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                      <select value={maquinaDraftId} onChange={(e) => setMaquinaDraftId(e.target.value)}>
+                        <option value="">Sin asignar</option>
+                        {maquinas.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.nombre} ({m.codigo})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn btn--primary"
+                        disabled={busyId === detailRow?.id || !maquinaDraftId}
+                        onClick={() => void handleMaquinaSave()}
+                      >
+                        Guardar máquina
+                      </button>
+                    </div>
+                  </label>
+                </div>
+              ) : null
             ) : null}
 
             <div style={{ display: 'flex', gap: 8, marginTop: '1rem', flexWrap: 'wrap' }}>
-              {detailEditMode ? (
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  disabled={busyId === detailRow?.id}
-                  onClick={() => void handleProjectSave()}
-                >
-                  Guardar cambios
-                </button>
-              ) : null}
               {detailRow && tab === TAB_MIS ? (
                 <>
                   <button type="button" className="btn btn--ghost" onClick={() => void handleDownload(detailRow)}>
@@ -840,6 +756,16 @@ export function ProyectoOptimizacionPage() {
                   >
                     Subir cotización
                   </button>
+                  {canMarcarVendido(detailRow) ? (
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => void handleVendido(detailRow)}
+                    >
+                      Vendido
+                    </button>
+                  ) : null}
                 </>
               ) : null}
               {canDelete && detailRow ? (

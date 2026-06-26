@@ -261,6 +261,21 @@ export async function updateProyectoEstado(id, estado) {
   })
 }
 
+export async function markProyectoVendido(id) {
+  return systemJson(`/api/order/proyectos/${id}/vendido`, { method: 'POST' })
+}
+
+export async function cancelProyectoOptimizacion(id) {
+  return systemJson(`/api/order/proyectos/${id}/cancelar`, { method: 'POST' })
+}
+
+export async function updateProyectoGestion(id, payload) {
+  return systemJson(`/api/order/proyectos/${id}/gestion`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function saveProyectoOptimizacionCompleto(payload) {
   return systemJson('/api/order/proyectos/guardar-completo', {
     method: 'POST',
