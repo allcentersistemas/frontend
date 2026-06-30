@@ -100,6 +100,11 @@ export async function listEmployees(params = {}) {
   return systemJson(`/api/employees${suffix}`)
 }
 
+/** Empleados activos con un rol concreto (p. ej. VENTAS), para desplegables. */
+export async function listEmployeesCatalogByRole(roleName) {
+  return systemJson(`/api/employees/catalog/by-role/${encodeURIComponent(roleName)}`)
+}
+
 export async function resetEmployeePassword(employeeId, body) {
   await systemJson(`/api/employees/${employeeId}/reset-password`, {
     method: 'POST',

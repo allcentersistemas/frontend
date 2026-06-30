@@ -169,6 +169,40 @@
     @apply min-h-[4.5rem] resize-y;
   }
 
+  .searchable-select {
+    @apply relative w-full min-w-0;
+  }
+  .searchable-select__trigger {
+    @apply flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm text-slate-900 shadow-sm outline-none transition hover:border-amber-400/40 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-black/30 dark:text-slate-100 dark:shadow-inner dark:shadow-black/20 dark:hover:border-amber-400/20 dark:focus:border-amber-400/50 dark:focus:ring-amber-400/15;
+  }
+  .searchable-select__chev {
+    @apply shrink-0 text-xs text-slate-400;
+  }
+  .searchable-select__panel {
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900;
+  }
+  .searchable-select__panel--portal {
+    @apply z-[9999];
+  }
+  .searchable-select__search {
+    @apply w-full border-0 border-b border-slate-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10;
+  }
+  .searchable-select__list {
+    @apply m-0 max-h-52 list-none overflow-y-auto p-1;
+  }
+  .searchable-select__empty {
+    @apply px-3 py-2 text-sm text-slate-500;
+  }
+  .searchable-select__option {
+    @apply flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10;
+  }
+  .searchable-select__option--active {
+    @apply bg-amber-400/15 text-amber-900 dark:text-amber-100;
+  }
+  .searchable-select__hint {
+    @apply text-xs text-slate-500;
+  }
+
   .table-wrap {
     @apply overflow-x-auto;
   }

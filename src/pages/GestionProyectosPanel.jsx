@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { DetailModal } from '../components/DetailModal.jsx'
 import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
+import { SearchableSelect } from '../components/SearchableSelect.jsx'
+import { ROLE_VENTAS } from '../auth/roles.js'
 import {
   ESTADOS_PROYECTO,
   emptyProyectoFilters,
@@ -9,6 +11,17 @@ import {
   formatEstadoProyecto,
   formatProyectoDate,
 } from '../utils/proyectoOptimizacion.js'
+
+function clientOptionLabel(c) {
+  if (c.juridica && c.razonSocial) return c.razonSocial
+  if (c.displayName) return c.displayName
+  if (c.nombre) return c.nombre
+  return c.email || c.username || `Cliente ${c.id}`
+}
+
+function clientOptionHint(c) {
+  return [c.email, c.ruc, c.numeroDocumento].filter(Boolean).join(' · ')
+}
 
 function EstadoTiemposList({ tiempos }) {
   if (!tiempos) return null
@@ -42,7 +55,8 @@ export function GestionProyectosPanel() {
   const [filters, setFilters] = useState(emptyProyectoFilters())
   const [applied, setApplied] = useState(emptyProyectoFilters())
   const [rows, setRows] = useState([])
-  const [employees, setEmployees] = useState([])
+  const [clients, setClients] = useState([])
+  const [vendedores, setVendedores] = useState([])
   const [maquinas, setMaquinas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -84,27 +98,62 @@ export function GestionProyectosPanel() {
 
   useEffect(() => {
     void Promise.all([
-      systemApi.listEmployees({ activeOnly: true }),
+      systemApi.listClients(),
+      systemApi.listEmployeesCatalogByRole(ROLE_VENTAS),
       systemApi.listMaquinasOptimizacion(true),
     ])
-      .then(([emps, maq]) => {
-        setEmployees(Array.isArray(emps) ? emps : [])
+      .then(([clientRows, ventasRows, maq]) => {
+        setClients(Array.isArray(clientRows) ? clientRows : [])
+        setVendedores(Array.isArray(ventasRows) ? ventasRows : [])
         setMaquinas(Array.isArray(maq) ? maq : [])
       })
       .catch(() => {
-        setEmployees([])
+        setClients([])
+        setVendedores([])
         setMaquinas([])
       })
   }, [])
 
-  const employeeOptions = useMemo(
-    () =>
-      employees.map((e) => ({
-        id: e.id,
-        label: [e.firstName, e.lastName].filter(Boolean).join(' ') || e.email,
-      })),
-    [employees],
-  )
+  const clientOptions = useMemo(() => {
+    const base = clients
+      .filter((c) => c.active !== false)
+      .map((c) => ({
+        id: c.id,
+        label: clientOptionLabel(c),
+        hint: clientOptionHint(c),
+      }))
+    if (editForm?.clientUserId) {
+      const id = Number(editForm.clientUserId)
+      if (!base.some((c) => c.id === id)) {
+        const hit = clients.find((c) => c.id === id)
+        base.unshift({
+          id,
+          label: hit ? clientOptionLabel(hit) : editForm.clienteLegacy || `Cliente ${id}`,
+          hint: hit ? clientOptionHint(hit) : undefined,
+        })
+      }
+    }
+    return base.sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  }, [clients, editForm?.clientUserId, editForm?.clienteLegacy])
+
+  const vendedorOptions = useMemo(() => {
+    const base = vendedores.map((v) => ({
+      id: v.id,
+      label: v.displayName || v.email || `ID ${v.id}`,
+      hint: v.email && v.displayName ? v.email : undefined,
+    }))
+    if (editForm?.vendedorId) {
+      const id = Number(editForm.vendedorId)
+      if (!base.some((v) => v.id === id) && editRow?.vendedorNombre) {
+        base.unshift({
+          id,
+          label: `${editRow.vendedorNombre} (sin rol ventas)`,
+          hint: 'Reasigne a un vendedor activo',
+        })
+      }
+    }
+    return base
+  }, [vendedores, editForm?.vendedorId, editRow?.vendedorNombre])
 
   function applyFilters(e) {
     e?.preventDefault?.()
@@ -121,7 +170,8 @@ export function GestionProyectosPanel() {
     setEditRow(row)
     setEditForm({
       nombre: row.nombre || '',
-      cliente: row.cliente || '',
+      clientUserId: row.clientUserId ? String(row.clientUserId) : '',
+      clienteLegacy: row.cliente || '',
       referencia: '',
       descripcion: row.descripcion || '',
       vendedorId: row.vendedorId ? String(row.vendedorId) : '',
@@ -134,6 +184,7 @@ export function GestionProyectosPanel() {
         prev
           ? {
               ...prev,
+              clientUserId: project.clientUserId ? String(project.clientUserId) : prev.clientUserId,
               referencia: project.referencia || '',
               descripcion: project.descripcion || '',
               vendedorId: project.vendedorId ? String(project.vendedorId) : '',
@@ -151,12 +202,16 @@ export function GestionProyectosPanel() {
 
   async function handleSaveEdit() {
     if (!editRow || !editForm) return
+    if (!editForm.clientUserId) {
+      setActionMsg('Seleccione un cliente del listado.')
+      return
+    }
     setBusyId(editRow.id)
     setActionMsg('')
     try {
       await systemApi.updateProyectoGestion(editRow.id, {
         nombre: editForm.nombre.trim(),
-        cliente: editForm.cliente.trim() || null,
+        clientUserId: Number(editForm.clientUserId),
         referencia: editForm.referencia.trim() || null,
         descripcion: editForm.descripcion.trim() || null,
         vendedorId: editForm.vendedorId ? Number(editForm.vendedorId) : null,
@@ -365,10 +420,15 @@ export function GestionProyectosPanel() {
             </label>
             <label className="field">
               <span>Cliente</span>
-              <input
-                value={editForm.cliente}
-                onChange={(e) => setEditForm((f) => ({ ...f, cliente: e.target.value }))}
+              <SearchableSelect
+                value={editForm.clientUserId}
+                onChange={(clientUserId) => setEditForm((f) => ({ ...f, clientUserId }))}
+                options={clientOptions}
+                placeholder="Seleccionar cliente…"
               />
+              {!editForm.clientUserId && editForm.clienteLegacy ? (
+                <span className="small muted">Actual (sin vincular): {editForm.clienteLegacy}</span>
+              ) : null}
             </label>
             <label className="field">
               <span>Referencia</span>
@@ -386,17 +446,13 @@ export function GestionProyectosPanel() {
             </label>
             <label className="field">
               <span>Vendedor asignado</span>
-              <select
+              <SearchableSelect
                 value={editForm.vendedorId}
-                onChange={(e) => setEditForm((f) => ({ ...f, vendedorId: e.target.value }))}
-              >
-                <option value="">Sin asignar</option>
-                {employeeOptions.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(vendedorId) => setEditForm((f) => ({ ...f, vendedorId }))}
+                options={vendedorOptions}
+                placeholder="Seleccionar vendedor…"
+                emptyLabel="Sin asignar"
+              />
             </label>
             <label className="field">
               <span>Máquina (P_PARAMS)</span>
@@ -417,7 +473,7 @@ export function GestionProyectosPanel() {
               <button
                 type="button"
                 className="btn btn--primary"
-                disabled={busyId === editRow?.id || !editForm.nombre.trim()}
+                disabled={busyId === editRow?.id || !editForm.nombre.trim() || !editForm.clientUserId}
                 onClick={() => void handleSaveEdit()}
               >
                 Guardar cambios
