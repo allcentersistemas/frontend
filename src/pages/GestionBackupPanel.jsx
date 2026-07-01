@@ -35,6 +35,8 @@ export function GestionBackupPanel() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
+  const [progressPercent, setProgressPercent] = useState(0)
+  const [progressStage, setProgressStage] = useState('')
   const [err, setErr] = useState(null)
   const [ok, setOk] = useState(null)
 
@@ -107,11 +109,32 @@ export function GestionBackupPanel() {
 
   async function runBackupNow() {
     setRunning(true)
+    setProgressPercent(0)
+    setProgressStage('Guardando configuración…')
     setErr(null)
     setOk(null)
     try {
-      await systemApi.runBackupNowAndWait()
-      setOk('Backup ejecutado correctamente')
+      await systemApi.updateBackupConfig({
+        enabled,
+        intervalHours: Number(intervalHours),
+        scheduledHour: Number(scheduledHour),
+        saveToFolder,
+        sendByEmail,
+        emailRecipients,
+        includeBiesseDb,
+        retentionCount: Number(retentionCount),
+      })
+      const result = await systemApi.runBackupNowAndWait({
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'En curso…')
+        },
+      })
+      if (result.message?.includes('Correo no enviado')) {
+        setErr(result.message)
+      } else {
+        setOk(result.message || 'Backup ejecutado correctamente')
+      }
       const hist = await systemApi.fetchBackupHistory()
       setHistory(hist ?? [])
       const cfg = await systemApi.fetchBackupConfig()
@@ -127,6 +150,8 @@ export function GestionBackupPanel() {
       setHistory(hist ?? [])
     } finally {
       setRunning(false)
+      setProgressPercent(0)
+      setProgressStage('')
     }
   }
 
@@ -232,9 +257,13 @@ export function GestionBackupPanel() {
             </label>
             {!config?.mailAvailable ? (
               <p className="muted small form-hint">
-                SMTP desactivado. Configure APP_MAIL_ENABLED y credenciales SMTP en el servidor.
+                SMTP desactivado. Actívelo en <strong>Gestión → Configuración</strong> y pruebe el envío allí.
               </p>
-            ) : null}
+            ) : (
+              <p className="muted small form-hint">
+                Use el mismo SMTP configurado en Gestión → Configuración. Guarde antes de generar el backup.
+              </p>
+            )}
           </fieldset>
 
           {sendByEmail ? (
@@ -280,6 +309,44 @@ export function GestionBackupPanel() {
           {err ? <p className="form-inline-error">{err}</p> : null}
           {ok ? <p className="form-success">{ok}</p> : null}
 
+          {running ? (
+            <div style={{ marginTop: '1rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  marginBottom: '0.35rem',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <span>{progressStage || 'Generando backup…'}</span>
+                <span className="muted">{progressPercent}%</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progressPercent}
+                style={{
+                  height: '8px',
+                  borderRadius: '999px',
+                  background: 'var(--border, #e2e8f0)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.max(4, progressPercent)}%`,
+                    background: 'var(--accent, #2563eb)',
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
+
           <div className="form-actions">
             <button type="submit" className="btn btn--primary" disabled={saving || running}>
               {saving ? 'Guardando…' : 'Guardar configuración'}
@@ -290,7 +357,9 @@ export function GestionBackupPanel() {
               disabled={running || saving || !config?.pgDumpAvailable}
               onClick={() => void runBackupNow()}
             >
-              {running ? 'Generando backup… (puede tardar varios minutos)' : 'Generar backup ahora'}
+              {running
+                ? `Generando backup… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
+                : 'Generar backup ahora'}
             </button>
           </div>
         </form>
@@ -321,7 +390,7 @@ export function GestionBackupPanel() {
                       <span className={row.status === 'FAILED' ? 'form-inline-error' : undefined}>
                         {statusLabel(row.status)}
                       </span>
-                      {row.message && row.status === 'FAILED' ? (
+                      {row.message && (row.status === 'FAILED' || row.message.includes('Correo')) ? (
                         <div className="muted small">{row.message}</div>
                       ) : null}
                     </td>

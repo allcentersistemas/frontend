@@ -792,20 +792,26 @@ async function sleep(ms) {
 
 /** Inicia backup y espera hasta SUCCESS/FAILED (polling). */
 export async function runBackupNowAndWait(options = {}) {
-  const pollMs = options.pollMs ?? 3000
+  const pollMs = options.pollMs ?? 2000
   const maxWaitMs = options.maxWaitMs ?? 30 * 60 * 1000
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null
   const started = await runBackupNow()
   const runId = started?.id
   if (!runId) {
     throw new Error('No se recibió el id del backup')
   }
+  if (onProgress) onProgress(started)
   if (started.status === 'SUCCESS' || started.status === 'FAILED') {
+    if (started.status === 'FAILED') {
+      throw new Error(started.message || 'El backup falló')
+    }
     return started
   }
   const deadline = Date.now() + maxWaitMs
   while (Date.now() < deadline) {
     await sleep(pollMs)
     const run = await fetchBackupRun(runId)
+    if (onProgress) onProgress(run)
     if (run.status === 'SUCCESS' || run.status === 'FAILED') {
       if (run.status === 'FAILED') {
         throw new Error(run.message || 'El backup falló')
