@@ -84,6 +84,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
 
   const [editingEmployeeId, setEditingEmployeeId] = useState(null)
   const [eeSamAccountName, setEeSamAccountName] = useState('')
+  const [eeFirstName, setEeFirstName] = useState('')
   const [eeLastName, setEeLastName] = useState('')
   const [eeSecondLastName, setEeSecondLastName] = useState('')
   const [eeMobile, setEeMobile] = useState('')
