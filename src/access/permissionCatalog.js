@@ -213,6 +213,7 @@ export const ENDPOINT_CATALOG = [
       ['PUT', '/api/admin/backup/config'],
       ['POST', '/api/admin/backup/run'],
       ['GET', '/api/admin/backup/history'],
+      ['GET', '/api/admin/backup/history/{runId}'],
       ['GET', '/api/admin/backup/history/{runId}/files/{filename}'],
     ],
   },

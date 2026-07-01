@@ -4,10 +4,11 @@ import { FEATURE } from '../access/permissionCatalog'
 import { canAccessGestionHub, defaultDashboardPath } from '../access/permissions'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
-import { canViewBackupMenu, roleNamesFromEmployee } from '../auth/roles'
+import { canViewBackupMenu, canViewGestionMenu, roleNamesFromEmployee } from '../auth/roles'
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionAuditoriaPanel } from './GestionAuditoriaPanel.jsx'
 import { GestionBackupPanel } from './GestionBackupPanel.jsx'
+import { GestionConfigPanel } from './GestionConfigPanel.jsx'
 import { GestionClientesPanel } from './GestionClientesPanel.jsx'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
 import { GestionProyectosPanel } from './GestionProyectosPanel.jsx'
@@ -17,7 +18,7 @@ const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
 
 function resolveGestionTab(raw, allowedIds) {
   if (raw === 'audit') raw = 'auditoria'
-  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'clientes', 'proyectos', 'backups']
+  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'clientes', 'proyectos', 'backups', 'configuracion']
   if (raw && valid.includes(raw) && allowedIds.includes(raw)) return raw
   return allowedIds[0] ?? 'auditoria'
 }
@@ -52,8 +53,10 @@ export function GestionPage() {
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'backups', label: 'Backups', masterOnly: true },
+        { id: 'configuracion', label: 'Configuración', gestionOnly: true },
       ].filter((t) => {
         if (t.masterOnly) return canViewBackupMenu(roleNames)
+        if (t.gestionOnly) return canViewGestionMenu(roleNames)
         if (ability.can('manage', 'all')) return true
         if (t.features?.length) return t.features.some((f) => ability.can('view', f))
         return ability.can('view', t.feature)
@@ -142,6 +145,8 @@ export function GestionPage() {
         <GestionProyectosPanel />
       ) : section === 'backups' ? (
         <GestionBackupPanel />
+      ) : section === 'configuracion' ? (
+        <GestionConfigPanel />
       ) : isAdminPanel ? (
         <AdminToolsPage embedded panel={section} onPanelChange={selectSection} />
       ) : (

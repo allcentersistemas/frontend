@@ -782,6 +782,40 @@ export async function runBackupNow() {
   return systemJson('/api/admin/backup/run', { method: 'POST' })
 }
 
+export async function fetchBackupRun(runId) {
+  return systemJson(`/api/admin/backup/history/${runId}`)
+}
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Inicia backup y espera hasta SUCCESS/FAILED (polling). */
+export async function runBackupNowAndWait(options = {}) {
+  const pollMs = options.pollMs ?? 3000
+  const maxWaitMs = options.maxWaitMs ?? 30 * 60 * 1000
+  const started = await runBackupNow()
+  const runId = started?.id
+  if (!runId) {
+    throw new Error('No se recibió el id del backup')
+  }
+  if (started.status === 'SUCCESS' || started.status === 'FAILED') {
+    return started
+  }
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    await sleep(pollMs)
+    const run = await fetchBackupRun(runId)
+    if (run.status === 'SUCCESS' || run.status === 'FAILED') {
+      if (run.status === 'FAILED') {
+        throw new Error(run.message || 'El backup falló')
+      }
+      return run
+    }
+  }
+  throw new Error('El backup sigue en curso. Revise el historial en unos minutos.')
+}
+
 export async function fetchBackupHistory() {
   return systemJson('/api/admin/backup/history')
 }
@@ -802,4 +836,28 @@ export async function downloadBackupFile(runId, filename) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+/* ——— Configuración global (admin) ——— */
+
+export async function fetchAppConfig() {
+  return systemJson('/api/admin/config')
+}
+
+export async function updateAppConfig(body) {
+  return systemJson('/api/admin/config', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function testAppMail(body) {
+  await systemJson('/api/admin/config/mail/test', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function resetKardexInventory() {
+  return systemJson('/api/admin/config/kardex/reset', { method: 'POST' })
 }

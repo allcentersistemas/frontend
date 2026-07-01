@@ -48,6 +48,12 @@ export function canViewBackupMenu(roleNames) {
   return set.has(ROLE_MASTER)
 }
 
+/** Reinicio de kardex: Sistemas o Master. */
+export function canResetKardex(roleNames) {
+  const set = new Set(roleNames.map(normalizeRoleName))
+  return set.has(ROLE_MASTER) || set.has(ROLE_SISTEMAS)
+}
+
 /**
  * Shell de dashboard según rol principal.
  * Todos los roles operativos entran por uno de estos tres paths existentes.

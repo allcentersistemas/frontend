@@ -110,14 +110,19 @@ export function GestionBackupPanel() {
     setErr(null)
     setOk(null)
     try {
-      await systemApi.runBackupNow()
+      await systemApi.runBackupNowAndWait()
       setOk('Backup ejecutado correctamente')
       const hist = await systemApi.fetchBackupHistory()
       setHistory(hist ?? [])
       const cfg = await systemApi.fetchBackupConfig()
       setConfig(cfg)
     } catch (e) {
-      setErr(e?.message ?? 'El backup falló')
+      const msg = e?.message ?? 'El backup falló'
+      if (msg.includes('sigue en curso')) {
+        setOk(msg)
+      } else {
+        setErr(msg)
+      }
       const hist = await systemApi.fetchBackupHistory()
       setHistory(hist ?? [])
     } finally {
@@ -285,7 +290,7 @@ export function GestionBackupPanel() {
               disabled={running || saving || !config?.pgDumpAvailable}
               onClick={() => void runBackupNow()}
             >
-              {running ? 'Generando backup…' : 'Generar backup ahora'}
+              {running ? 'Generando backup… (puede tardar varios minutos)' : 'Generar backup ahora'}
             </button>
           </div>
         </form>
