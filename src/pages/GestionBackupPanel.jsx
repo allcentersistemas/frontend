@@ -390,7 +390,7 @@ export function GestionBackupPanel() {
                       <span className={row.status === 'FAILED' ? 'form-inline-error' : undefined}>
                         {statusLabel(row.status)}
                       </span>
-                      {row.message && (row.status === 'FAILED' || row.message.includes('Correo')) ? (
+                      {row.message ? (
                         <div className="muted small">{row.message}</div>
                       ) : null}
                     </td>
@@ -417,7 +417,12 @@ export function GestionBackupPanel() {
                             ),
                           )}
                     </td>
-                    <td className="small">{row.emailed ? 'Sí' : 'No'}</td>
+                    <td className="small">
+                      {row.emailed ? 'Sí' : 'No'}
+                      {row.emailRecipientsSent ? (
+                        <div className="muted small">→ {row.emailRecipientsSent}</div>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
