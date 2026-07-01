@@ -25,6 +25,8 @@ export const FEATURE = {
   INVENTORY_CANTOS: 'inventory.cantos',
   INVENTORY_RM: 'inventory.rm',
   PROJECT_LIST: 'project.list',
+  GESTION_CLIENTES_PORTAL: 'gestion.clientes',
+  GESTION_PROYECTOS: 'gestion.proyectos',
   DASHBOARD_RESUMEN: 'dashboard.resumen',
   BACKUP_ADMIN: 'backup.admin',
 }

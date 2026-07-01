@@ -65,6 +65,14 @@ export function TransportAuditPanel() {
           <span>Entity ID</span>
           <input value={auditFilters.entityId} onChange={(e) => setAuditFilters((f) => ({ ...f, entityId: e.target.value }))} />
         </label>
+        <label className="field">
+          <span>Correlation ID</span>
+          <input
+            value={auditFilters.correlationId}
+            onChange={(e) => setAuditFilters((f) => ({ ...f, correlationId: e.target.value }))}
+            placeholder="guía, viaje…"
+          />
+        </label>
         <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
           <CanButton I={ACTION.AUDIT} a={FEATURE.TRANSPORT_AUDIT} type="submit" className="btn btn--primary">
             Buscar
@@ -85,6 +93,7 @@ export function TransportAuditPanel() {
                 <th>Acción</th>
                 <th>Entidad</th>
                 <th>ID</th>
+                <th>Correlación</th>
                 <th>Actor</th>
                 <th>Detalle</th>
               </tr>
@@ -96,6 +105,7 @@ export function TransportAuditPanel() {
                   <td>{row.action}</td>
                   <td className="small">{row.entityType}</td>
                   <td className="small">{row.entityId ?? '—'}</td>
+                  <td className="small">{row.correlationId ?? '—'}</td>
                   <td className="small">{row.actorEmail ?? '—'}</td>
                   <td className="small">{row.details ?? '—'}</td>
                 </tr>

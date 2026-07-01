@@ -102,6 +102,7 @@ export function OrderAuditPanel() {
                     <th>Usuario</th>
                     <th>Equipo</th>
                     <th>Método</th>
+                    <th>Detalle</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,7 +111,12 @@ export function OrderAuditPanel() {
                       <td className="small">
                         {formatDateTime(row.occurred_at ?? row.occurredAt ?? row.fecha ?? row.created_at)}
                       </td>
-                      <td>{row.action ?? row.accion ?? '—'}</td>
+                      <td>
+                        {row.action ?? row.accion ?? '—'}
+                        {row.exito === false ? (
+                          <span className="text-warn small"> · falló</span>
+                        ) : null}
+                      </td>
                       <td className="small">{row.orderid ?? row.orderId ?? '—'}</td>
                       <td className="small">{row.partid ?? row.partId ?? '—'}</td>
                       <td className="small" title={String(auditPick(row, 'usuarioid', 'usuarioId') ?? '')}>
@@ -122,6 +128,9 @@ export function OrderAuditPanel() {
                         {auditPick(row, 'equipo') ?? '—'}
                       </td>
                       <td className="small">{auditPick(row, 'metodo') ?? '—'}</td>
+                      <td className="small" title={String(auditPick(row, 'detalles') ?? '')}>
+                        {auditPick(row, 'detalles') ?? '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

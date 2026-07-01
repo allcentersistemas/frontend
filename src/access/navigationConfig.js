@@ -27,6 +27,8 @@ export const SIDEBAR_MENU = [
     features: [
       FEATURE.TRANSPORT_VEHICLES,
       FEATURE.EMPLOYEE_ADMIN,
+      FEATURE.GESTION_CLIENTES_PORTAL,
+      FEATURE.GESTION_PROYECTOS,
       FEATURE.BIESSE_AUDIT,
       FEATURE.PALES_AUDIT,
       FEATURE.TRANSPORT_AUDIT,
@@ -58,7 +60,11 @@ export function sidebarSectionsForDashboard(role, ability, employee = null) {
       return canViewResumenMenu(roleNames)
     }
     if (item.menu === 'gestion') {
-      return canViewGestionMenu(roleNames)
+      if (canViewGestionMenu(roleNames)) return true
+      return (
+        ability.can('view', FEATURE.GESTION_CLIENTES_PORTAL) ||
+        ability.can('view', FEATURE.GESTION_PROYECTOS)
+      )
     }
     if (item.menu === 'inventario') {
       return item.features.some((f) => ability.can('view', f))

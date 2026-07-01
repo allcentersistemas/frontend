@@ -83,7 +83,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   const [ceOk, setCeOk] = useState(null)
 
   const [editingEmployeeId, setEditingEmployeeId] = useState(null)
-  const [eeFirstName, setEeFirstName] = useState('')
+  const [eeSamAccountName, setEeSamAccountName] = useState('')
   const [eeLastName, setEeLastName] = useState('')
   const [eeSecondLastName, setEeSecondLastName] = useState('')
   const [eeMobile, setEeMobile] = useState('')
@@ -94,6 +94,8 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   const [eeNotifyEmail, setEeNotifyEmail] = useState(false)
   const [eeResetBusy, setEeResetBusy] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
+  const [debouncedEmpSearch, setDebouncedEmpSearch] = useState('')
+  const [empLoading, setEmpLoading] = useState(false)
   const [employeeMode, setEmployeeMode] = useState('list')
   const [eeBusy, setEeBusy] = useState(false)
   const [eeErr, setEeErr] = useState(null)
@@ -118,21 +120,46 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   }, [panel, canManage, refreshKey])
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedEmpSearch(empSearch), 300)
+    return () => window.clearTimeout(timer)
+  }, [empSearch])
+
+  useEffect(() => {
+    if (panel !== 'employees') return undefined
     let cancelled = false
     ;(async () => {
+      setEmpLoading(true)
+      setErr(null)
+      try {
+        const [list, branches] = await Promise.all([
+          systemApi.listEmployees({ activeOnly: true, q: debouncedEmpSearch }),
+          systemApi.listBranches(),
+        ])
+        if (!cancelled) {
+          setEmp(list)
+          setBranchOptions(branches)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : 'Sin permiso o error de red')
+        }
+      } finally {
+        if (!cancelled) setEmpLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [panel, refreshKey, debouncedEmpSearch])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (panel === 'employees') return
       setErr(null)
       setLoading(true)
       try {
-        if (panel === 'employees') {
-          const [list, branches] = await Promise.all([
-            systemApi.listEmployees({ activeOnly: true, q: empSearch }),
-            systemApi.listBranches(),
-          ])
-          if (!cancelled) {
-            setEmp(list)
-            setBranchOptions(branches)
-          }
-        } else if (panel === 'roles') {
+        if (panel === 'roles') {
           const r = await systemApi.listRoles()
           if (!cancelled) setRoles(r)
         } else if (panel === 'ubicaciones') {
@@ -155,7 +182,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
     return () => {
       cancelled = true
     }
-  }, [panel, refreshKey, empSearch])
+  }, [panel, refreshKey])
 
   async function submitCreateRole(e) {
     e.preventDefault()
@@ -253,6 +280,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   function startEditEmployee(row) {
     setEmployeeMode('edit')
     setEditingEmployeeId(row.id)
+    setEeSamAccountName(row.samAccountName ?? '')
     setEeFirstName(row.firstName ?? '')
     setEeLastName(row.lastName ?? '')
     setEeSecondLastName(row.secondLastName ?? '')
@@ -325,9 +353,14 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       setEeErr('Selecciona al menos un rol para el usuario.')
       return
     }
+    if (eeSamAccountName.trim().length < 2) {
+      setEeErr('El usuario de login debe tener al menos 2 caracteres.')
+      return
+    }
     setEeBusy(true)
     try {
       const body = {
+        samAccountName: eeSamAccountName.trim(),
         firstName: eeFirstName.trim(),
         lastName: eeLastName.trim(),
         secondLastName: eeSecondLastName.trim() || '',
@@ -516,9 +549,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
         <div className="card pad">
           <p className="text-warn">{err}</p>
         </div>
-      ) : loading ? (
-        <p className="muted">Cargando…</p>
-      ) : panel === 'employees' && emp ? (
+      ) : panel === 'employees' ? (
         <>
           <div
             className="card pad"
@@ -736,6 +767,9 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
 
           {employeeMode === 'list' ? (
           <div className="card card--table">
+            {empLoading ? (
+              <p className="muted pad small">Buscando…</p>
+            ) : null}
             <div className="table-wrap">
               <table className="table">
                 <thead>
@@ -749,14 +783,14 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   </tr>
                 </thead>
                 <tbody>
-                  {emp.length === 0 ? (
+                  {(emp ?? []).length === 0 && !empLoading ? (
                     <tr>
                       <td colSpan={canManage ? 6 : 5} className="muted small">
                         No hay usuarios activos que coincidan con la búsqueda.
                       </td>
                     </tr>
                   ) : null}
-                  {emp.map((e) => (
+                  {(emp ?? []).map((e) => (
                     <tr key={e.id}>
                       <td>{e.employeeCode}</td>
                       <td>{e.email}</td>
@@ -802,6 +836,29 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
               <form onSubmit={(e) => void submitEditEmployee(e)}>
                 <div className="form-row-2">
                   <label className="field">
+                    <span>Usuario (login)</span>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={eeSamAccountName}
+                      onChange={(e) => setEeSamAccountName(e.target.value)}
+                      required
+                      placeholder=""
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Activo</span>
+                    <select
+                      value={eeActive ? 'true' : 'false'}
+                      onChange={(e) => setEeActive(e.target.value === 'true')}
+                    >
+                      <option value="true">Sí</option>
+                      <option value="false">No</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="form-row-2">
+                  <label className="field">
                     <span>Nombre</span>
                     <input
                       value={eeFirstName}
@@ -844,16 +901,6 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                           {b.nombre}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Activo</span>
-                    <select
-                      value={eeActive ? 'true' : 'false'}
-                      onChange={(e) => setEeActive(e.target.value === 'true')}
-                    >
-                      <option value="true">Sí</option>
-                      <option value="false">No</option>
                     </select>
                   </label>
                 </div>
@@ -922,6 +969,8 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
             </div>
           ) : null}
         </>
+      ) : loading ? (
+        <p className="muted">Cargando…</p>
       ) : panel === 'ubicaciones' && branchOptions != null && locations != null ? (
         <>
           {canManage ? (

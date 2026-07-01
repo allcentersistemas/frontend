@@ -11,6 +11,7 @@ export const ROLE_CALIDAD = 'CALIDAD'
 export const ROLE_DESPACHO = 'DESPACHO'
 export const ROLE_PRODUCCION = 'PRODUCCION'
 export const ROLE_VENTAS = 'VENTAS'
+export const ROLE_ADMIN_VENTAS = 'ADMIN_VENTAS'
 /** @deprecated Usar GERENCIA o ADMIN */
 export const ROLE_ADMIN_PRODUCCION = 'ADMIN_PRODUCCION'
 
@@ -62,6 +63,7 @@ export function dashboardForRoles(roleNames) {
     set.has(ROLE_PRODUCCION) ||
     set.has(ROLE_PROCESOS) ||
     set.has(ROLE_VENTAS) ||
+    set.has(ROLE_ADMIN_VENTAS) ||
     set.has(ROLE_CALIDAD)
   ) {
     return 'produccion'

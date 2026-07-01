@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { FEATURE } from '../access/permissionCatalog'
-import { canViewGestion, defaultInventoryPath } from '../access/permissions'
+import { canAccessGestionHub, defaultDashboardPath } from '../access/permissions'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { canViewBackupMenu, roleNamesFromEmployee } from '../auth/roles'
@@ -47,8 +47,8 @@ export function GestionPage() {
           ],
         },
         { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
-        { id: 'clientes', label: 'Clientes portal', feature: FEATURE.EMPLOYEE_ADMIN },
-        { id: 'proyectos', label: 'Proyectos', feature: FEATURE.EMPLOYEE_ADMIN },
+        { id: 'clientes', label: 'Clientes portal', feature: FEATURE.GESTION_CLIENTES_PORTAL },
+        { id: 'proyectos', label: 'Proyectos', feature: FEATURE.GESTION_PROYECTOS },
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'backups', label: 'Backups', masterOnly: true },
@@ -110,8 +110,8 @@ export function GestionPage() {
     }
   }, [searchParams, selectSection, setSearchParams, allowedIds, section])
 
-  if (!canViewGestion(employee)) {
-    return <Navigate to={defaultInventoryPath(base, employee)} replace />
+  if (!canAccessGestionHub(employee)) {
+    return <Navigate to={defaultDashboardPath(allowedDashboard, employee)} replace />
   }
 
   return (

@@ -14,6 +14,7 @@ import {
   ROLE_SEGURIDAD,
   ROLE_SISTEMAS,
   ROLE_VENTAS,
+  ROLE_ADMIN_VENTAS,
 } from '../auth/roles'
 
 /**
@@ -61,14 +62,28 @@ export const PORTAL_ACCESS_MODULES = [
     label: 'Inventario · Tableros (planilla cliente)',
     description: 'Alta manual del catálogo de tableros',
     features: [FEATURE.INVENTORY_TABLEROS],
-    suggestedRoles: [ROLE_VENTAS, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+    suggestedRoles: [ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
   },
   {
     id: 'cantos',
     label: 'Inventario · Cantos (planilla cliente)',
     description: 'Alta manual del catálogo de cantos',
     features: [FEATURE.INVENTORY_CANTOS],
-    suggestedRoles: [ROLE_VENTAS, ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+    suggestedRoles: [ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+  },
+  {
+    id: 'gestion_clientes_portal',
+    label: 'Gestión · Clientes portal',
+    description: 'Alta y edición de usuarios del portal cliente',
+    features: [FEATURE.GESTION_CLIENTES_PORTAL],
+    suggestedRoles: [ROLE_ADMIN_VENTAS],
+  },
+  {
+    id: 'gestion_proyectos',
+    label: 'Gestión · Proyectos optimización',
+    description: 'Asignación de clientes, vendedores y máquinas en proyectos',
+    features: [FEATURE.GESTION_PROYECTOS],
+    suggestedRoles: [ROLE_ADMIN_VENTAS],
   },
   {
     id: 'rm',
@@ -96,7 +111,7 @@ export const PORTAL_ACCESS_MODULES = [
     label: 'Proyecto optimización',
     description: 'Listado y gestión de proyectos de optimización / planilla de corte',
     features: [FEATURE.PROJECT_LIST],
-    suggestedRoles: [ROLE_VENTAS, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
+    suggestedRoles: [ROLE_VENTAS, ROLE_ADMIN_VENTAS, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
   },
   {
     id: 'api',
@@ -175,9 +190,16 @@ export const ACCESS_TEMPLATES = [
   {
     id: 'ventas',
     label: 'Ventas',
-    description: 'Consulta operativa (crear/leer)',
-    moduleIds: ['ordenes', 'proyecto-optimizacion'],
+    description: 'Proyecto optimización (crear/leer)',
+    moduleIds: ['proyecto-optimizacion'],
     roleNames: [ROLE_VENTAS],
+  },
+  {
+    id: 'admin_ventas',
+    label: 'Admin ventas',
+    description: 'Proyectos, clientes portal y gestión comercial',
+    moduleIds: ['proyecto-optimizacion', 'gestion_clientes_portal', 'gestion_proyectos'],
+    roleNames: [ROLE_ADMIN_VENTAS],
   },
   {
     id: 'admin_prod',

@@ -22,6 +22,15 @@ export function canViewGestion(employee) {
   return canViewGestionMenu(roleNamesFromEmployee(employee))
 }
 
+/** Acceso al hub Gestión (admin completo o solo clientes/proyectos ventas). */
+export function canAccessGestionHub(employee) {
+  return (
+    canViewGestion(employee) ||
+    canAccessFeature(employee, FEATURE.GESTION_CLIENTES_PORTAL) ||
+    canAccessFeature(employee, FEATURE.GESTION_PROYECTOS)
+  )
+}
+
 export function canManageEmployees(employee) {
   return canAccessFeature(employee, FEATURE.EMPLOYEE_ADMIN, ACTION.VIEW)
 }
@@ -48,11 +57,17 @@ export function defaultInventoryPath(base, employee) {
   return `${base}/inventario`
 }
 
-/** Ruta inicial tras login (CASL: resumen vs hub inventario). */
+/** Ruta inicial tras login (CASL: resumen vs inventario vs proyectos). */
 export function defaultDashboardPath(dashboardRole, employee) {
   const base = dashboardPath(dashboardRole)
   if (canViewResumen(employee)) {
     return base
   }
-  return defaultInventoryPath(base, employee)
+  if (canViewInventoryHub(employee)) {
+    return defaultInventoryPath(base, employee)
+  }
+  if (canAccessFeature(employee, FEATURE.PROJECT_LIST)) {
+    return `${base}/proyecto-optimizacion`
+  }
+  return `${base}/perfil`
 }
