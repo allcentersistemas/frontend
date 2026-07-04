@@ -197,7 +197,17 @@ export async function auditEntries(pageOrOpts = 0, size) {
   if (opts.sort != null && String(opts.sort).trim() !== '') {
     q.append('sort', String(opts.sort).trim())
   }
+  if (opts.entityType != null && String(opts.entityType).trim() !== '') {
+    q.set('entityType', String(opts.entityType).trim())
+  }
+  if (opts.entityId != null && String(opts.entityId).trim() !== '') {
+    q.set('entityId', String(opts.entityId).trim())
+  }
   return systemJson(`/api/audit/entries?${q}`)
+}
+
+export async function listAuditEmployeeDirectory() {
+  return systemJson('/api/employees/audit-directory')
 }
 
 export async function getAuditEntryById(id) {

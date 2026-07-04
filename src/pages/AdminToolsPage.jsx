@@ -3,7 +3,8 @@ import * as systemApi from '../api/systemApi'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
-import { EmployeeAccessPicker } from '../components/EmployeeAccessPicker'
+import { EmployeeRolePicker } from '../components/EmployeeRolePicker'
+import { RoleAccessPicker } from '../components/RoleAccessPicker'
 import { validatePassword, isStrongPassword } from '../utils/passwordPolicy'
 
 const DOCUMENT_TYPES = ['DNI', 'NIE', 'PASSPORT', 'RESIDENCE_PERMIT', 'OTHER']
@@ -53,6 +54,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
 
   const [editingRoleId, setEditingRoleId] = useState(null)
   const [erDesc, setErDesc] = useState('')
+  const [erPermissions, setErPermissions] = useState([])
   const [erBusy, setErBusy] = useState(false)
   const [erErr, setErErr] = useState(null)
   const [erOk, setErOk] = useState(null)
@@ -61,6 +63,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
 
   const [crName, setCrName] = useState('')
   const [crDesc, setCrDesc] = useState('')
+  const [crPermissions, setCrPermissions] = useState([])
   const [crBusy, setCrBusy] = useState(false)
   const [crErr, setCrErr] = useState(null)
   const [crOk, setCrOk] = useState(null)
@@ -194,10 +197,12 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       const created = await systemApi.createRole({
         name: crName.trim(),
         description: crDesc.trim() || undefined,
+        permissions: crPermissions,
       })
       setCrOk(`Rol "${created.name}" creado.`)
       setCrName('')
       setCrDesc('')
+      setCrPermissions([])
       bump()
     } catch (ex) {
       setCrErr(ex instanceof Error ? ex.message : 'Error al crear rol')
@@ -443,6 +448,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
   function startEditRole(row) {
     setEditingRoleId(row.id)
     setErDesc(row.description ?? '')
+    setErPermissions(Array.isArray(row.permissions) ? row.permissions : [])
     setErErr(null)
     setErOk(null)
   }
@@ -453,6 +459,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
       setErErr(null)
       setErOk(null)
       setErDesc('')
+      setErPermissions([])
     }
   }, [panel])
 
@@ -461,6 +468,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
     setErErr(null)
     setErOk(null)
     setErDesc('')
+    setErPermissions([])
   }
 
   async function submitEditRole(e) {
@@ -472,10 +480,12 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
     try {
       await systemApi.patchRole(editingRoleId, {
         description: erDesc.trim() || undefined,
+        permissions: erPermissions,
       })
       setErOk('Rol actualizado.')
       setEditingRoleId(null)
       setErDesc('')
+      setErPermissions([])
       bump()
     } catch (ex) {
       setErErr(ex instanceof Error ? ex.message : 'Error al actualizar rol')
@@ -618,19 +628,12 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   </label>
                 </div>
                 <div className="field">
-                  <span>Accesos al portal *</span>
-                  {roleOptions.length === 0 ? (
-                    <p className="form-inline-error">
-                      No hay roles en el sistema. Crea roles en la pestaña «Roles» y vuelve aquí.
-                    </p>
-                  ) : (
-                    <EmployeeAccessPicker
-                      roleOptions={roleOptions}
-                      roleIds={ceRoleIds}
-                      onRoleIdsChange={setCeRoleIds}
-                      disabled={ceBusy}
-                    />
-                  )}
+                  <EmployeeRolePicker
+                    roleOptions={roleOptions}
+                    roleIds={ceRoleIds}
+                    onRoleIdsChange={setCeRoleIds}
+                    disabled={ceBusy}
+                  />
                 </div>
                 <div className="form-row-2">
                   <label className="field">
@@ -905,15 +908,12 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                     </select>
                   </label>
                 </div>
-                <div className="field">
-                  <span>Accesos al portal *</span>
-                  <EmployeeAccessPicker
-                    roleOptions={roleOptions}
-                    roleIds={eeRoleIds}
-                    onRoleIdsChange={setEeRoleIds}
-                    disabled={eeBusy}
-                  />
-                </div>
+                <EmployeeRolePicker
+                  roleOptions={roleOptions}
+                  roleIds={eeRoleIds}
+                  onRoleIdsChange={setEeRoleIds}
+                  disabled={eeBusy}
+                />
                 <div className="field" style={{ marginTop: '1rem' }}>
                   <span>Restablecer contraseña (admin)</span>
                   <p className="muted small form-hint">
@@ -1130,6 +1130,11 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                     />
                   </label>
                 </div>
+                <RoleAccessPicker
+                  permissions={crPermissions}
+                  onPermissionsChange={setCrPermissions}
+                  disabled={crBusy}
+                />
                 {crErr ? <p className="form-inline-error">{crErr}</p> : null}
                 {crOk ? <p className="form-success">{crOk}</p> : null}
                 <div className="form-actions">
@@ -1154,6 +1159,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   <tr>
                     <th>Nombre</th>
                     <th>Descripción</th>
+                    <th>Permisos</th>
                     {canManage ? <th>Acciones</th> : null}
                   </tr>
                 </thead>
@@ -1162,6 +1168,7 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                     <tr key={r.id}>
                       <td>{r.name}</td>
                       <td>{r.description ?? '—'}</td>
+                      <td className="small">{Array.isArray(r.permissions) ? r.permissions.length : 0}</td>
                       {canManage ? (
                         <td className="small">
                           <button type="button" className="btn btn--ghost" onClick={() => startEditRole(r)}>
@@ -1193,6 +1200,11 @@ export function AdminToolsPage({ embedded = false, panel: panelProp, onPanelChan
                   <span>Descripción</span>
                   <input value={erDesc} onChange={(e) => setErDesc(e.target.value)} />
                 </label>
+                <RoleAccessPicker
+                  permissions={erPermissions}
+                  onPermissionsChange={setErPermissions}
+                  disabled={erBusy}
+                />
                 {erErr ? <p className="form-inline-error">{erErr}</p> : null}
                 {erOk ? <p className="form-success">{erOk}</p> : null}
                 <div className="form-actions">

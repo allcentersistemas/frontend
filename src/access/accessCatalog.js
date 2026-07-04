@@ -258,6 +258,55 @@ export function roleIdsFromNames(roleOptions, roleNames) {
   return roleOptions.filter((r) => wanted.has(String(r.name).trim().toUpperCase().replace(/-/g, '_'))).map((r) => r.id)
 }
 
+/** Convierte módulos marcados en reglas CASL para persistir en el rol. */
+export function permissionRulesFromModules(moduleIds) {
+  const rules = []
+  const seen = new Set()
+  function push(action, subject) {
+    const key = `${action}:${subject}`
+    if (seen.has(key)) return
+    seen.add(key)
+    rules.push({ action, subject })
+  }
+  for (const mod of PORTAL_ACCESS_MODULES) {
+    if (!moduleIds.includes(mod.id)) continue
+    for (const feature of mod.features ?? []) {
+      if (mod.id === 'gestion_admin') {
+        push(ACTION.VIEW, feature)
+        push(ACTION.AUDIT, feature)
+        if (feature === FEATURE.EMPLOYEE_ADMIN) {
+          for (const a of [ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE]) push(a, feature)
+        }
+        if (feature === FEATURE.LOCATION_CATALOG) {
+          for (const a of [ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE]) push(a, feature)
+        }
+      } else if (mod.id === 'resumen' || mod.id === 'api') {
+        push(ACTION.VIEW, feature)
+      } else if (mod.id === 'gestion_clientes_portal' || mod.id === 'gestion_proyectos') {
+        for (const a of [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.CANCEL]) push(a, feature)
+      } else {
+        for (const a of [ACTION.VIEW, ACTION.CREATE, ACTION.CLOSE]) push(a, feature)
+      }
+    }
+  }
+  return rules
+}
+
+/** Aproxima qué módulos cubren las reglas guardadas (para editar rol). */
+export function moduleIdsFromPermissionRules(rules) {
+  if (!rules?.length) return []
+  const set = new Set(rules.map((r) => `${r.action}:${r.subject}`))
+  if (set.has('manage:all')) return PORTAL_ACCESS_MODULES.map((m) => m.id)
+  const ids = []
+  for (const mod of PORTAL_ACCESS_MODULES) {
+    const expected = permissionRulesFromModules([mod.id])
+    if (expected.length > 0 && expected.every((r) => set.has(`${r.action}:${r.subject}`))) {
+      ids.push(mod.id)
+    }
+  }
+  return ids
+}
+
 /** Acciones resumidas para vista previa */
 export const ACTION_LABELS = {
   [ACTION.VIEW]: 'Ver',

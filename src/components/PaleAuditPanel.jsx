@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 
+function paleCreatorLabel(row) {
+  return row.actorEmail ?? (row.actorEmployeeId != null ? `#${row.actorEmployeeId}` : '—')
+}
+
 function formatDateTime(value) {
   if (!value) return '—'
   const d = new Date(value)
@@ -87,7 +91,7 @@ export function PaleAuditPanel() {
                     <th>Fecha</th>
                     <th>Acción</th>
                     <th>Pale</th>
-                    <th>Usuario</th>
+                    <th>Creado / usuario</th>
                     <th>Detalle</th>
                   </tr>
                 </thead>
@@ -96,10 +100,12 @@ export function PaleAuditPanel() {
                     <tr key={row.id ?? `${row.paleid}-${index}`}>
                       <td className="small">{formatDateTime(row.occurred_at ?? row.occurredAt ?? row.created_at)}</td>
                       <td>{row.action ?? row.accion ?? '—'}</td>
-                      <td className="small">{row.paleid ?? row.paleId ?? row.paleCodigo ?? '—'}</td>
-                      <td className="small" title={row.actorEmail ?? row.userAgent ?? ''}>
-                        {row.actorEmail ??
-                          (row.actorEmployeeId != null ? `#${row.actorEmployeeId}` : '—')}
+                      <td className="small">{row.paleCodigo ?? row.paleid ?? row.paleId ?? '—'}</td>
+                      <td className="small" title={paleCreatorLabel(row)}>
+                        {paleCreatorLabel(row)}
+                        {(row.action === 'CREATE' || row.accion === 'CREATE') ? (
+                          <span className="small muted"> · creador</span>
+                        ) : null}
                       </td>
                       <td className="small" title={String(row.details ?? '')}>
                         {row.details ?? '—'}

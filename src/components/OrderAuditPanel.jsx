@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as biesseApi from '../api/biesseApi'
+import * as systemApi from '../api/systemApi'
 import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 import { auditPick } from '../utils/auditDisplay.js'
+import { biesseActorLabel, parseBiesseAuditDetails } from '../utils/biesseAuditParse.js'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -13,8 +15,22 @@ function formatDateTime(value) {
 export function OrderAuditPanel() {
   const [filters, setFilters] = useState({ orderId: '', partId: '', action: '' })
   const [rows, setRows] = useState([])
+  const [employeeMap, setEmployeeMap] = useState(new Map())
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    void systemApi
+      .listAuditEmployeeDirectory()
+      .then((list) => {
+        const map = new Map()
+        for (const e of Array.isArray(list) ? list : []) {
+          if (e?.id != null) map.set(Number(e.id), e)
+        }
+        setEmployeeMap(map)
+      })
+      .catch(() => setEmployeeMap(new Map()))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +55,28 @@ export function OrderAuditPanel() {
       cancelled = true
     }
   }, [filters.orderId, filters.partId, filters.action])
+
+  const enrichedRows = useMemo(
+    () =>
+      rows.map((row, index) => {
+        const parsed = parseBiesseAuditDetails(row)
+        return {
+          key: row.id ?? `${row.orderid}-${row.partid}-${index}`,
+          fecha: row.occurred_at ?? row.occurredAt ?? row.fecha ?? row.created_at,
+          accion: row.action ?? row.accion ?? '—',
+          exito: row.exito,
+          orderId: row.orderid ?? row.orderId ?? '—',
+          partId: row.partid ?? row.partId ?? '—',
+          piezaId: parsed.piezaId ?? '—',
+          paleCodigo: parsed.paleCodigo ?? '—',
+          actor: biesseActorLabel(row, employeeMap),
+          equipo: auditPick(row, 'equipo') ?? '—',
+          metodo: auditPick(row, 'metodo') ?? '—',
+          detalles: parsed.detalles || '—',
+        }
+      }),
+    [rows, employeeMap],
+  )
 
   const toolbar = (
     <ModuleFilterGrid>
@@ -65,7 +103,7 @@ export function OrderAuditPanel() {
         <input
           value={filters.action}
           onChange={(e) => setFilters((s) => ({ ...s, action: e.target.value }))}
-          placeholder="ESCANEAR, UPDATE…"
+          placeholder="ESCANEAR, ESCANEAR_PIEZA…"
         />
       </label>
       <div className="field" style={{ justifyContent: 'flex-end' }}>
@@ -84,7 +122,7 @@ export function OrderAuditPanel() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h2 className="card__title">Auditoría de órdenes</h2>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Trazabilidad contextual de escaneos y cambios registrados para órdenes Biesse.
+          Quién escaneó, en qué orden, parte, pieza y palé (si aplica).
         </p>
       </div>
 
@@ -99,44 +137,38 @@ export function OrderAuditPanel() {
                     <th>Acción</th>
                     <th>Orden</th>
                     <th>Parte</th>
+                    <th>Pieza</th>
+                    <th>Palé</th>
                     <th>Usuario</th>
                     <th>Equipo</th>
-                    <th>Método</th>
                     <th>Detalle</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={row.id ?? `${row.orderid}-${row.partid}-${index}`}>
-                      <td className="small">
-                        {formatDateTime(row.occurred_at ?? row.occurredAt ?? row.fecha ?? row.created_at)}
-                      </td>
+                  {enrichedRows.map((row) => (
+                    <tr key={row.key}>
+                      <td className="small">{formatDateTime(row.fecha)}</td>
                       <td>
-                        {row.action ?? row.accion ?? '—'}
-                        {row.exito === false ? (
-                          <span className="text-warn small"> · falló</span>
-                        ) : null}
+                        {row.accion}
+                        {row.exito === false ? <span className="text-warn small"> · falló</span> : null}
                       </td>
-                      <td className="small">{row.orderid ?? row.orderId ?? '—'}</td>
-                      <td className="small">{row.partid ?? row.partId ?? '—'}</td>
-                      <td className="small" title={String(auditPick(row, 'usuarioid', 'usuarioId') ?? '')}>
-                        {auditPick(row, 'usuarioid', 'usuarioId') != null
-                          ? `#${auditPick(row, 'usuarioid', 'usuarioId')}`
-                          : '—'}
+                      <td className="small">{row.orderId}</td>
+                      <td className="small">{row.partId}</td>
+                      <td className="small">{row.piezaId}</td>
+                      <td className="small">{row.paleCodigo}</td>
+                      <td className="small" title={row.actor}>
+                        {row.actor}
                       </td>
-                      <td className="small" title={String(auditPick(row, 'equipo') ?? '')}>
-                        {auditPick(row, 'equipo') ?? '—'}
-                      </td>
-                      <td className="small">{auditPick(row, 'metodo') ?? '—'}</td>
-                      <td className="small" title={String(auditPick(row, 'detalles') ?? '')}>
-                        {auditPick(row, 'detalles') ?? '—'}
+                      <td className="small">{row.equipo}</td>
+                      <td className="small" title={row.detalles}>
+                        {row.detalles}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {!rows.length ? <p className="muted pad">Sin auditoría para los filtros actuales.</p> : null}
+            {!enrichedRows.length ? <p className="muted pad">Sin auditoría para los filtros actuales.</p> : null}
           </>
         ) : null}
       </ModuleListCard>

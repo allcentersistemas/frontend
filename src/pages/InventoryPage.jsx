@@ -5,7 +5,6 @@ import { RmPhotoRow } from '../components/RmAuthPhoto.jsx'
 import { CanButton } from '../components/CanButton.jsx'
 import { DetailModal } from '../components/DetailModal.jsx'
 import { categoriaLabel } from '../utils/stockCategoryLabels.js'
-import { systemApiBase } from '../config/env'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { useAppAbility } from '../access/useAppAbility'
@@ -688,8 +687,8 @@ export function InventoryPage() {
           <div className="card pad" style={{ marginBottom: '1rem' }}>
             <h1 className="card__title">Inventario · almacén</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              API <code>module-system</code>:{' '}
-              <code className="small">{systemApiBase}</code> (<code>VITE_SYSTEM_API_BASE</code>).
+
+
             </p>
           </div>
           <StockAlmacenPanel />
@@ -703,10 +702,6 @@ export function InventoryPage() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h1 className="card__title">Inventario / recepción (module-system)</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Consulta de registros enviados desde la app móvil. RM:{' '}
-          <code className="small">{systemApiBase}</code>
-          {' · '}
-          Flota (vehículos en entradas RM): <code className="small">{systemApiBase}</code>.
         </p>
         {vehiculoIndexErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>

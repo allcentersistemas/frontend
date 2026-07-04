@@ -2,25 +2,36 @@ import { AbilityBuilder, createMongoAbility } from '@casl/ability'
 import { normalizeRoleName } from '../auth/roles'
 import { PUBLIC_AUTHENTICATED_PERMISSIONS, ROLE_PERMISSIONS } from './rolePermissions'
 
-function roleSetFor(employee) {
-  return new Set((employee?.roles ?? []).map((r) => normalizeRoleName(r.name)))
+function applyRule(can, rule) {
+  if (!rule?.action || !rule?.subject) return
+  const actions = Array.isArray(rule.action) ? rule.action : [rule.action]
+  for (const action of actions) {
+    can(action, rule.subject)
+  }
 }
 
 export function buildAbilityFor(employee) {
   const { can, build } = new AbilityBuilder(createMongoAbility)
-  const roles = roleSetFor(employee)
 
   if (!employee) {
     return build()
   }
 
   for (const rule of PUBLIC_AUTHENTICATED_PERMISSIONS) {
-    can(rule.action, rule.subject)
+    applyRule(can, rule)
   }
 
-  for (const role of roles) {
-    for (const rule of ROLE_PERMISSIONS[role] ?? []) {
-      can(rule.action, rule.subject)
+  for (const role of employee.roles ?? []) {
+    const fromApi = role.permissions
+    if (Array.isArray(fromApi) && fromApi.length > 0) {
+      for (const rule of fromApi) {
+        applyRule(can, rule)
+      }
+      continue
+    }
+    const name = normalizeRoleName(role.name)
+    for (const rule of ROLE_PERMISSIONS[name] ?? []) {
+      applyRule(can, rule)
     }
   }
 
