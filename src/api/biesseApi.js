@@ -231,6 +231,8 @@ export async function listBiesseAudit(params = {}) {
   const q = new URLSearchParams()
   if (params.orderId != null && String(params.orderId).trim() !== '') q.set('orderId', String(params.orderId).trim())
   if (params.partId != null && String(params.partId).trim() !== '') q.set('partId', String(params.partId).trim())
+  if (params.orderQ != null && String(params.orderQ).trim() !== '') q.set('orderQ', String(params.orderQ).trim())
+  if (params.partQ != null && String(params.partQ).trim() !== '') q.set('partQ', String(params.partQ).trim())
   if (params.action != null && String(params.action).trim() !== '') q.set('action', String(params.action).trim())
   if (params.limit != null) q.set('limit', String(params.limit))
   if (params.offset != null) q.set('offset', String(params.offset))

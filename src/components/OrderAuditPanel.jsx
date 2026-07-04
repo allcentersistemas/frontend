@@ -3,7 +3,13 @@ import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
 import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 import { auditPick } from '../utils/auditDisplay.js'
-import { biesseActorLabel, parseBiesseAuditDetails } from '../utils/biesseAuditParse.js'
+import {
+  biesseActorLabel,
+  biesseAuditOrderLabel,
+  biesseAuditPartLabel,
+  biesseAuditPieceLabel,
+  parseBiesseAuditDetails,
+} from '../utils/biesseAuditParse.js'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -13,7 +19,7 @@ function formatDateTime(value) {
 
 /** Contenido de auditoría Biesse embebido en Órdenes (misma página, pestaña). */
 export function OrderAuditPanel() {
-  const [filters, setFilters] = useState({ orderId: '', partId: '', action: '' })
+  const [filters, setFilters] = useState({ orderQ: '', partQ: '', action: '' })
   const [rows, setRows] = useState([])
   const [employeeMap, setEmployeeMap] = useState(new Map())
   const [loading, setLoading] = useState(false)
@@ -39,8 +45,8 @@ export function OrderAuditPanel() {
       setErr(null)
       try {
         const data = await biesseApi.listBiesseAudit({
-          orderId: filters.orderId.trim() || undefined,
-          partId: filters.partId.trim() || undefined,
+          orderQ: filters.orderQ.trim() || undefined,
+          partQ: filters.partQ.trim() || undefined,
           action: filters.action.trim() || undefined,
           limit: 200,
         })
@@ -54,20 +60,20 @@ export function OrderAuditPanel() {
     return () => {
       cancelled = true
     }
-  }, [filters.orderId, filters.partId, filters.action])
+  }, [filters.orderQ, filters.partQ, filters.action])
 
   const enrichedRows = useMemo(
     () =>
       rows.map((row, index) => {
         const parsed = parseBiesseAuditDetails(row)
         return {
-          key: row.id ?? `${row.orderid}-${row.partid}-${index}`,
-          fecha: row.occurred_at ?? row.occurredAt ?? row.fecha ?? row.created_at,
-          accion: row.action ?? row.accion ?? '—',
+          key: row.auditoriaid ?? row.id ?? `${row.orderid}-${row.partid}-${index}`,
+          fecha: row.fecha ?? row.occurred_at ?? row.occurredAt ?? row.created_at,
+          accion: row.accion ?? row.action ?? '—',
           exito: row.exito,
-          orderId: row.orderid ?? row.orderId ?? '—',
-          partId: row.partid ?? row.partId ?? '—',
-          piezaId: parsed.piezaId ?? '—',
+          orden: biesseAuditOrderLabel(row, parsed),
+          parte: biesseAuditPartLabel(row, parsed),
+          pieza: biesseAuditPieceLabel(row, parsed),
           paleCodigo: parsed.paleCodigo ?? '—',
           actor: biesseActorLabel(row, employeeMap),
           equipo: auditPick(row, 'equipo') ?? '—',
@@ -83,19 +89,17 @@ export function OrderAuditPanel() {
       <label className="field">
         <span className="small">Orden</span>
         <input
-          inputMode="numeric"
-          value={filters.orderId}
-          onChange={(e) => setFilters((s) => ({ ...s, orderId: e.target.value }))}
-          placeholder="orderId"
+          value={filters.orderQ}
+          onChange={(e) => setFilters((s) => ({ ...s, orderQ: e.target.value }))}
+          placeholder="Nombre orden o #id"
         />
       </label>
       <label className="field">
         <span className="small">Parte</span>
         <input
-          inputMode="numeric"
-          value={filters.partId}
-          onChange={(e) => setFilters((s) => ({ ...s, partId: e.target.value }))}
-          placeholder="partId"
+          value={filters.partQ}
+          onChange={(e) => setFilters((s) => ({ ...s, partQ: e.target.value }))}
+          placeholder="P2 o #id"
         />
       </label>
       <label className="field">
@@ -110,7 +114,7 @@ export function OrderAuditPanel() {
         <span className="small" style={{ visibility: 'hidden' }}>
           .
         </span>
-        <button type="button" className="btn btn--ghost" onClick={() => setFilters({ orderId: '', partId: '', action: '' })}>
+        <button type="button" className="btn btn--ghost" onClick={() => setFilters({ orderQ: '', partQ: '', action: '' })}>
           Limpiar
         </button>
       </div>
@@ -122,7 +126,7 @@ export function OrderAuditPanel() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <h2 className="card__title">Auditoría de órdenes</h2>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
-          Quién escaneó, en qué orden, parte, pieza y palé (si aplica).
+          Seguimiento por nombre de orden, código de parte (p. ej. P2) y número de pieza (p. ej. Pieza 3).
         </p>
       </div>
 
@@ -152,9 +156,9 @@ export function OrderAuditPanel() {
                         {row.accion}
                         {row.exito === false ? <span className="text-warn small"> · falló</span> : null}
                       </td>
-                      <td className="small">{row.orderId}</td>
-                      <td className="small">{row.partId}</td>
-                      <td className="small">{row.piezaId}</td>
+                      <td className="small">{row.orden}</td>
+                      <td className="small">{row.parte}</td>
+                      <td className="small">{row.pieza}</td>
                       <td className="small">{row.paleCodigo}</td>
                       <td className="small" title={row.actor}>
                         {row.actor}

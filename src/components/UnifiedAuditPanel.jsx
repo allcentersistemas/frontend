@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
 import * as biesseApi from '../api/biesseApi'
 import { normalizeStickerPrintRow } from '../utils/stickerAudit.js'
+import { biesseAuditSummary } from '../utils/biesseAuditParse.js'
 
 const SOURCE_LABELS = {
   employee: 'Empleados',
@@ -91,9 +92,9 @@ export function normalizeAuditRows(source, payload) {
     occurredAt: a.fecha,
     action: a.accion,
     entityType: 'Orden/Biesse',
-    entityId: a.orderid ?? a.partid,
+    entityId: a.ordername ?? a.orderid ?? a.partcode ?? a.partid,
     actorEmail: a.usuarioid != null ? `empleado #${a.usuarioid}` : null,
-    details: [a.detalles, a.exito === false ? '(falló)' : null].filter(Boolean).join(' '),
+    details: [biesseAuditSummary(a), a.detalles, a.exito === false ? '(falló)' : null].filter(Boolean).join(' · '),
   }))
 }
 
