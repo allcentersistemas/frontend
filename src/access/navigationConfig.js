@@ -1,9 +1,10 @@
-import { canViewGestionMenu, canViewResumenMenu, roleNamesFromEmployee } from '../auth/roles'
+import { canViewGestionMenu, roleNamesFromEmployee } from '../auth/roles'
 import { FEATURE } from './permissionCatalog'
+import { ACTION } from './rolePermissions'
 
 // Un solo menú para toda la app. La visibilidad sale de CASL/rolePermissions.js.
 export const SIDEBAR_MENU = [
-  { id: 'home', segment: '', label: 'Resumen', end: true, menu: 'resumen' },
+  { id: 'home', segment: 'resumen', label: 'Resumen', end: true, menu: 'resumen', feature: FEATURE.DASHBOARD_RESUMEN },
   {
     id: 'inventario',
     segment: 'inventario',
@@ -52,12 +53,14 @@ export function sidebarSectionsForDashboard(role, ability, employee = null) {
 
   const items = SIDEBAR_MENU.filter((item) => {
     if (ability.can('manage', 'all')) {
-      if (item.menu === 'resumen') return canViewResumenMenu(roleNames)
       if (item.menu === 'gestion') return canViewGestionMenu(roleNames)
+      if (item.menu === 'resumen' || item.feature === FEATURE.DASHBOARD_RESUMEN) {
+        return ability.can('view', FEATURE.DASHBOARD_RESUMEN)
+      }
       return true
     }
-    if (item.menu === 'resumen') {
-      return canViewResumenMenu(roleNames)
+    if (item.menu === 'resumen' || item.feature === FEATURE.DASHBOARD_RESUMEN) {
+      return ability.can('view', FEATURE.DASHBOARD_RESUMEN)
     }
     if (item.menu === 'gestion') {
       if (canViewGestionMenu(roleNames)) return true

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
-import { canViewResumen, defaultInventoryPath } from '../access/permissions'
+import { canViewResumen, defaultDashboardPath } from '../access/permissions'
 import { useAuth } from '../auth/AuthContext'
 import { ResumenDashboard } from '../components/resumen/ResumenDashboard'
 import { roleDisplayName } from '../utils/adminAccess'
@@ -10,8 +10,8 @@ import { ModulePage } from '../components/module/ModuleChrome.jsx'
 
 export function ResumenPage() {
   const { role } = useParams()
-  const { employee } = useAuth()
-  const base = `/dashboard/${role ?? 'admin-produccion'}`
+  const { employee, allowedDashboard } = useAuth()
+  const base = `/dashboard/${role ?? allowedDashboard ?? 'admin-produccion'}`
   const showResumen = canViewResumen(employee)
 
   const [loading, setLoading] = useState(true)
@@ -54,7 +54,12 @@ export function ResumenPage() {
   }, [showResumen])
 
   if (!showResumen) {
-    return <Navigate to={defaultInventoryPath(base, employee)} replace />
+    return (
+      <Navigate
+        to={defaultDashboardPath(allowedDashboard ?? role ?? 'admin-produccion', employee)}
+        replace
+      />
+    )
   }
 
   return (

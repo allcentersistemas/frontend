@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, Mail } from 'lucide-react'
 
 import { useAuth } from '../auth/AuthContext'
@@ -15,9 +15,6 @@ export function LoginPage() {
   const { ready, employee, allowedDashboard, login } = useAuth()
 
   const navigate = useNavigate()
-  const location = useLocation()
-
-  const from = location.state?.from?.pathname
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -25,12 +22,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   if (ready && employee && allowedDashboard) {
-    return (
-      <Navigate
-        to={from && from !== '/login' ? from : defaultDashboardPath(allowedDashboard, employee)}
-        replace
-      />
-    )
+    return <Navigate to={defaultDashboardPath(allowedDashboard, employee)} replace />
   }
 
   async function onSubmit(e) {

@@ -1,4 +1,4 @@
-import { canViewGestionMenu, canViewResumenMenu, dashboardPath, roleNamesFromEmployee } from '../auth/roles'
+import { canViewGestionMenu, dashboardPath, roleNamesFromEmployee } from '../auth/roles'
 import { buildAbilityFor } from './ability'
 import { FEATURE } from './permissionCatalog'
 import { ACTION } from './rolePermissions'
@@ -15,7 +15,7 @@ export function canAccessFeature(employee, feature, action = ACTION.VIEW) {
 }
 
 export function canViewResumen(employee) {
-  return canViewResumenMenu(roleNamesFromEmployee(employee))
+  return canAccessFeature(employee, FEATURE.DASHBOARD_RESUMEN)
 }
 
 export function canViewGestion(employee) {
@@ -54,20 +54,26 @@ export function defaultInventoryPath(base, employee) {
   if (canAccessFeature(employee, FEATURE.PALES_LIST)) return `${base}/inventario?area=pales`
   if (canAccessFeature(employee, FEATURE.INVENTORY_GUIAS)) return `${base}/inventario?area=guias`
   if (canAccessFeature(employee, FEATURE.INVENTORY_STOCK)) return `${base}/inventario?area=stock`
-  return `${base}/inventario`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_TABLEROS)) return `${base}/inventario?area=tableros`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_CANTOS)) return `${base}/inventario?area=cantos`
+  return null
 }
 
 /** Ruta inicial tras login (CASL: resumen vs inventario vs proyectos). */
 export function defaultDashboardPath(dashboardRole, employee) {
   const base = dashboardPath(dashboardRole)
   if (canViewResumen(employee)) {
-    return base
+    return `${base}/resumen`
   }
   if (canViewInventoryHub(employee)) {
-    return defaultInventoryPath(base, employee)
+    const inv = defaultInventoryPath(base, employee)
+    if (inv) return inv
   }
   if (canAccessFeature(employee, FEATURE.PROJECT_LIST)) {
     return `${base}/proyecto-optimizacion`
+  }
+  if (canAccessGestionHub(employee)) {
+    return `${base}/gestion`
   }
   return `${base}/perfil`
 }
