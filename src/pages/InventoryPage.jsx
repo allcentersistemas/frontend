@@ -13,9 +13,9 @@ import { PalesPage } from './PalesPage'
 import {
   buildRmGuiaMap,
   buildRmVehiculoMap,
+  buildRmApiListParams,
   formatNumeroRegistro,
   rmVehiculoLabel,
-  rowMatchesRmFilters,
   rmRowNumeroGuia,
   rmRowOcGuiaLabel,
   rmRowOcNumero,
@@ -205,7 +205,7 @@ function exportRmPageCsv(tab, rows, vehiculoById, guiaById) {
           r.numeroRegistro,
           r.fecha,
           r.hora,
-          rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
+          rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r),
           rmRowOcNumero(r, guiaById),
           rmRowNumeroGuia(r, guiaById),
           r.lineas ?? '',
@@ -243,7 +243,7 @@ function exportRmPageCsv(tab, rows, vehiculoById, guiaById) {
           r.numeroRegistro,
           r.fecha,
           r.horaCabecera,
-          rmVehiculoLabel(vehiculoById, r.registroVehiculoId),
+          rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r),
           rmRowOcNumero(r, guiaById),
           rmRowNumeroGuia(r, guiaById),
           r.lineas ?? '',
@@ -378,11 +378,11 @@ export function InventoryPage() {
   const [rmFilters, setRmFilters] = useState(() => ({ ...EMPTY_RM_FILTERS }))
 
   const [tab, setTab] = useState('entradas')
-  const [clientPage, setClientPage] = useState(0)
+  const [listPage, setListPage] = useState(0)
 
-  const [allRows, setAllRows] = useState([])
-  const [listTruncated, setListTruncated] = useState(false)
-  const [listMaxItems, setListMaxItems] = useState(2000)
+  const [listRows, setListRows] = useState([])
+  const [listTotalElements, setListTotalElements] = useState(0)
+  const [listTotalPages, setListTotalPages] = useState(1)
   const [listLoading, setListLoading] = useState(false)
   const [listErr, setListErr] = useState(null)
 
@@ -405,26 +405,18 @@ export function InventoryPage() {
   const [cancelSaving, setCancelSaving] = useState(false)
   const [cancelErr, setCancelErr] = useState(null)
 
-  const [debouncedQ, setDebouncedQ] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState({ q: '', placaChofer: '' })
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedQ(rmFilters.q?.trim() ?? ''), 400)
-    return () => clearTimeout(t)
-  }, [rmFilters.q])
-
-  const filteredRows = useMemo(() => {
-    const serverTextSearch = Boolean(debouncedQ)
-    return allRows.filter((r) =>
-      rowMatchesRmFilters(tab, r, vehiculoById, rmFilters, {
-        skipTextSearch: serverTextSearch,
-        guiaById,
-      }),
+    const t = window.setTimeout(
+      () =>
+        setDebouncedSearch({
+          q: rmFilters.q?.trim() ?? '',
+          placaChofer: rmFilters.placaChofer?.trim() ?? '',
+        }),
+      400,
     )
-  }, [allRows, tab, vehiculoById, guiaById, rmFilters, debouncedQ])
-  const clientTotalPages = Math.max(1, Math.ceil(filteredRows.length / RM_LIST_PAGE_SIZE))
-  const pagedRows = useMemo(() => {
-    const start = clientPage * RM_LIST_PAGE_SIZE
-    return filteredRows.slice(start, start + RM_LIST_PAGE_SIZE)
-  }, [filteredRows, clientPage])
+    return () => clearTimeout(t)
+  }, [rmFilters.q, rmFilters.placaChofer])
 
   useEffect(() => {
     const fromUrl = resolveAreaTab(searchParams.get('area'), allowedIds)
@@ -432,7 +424,7 @@ export function InventoryPage() {
   }, [searchParams, allowedIds])
 
   const loadVehiculoIndex = useCallback(async () => {
-    if (!canViewRm || areaTab !== 'rm') return
+    if (!canViewRm || areaTab !== 'rm' || tab !== 'vehiculos') return
     setVehiculoIndexErr(null)
     try {
       const { items } = await systemApi.fetchAllPaged(
@@ -444,7 +436,7 @@ export function InventoryPage() {
       setVehiculoById(new Map())
       setVehiculoIndexErr(e instanceof Error ? e.message : 'No se pudo cargar vehículos RM')
     }
-  }, [canViewRm, areaTab])
+  }, [canViewRm, areaTab, tab])
 
   const loadGuiaIndex = useCallback(async () => {
     if (!canViewRm || areaTab !== 'rm') return
@@ -468,22 +460,37 @@ export function InventoryPage() {
       else if (tab === 'salidas') listFn = systemApi.listRegistrosSalida
       else if (tab === 'vehiculos') listFn = systemApi.listRegistrosVehiculo
       else listFn = systemApi.listActasConformidad
-      const searchQ = debouncedQ || undefined
-      const maxItems = searchQ ? 5000 : 2000
-      const { items, truncated } = await systemApi.fetchAllPaged(
-        (p) => listFn({ ...p, q: searchQ }),
-        { size: 100, maxItems },
+      const apiParams = buildRmApiListParams(
+        { ...rmFilters, q: debouncedSearch.q, placaChofer: debouncedSearch.placaChofer },
+        tab,
       )
-      setAllRows(items)
-      setListTruncated(truncated)
-      setListMaxItems(maxItems)
+      const body = await listFn({
+        page: listPage,
+        size: RM_LIST_PAGE_SIZE,
+        ...apiParams,
+      })
+      const meta = systemApi.pageMeta(body)
+      setListRows(systemApi.pageContent(body))
+      setListTotalElements(meta.totalElements)
+      setListTotalPages(Math.max(1, meta.totalPages))
     } catch (e) {
-      setAllRows([])
+      setListRows([])
+      setListTotalElements(0)
+      setListTotalPages(1)
       setListErr(e instanceof Error ? e.message : 'Error al cargar')
     } finally {
       setListLoading(false)
     }
-  }, [canViewRm, areaTab, tab, debouncedQ])
+  }, [
+    canViewRm,
+    areaTab,
+    tab,
+    listPage,
+    debouncedSearch,
+    rmFilters.fechaDesde,
+    rmFilters.fechaHasta,
+    rmFilters.tipoRegistro,
+  ])
 
   const loadTransportCatalog = useCallback(async () => {
     if (!canViewRm || areaTab !== 'rm' || !canViewTransportCatalog) {
@@ -518,16 +525,17 @@ export function InventoryPage() {
   }, [loadTransportCatalog])
 
   useEffect(() => {
-    setClientPage(0)
+    setListPage(0)
     setDetail(null)
     setDetailErr(null)
     setDetailVehiculo(null)
     setRmFilters({ ...EMPTY_RM_FILTERS })
+    setDebouncedSearch({ q: '', placaChofer: '' })
   }, [tab])
 
   useEffect(() => {
-    setClientPage(0)
-  }, [rmFilters, tab])
+    setListPage(0)
+  }, [tab, debouncedSearch, rmFilters.fechaDesde, rmFilters.fechaHasta, rmFilters.tipoRegistro])
 
   const openDetail = useCallback(
     async (id) => {
@@ -750,7 +758,7 @@ export function InventoryPage() {
               disabled={listLoading}
               onClick={() => {
                 void loadList()
-                void loadVehiculoIndex()
+                if (tab === 'vehiculos') void loadVehiculoIndex()
                 void loadGuiaIndex()
                 void loadTransportCatalog()
               }}
@@ -760,10 +768,10 @@ export function InventoryPage() {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={!filteredRows.length}
-              onClick={() => exportRmPageCsv(tab, filteredRows, vehiculoById, guiaById)}
+              disabled={!listRows.length}
+              onClick={() => exportRmPageCsv(tab, listRows, vehiculoById, guiaById)}
             >
-              CSV (filtrado)
+              CSV (página)
             </button>
           </div>
           <div className="pad" style={{ paddingTop: 0 }}>
@@ -827,14 +835,8 @@ export function InventoryPage() {
                 </button>
               </div>
             </div>
-            {listTruncated ? (
-              <p className="small muted">
-                Se cargaron como máximo {listMaxItems} registros. Ajusta filtros para acotar.
-              </p>
-            ) : null}
             <p className="small muted" style={{ margin: 0 }}>
-              {filteredRows.length} registro{filteredRows.length !== 1 ? 's' : ''} tras filtros
-              {allRows.length !== filteredRows.length ? ` (de ${allRows.length} cargados)` : ''}
+              {listTotalElements} registro{listTotalElements !== 1 ? 's' : ''} en total
             </p>
           </div>
           {listErr ? <p className="pad" style={{ color: 'var(--danger, #b00020)' }}>{listErr}</p> : null}
@@ -857,7 +859,7 @@ export function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedRows.map((r) => (
+                    {listRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
@@ -867,7 +869,7 @@ export function InventoryPage() {
                         <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.hora)}</td>
-                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
+                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r)}</td>
                         <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
@@ -895,7 +897,7 @@ export function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedRows.map((r) => (
+                    {listRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
@@ -905,7 +907,7 @@ export function InventoryPage() {
                         <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
-                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId)}</td>
+                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r)}</td>
                         <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
@@ -931,7 +933,7 @@ export function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedRows.map((r) => (
+                    {listRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
@@ -962,7 +964,7 @@ export function InventoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedRows.map((r) => (
+                    {listRows.map((r) => (
                       <tr
                         key={r.id}
                         className={detail?.id === r.id && detail?.tab === tab ? 'inv-row-selected' : undefined}
@@ -982,10 +984,8 @@ export function InventoryPage() {
                 </table>
               ) : null}
 
-              {!filteredRows.length && !listErr ? (
-                <p className="muted pad">
-                  {allRows.length ? 'Ningún registro coincide con los filtros.' : 'No hay registros.'}
-                </p>
+              {!listRows.length && !listErr ? (
+                <p className="muted pad">No hay registros.</p>
               ) : null}
             </div>
           )}
@@ -994,22 +994,22 @@ export function InventoryPage() {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={clientPage <= 0 || listLoading}
-              onClick={() => setClientPage((p) => Math.max(0, p - 1))}
+              disabled={listPage <= 0 || listLoading}
+              onClick={() => setListPage((p) => Math.max(0, p - 1))}
             >
               Anterior
             </button>
             <span className="muted small">
-              Página {clientPage + 1} de {clientTotalPages}
-              {filteredRows.length
-                ? ` · filas ${clientPage * RM_LIST_PAGE_SIZE + 1}–${Math.min((clientPage + 1) * RM_LIST_PAGE_SIZE, filteredRows.length)} de ${filteredRows.length}`
+              Página {listPage + 1} de {listTotalPages}
+              {listTotalElements
+                ? ` · filas ${listPage * RM_LIST_PAGE_SIZE + 1}–${Math.min((listPage + 1) * RM_LIST_PAGE_SIZE, listTotalElements)} de ${listTotalElements}`
                 : ''}
             </span>
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={listLoading || clientPage + 1 >= clientTotalPages}
-              onClick={() => setClientPage((p) => p + 1)}
+              disabled={listLoading || listPage + 1 >= listTotalPages}
+              onClick={() => setListPage((p) => p + 1)}
             >
               Siguiente
             </button>

@@ -111,11 +111,33 @@ export function buildRmVehiculoMap(vehiculos) {
   return m
 }
 
-export function rmVehiculoLabel(vehiculoById, registroVehiculoId) {
+export function rmVehiculoLabel(vehiculoById, registroVehiculoId, row) {
+  if (row && typeof row === 'object') {
+    const placa = rmFieldStr(row.vehiculoPlaca, row.vehiculo_placa)
+    const marca = rmFieldStr(row.vehiculoMarca, row.vehiculo_marca)
+    const chofer = rmFieldStr(row.vehiculoChofer, row.vehiculo_chofer)
+    const parts = [placa, marca, chofer].filter(Boolean)
+    if (parts.length) return parts.join(' · ')
+  }
   if (registroVehiculoId == null || registroVehiculoId === '') return '—'
   const id = Number(registroVehiculoId)
   if (Number.isNaN(id)) return '—'
   return vehiculoById.get(id)?.label ?? '—'
+}
+
+/** Parámetros de listado RM para la API (filtros en servidor). */
+export function buildRmApiListParams(filters, tab) {
+  const qParts = [filters.q?.trim()].filter(Boolean)
+  if (tab !== 'actas') {
+    const placaChofer = filters.placaChofer?.trim()
+    if (placaChofer) qParts.push(placaChofer)
+  }
+  return {
+    q: qParts.length ? qParts.join(' ') : undefined,
+    fechaDesde: filters.fechaDesde?.trim() || undefined,
+    fechaHasta: filters.fechaHasta?.trim() || undefined,
+    tipoRegistro: tab === 'actas' ? undefined : filters.tipoRegistro?.trim() || undefined,
+  }
 }
 
 function haystack(...parts) {

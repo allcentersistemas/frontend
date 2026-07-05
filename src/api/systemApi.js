@@ -623,8 +623,24 @@ export function pageMeta(body) {
   }
 }
 
-export async function listRegistrosEntrada({ page = 0, size = 20, q } = {}) {
-  return systemJson(`/api/rm/registros-entrada${qs({ page, size, q: q?.trim() || undefined })}`)
+export async function listRegistrosEntrada({
+  page = 0,
+  size = 20,
+  q,
+  fechaDesde,
+  fechaHasta,
+  tipoRegistro,
+} = {}) {
+  return systemJson(
+    `/api/rm/registros-entrada${qs({
+      page,
+      size,
+      q: q?.trim() || undefined,
+      fechaDesde: fechaDesde || undefined,
+      fechaHasta: fechaHasta || undefined,
+      tipoRegistro: tipoRegistro?.trim() || undefined,
+    })}`,
+  )
 }
 
 export async function getRegistroEntrada(id) {
@@ -638,8 +654,24 @@ export async function cancelRegistroEntrada(id, motivo) {
   })
 }
 
-export async function listRegistrosSalida({ page = 0, size = 20, q } = {}) {
-  return systemJson(`/api/rm/registros-salida${qs({ page, size, q: q?.trim() || undefined })}`)
+export async function listRegistrosSalida({
+  page = 0,
+  size = 20,
+  q,
+  fechaDesde,
+  fechaHasta,
+  tipoRegistro,
+} = {}) {
+  return systemJson(
+    `/api/rm/registros-salida${qs({
+      page,
+      size,
+      q: q?.trim() || undefined,
+      fechaDesde: fechaDesde || undefined,
+      fechaHasta: fechaHasta || undefined,
+      tipoRegistro: tipoRegistro?.trim() || undefined,
+    })}`,
+  )
 }
 
 export async function getRegistroSalida(id) {
@@ -653,8 +685,24 @@ export async function cancelRegistroSalida(id, motivo) {
   })
 }
 
-export async function listRegistrosVehiculo({ page = 0, size = 20, q } = {}) {
-  return systemJson(`/api/rm/registros-vehiculo${qs({ page, size, q: q?.trim() || undefined })}`)
+export async function listRegistrosVehiculo({
+  page = 0,
+  size = 20,
+  q,
+  fechaDesde,
+  fechaHasta,
+  tipoRegistro,
+} = {}) {
+  return systemJson(
+    `/api/rm/registros-vehiculo${qs({
+      page,
+      size,
+      q: q?.trim() || undefined,
+      fechaDesde: fechaDesde || undefined,
+      fechaHasta: fechaHasta || undefined,
+      tipoRegistro: tipoRegistro?.trim() || undefined,
+    })}`,
+  )
 }
 
 /** Recorre páginas Spring hasta traer todos los ítems (tope de seguridad). */
@@ -678,8 +726,16 @@ export async function getRegistroVehiculo(id) {
   return systemJson(`/api/rm/registros-vehiculo/${id}`)
 }
 
-export async function listActasConformidad({ page = 0, size = 20 } = {}) {
-  return systemJson(`/api/rm/actas-conformidad${qs({ page, size })}`)
+export async function listActasConformidad({ page = 0, size = 20, q, fechaDesde, fechaHasta } = {}) {
+  return systemJson(
+    `/api/rm/actas-conformidad${qs({
+      page,
+      size,
+      q: q?.trim() || undefined,
+      fechaDesde: fechaDesde || undefined,
+      fechaHasta: fechaHasta || undefined,
+    })}`,
+  )
 }
 
 export async function getActaConformidad(id) {
