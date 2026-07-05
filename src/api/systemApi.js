@@ -705,23 +705,6 @@ export async function listRegistrosVehiculo({
   )
 }
 
-/** Recorre páginas Spring hasta traer todos los ítems (tope de seguridad). */
-export async function fetchAllPaged(listFn, { size = 100, maxItems = 2000 } = {}) {
-  const all = []
-  let page = 0
-  let totalPages = 1
-  while (page < totalPages && all.length < maxItems) {
-    const body = await listFn({ page, size })
-    const chunk = pageContent(body)
-    if (Array.isArray(chunk)) all.push(...chunk)
-    const meta = pageMeta(body)
-    totalPages = Math.max(1, meta.totalPages)
-    page += 1
-    if (!chunk?.length && page >= totalPages) break
-  }
-  return { items: all, truncated: all.length >= maxItems }
-}
-
 export async function getRegistroVehiculo(id) {
   return systemJson(`/api/rm/registros-vehiculo/${id}`)
 }

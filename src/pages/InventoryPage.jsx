@@ -391,9 +391,6 @@ export function InventoryPage() {
   const [detailErr, setDetailErr] = useState(null)
   const [detailVehiculo, setDetailVehiculo] = useState(null)
 
-  const [vehiculoById, setVehiculoById] = useState(() => new Map())
-  const [vehiculoIndexErr, setVehiculoIndexErr] = useState(null)
-
   const [guiaById, setGuiaById] = useState(() => new Map())
   const [guiaIndexErr, setGuiaIndexErr] = useState(null)
 
@@ -422,21 +419,6 @@ export function InventoryPage() {
     const fromUrl = resolveAreaTab(searchParams.get('area'), allowedIds)
     setAreaTabState((current) => (current === fromUrl ? current : fromUrl))
   }, [searchParams, allowedIds])
-
-  const loadVehiculoIndex = useCallback(async () => {
-    if (!canViewRm || areaTab !== 'rm' || tab !== 'vehiculos') return
-    setVehiculoIndexErr(null)
-    try {
-      const { items } = await systemApi.fetchAllPaged(
-        (p) => systemApi.listRegistrosVehiculo(p),
-        { size: 100, maxItems: 3000 },
-      )
-      setVehiculoById(buildRmVehiculoMap(items))
-    } catch (e) {
-      setVehiculoById(new Map())
-      setVehiculoIndexErr(e instanceof Error ? e.message : 'No se pudo cargar vehículos RM')
-    }
-  }, [canViewRm, areaTab, tab])
 
   const loadGuiaIndex = useCallback(async () => {
     if (!canViewRm || areaTab !== 'rm') return
@@ -513,10 +495,6 @@ export function InventoryPage() {
   }, [loadList])
 
   useEffect(() => {
-    void loadVehiculoIndex()
-  }, [loadVehiculoIndex])
-
-  useEffect(() => {
     void loadGuiaIndex()
   }, [loadGuiaIndex])
 
@@ -558,25 +536,20 @@ export function InventoryPage() {
         setDetail({ tab, id, data })
         const rvId = data?.registroVehiculoId
         if (rvId != null && tab !== 'vehiculos') {
-          const cached = vehiculoById.get(Number(rvId))
-          if (cached) {
-            setDetailVehiculo(cached)
-          } else {
-            try {
-              const v = await systemApi.getRegistroVehiculo(rvId)
-              setDetailVehiculo(
-                buildRmVehiculoMap([v]).get(Number(rvId)) ?? {
-                  label: [v.placa, v.marca, v.chofer].filter(Boolean).join(' · ') || 'Vehículo RM',
-                  placa: v.placa,
-                  marca: v.marca,
-                  chofer: v.chofer,
-                  tipoRegistro: v.tipoRegistro,
-                  numeroRegistro: v.numeroRegistro,
-                },
-              )
-            } catch {
-              setDetailVehiculo(null)
-            }
+          try {
+            const v = await systemApi.getRegistroVehiculo(rvId)
+            setDetailVehiculo(
+              buildRmVehiculoMap([v]).get(Number(rvId)) ?? {
+                label: [v.placa, v.marca, v.chofer].filter(Boolean).join(' · ') || 'Vehículo RM',
+                placa: v.placa,
+                marca: v.marca,
+                chofer: v.chofer,
+                tipoRegistro: v.tipoRegistro,
+                numeroRegistro: v.numeroRegistro,
+              },
+            )
+          } catch {
+            setDetailVehiculo(null)
           }
         }
       } catch (e) {
@@ -585,7 +558,7 @@ export function InventoryPage() {
         setDetailLoading(false)
       }
     },
-    [canViewRm, tab, vehiculoById],
+    [canViewRm, tab],
   )
 
   const closeDetail = useCallback(() => {
@@ -711,11 +684,6 @@ export function InventoryPage() {
         <h1 className="card__title">Inventario / recepción (module-system)</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
         </p>
-        {vehiculoIndexErr ? (
-          <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
-            {vehiculoIndexErr} — el listado puede no mostrar placa/chofer en entradas y salidas.
-          </p>
-        ) : null}
         {guiaIndexErr ? (
           <p className="small" style={{ marginTop: '0.5rem', color: 'var(--danger, #b00020)' }}>
             {guiaIndexErr} — OC y guía pueden no resolverse desde guías de inventario vinculadas.
@@ -758,7 +726,6 @@ export function InventoryPage() {
               disabled={listLoading}
               onClick={() => {
                 void loadList()
-                if (tab === 'vehiculos') void loadVehiculoIndex()
                 void loadGuiaIndex()
                 void loadTransportCatalog()
               }}
@@ -769,7 +736,7 @@ export function InventoryPage() {
               type="button"
               className="btn btn--ghost"
               disabled={!listRows.length}
-              onClick={() => exportRmPageCsv(tab, listRows, vehiculoById, guiaById)}
+              onClick={() => exportRmPageCsv(tab, listRows, new Map(), guiaById)}
             >
               CSV (página)
             </button>
@@ -869,7 +836,7 @@ export function InventoryPage() {
                         <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.hora)}</td>
-                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r)}</td>
+                        <td className="small">{rmVehiculoLabel(new Map(), r.registroVehiculoId, r)}</td>
                         <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('entradas', r)}</td>
                         <td className="small">
@@ -907,7 +874,7 @@ export function InventoryPage() {
                         <td>{formatNumeroRegistro(r.numeroRegistro)}</td>
                         <td>{esc(r.fecha)}</td>
                         <td className="small">{esc(r.horaCabecera)}</td>
-                        <td className="small">{rmVehiculoLabel(vehiculoById, r.registroVehiculoId, r)}</td>
+                        <td className="small">{rmVehiculoLabel(new Map(), r.registroVehiculoId, r)}</td>
                         <td className="small">{rmRowOcGuiaLabel(r, guiaById)}</td>
                         <td className="small">{rmEstadoDisplay('salidas', r)}</td>
                         <td className="small">
@@ -1036,7 +1003,8 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.hora)}</dd>
                 <dt>Vehículo (RM)</dt>
                 <dd className="small">
-                  {detailVehiculo?.label ?? rmVehiculoLabel(vehiculoById, detail.data.registroVehiculoId)}
+                  {detailVehiculo?.label ??
+                    rmVehiculoLabel(new Map(), detail.data.registroVehiculoId, detail.data)}
                   {detailVehiculo?.tipoRegistro ? (
                     <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
                       Tipo: {tipoRegistroLabel(detailVehiculo.tipoRegistro)}
@@ -1105,7 +1073,8 @@ export function InventoryPage() {
                 <dd>{esc(detail.data.horaCabecera)}</dd>
                 <dt>Vehículo (RM)</dt>
                 <dd className="small">
-                  {detailVehiculo?.label ?? rmVehiculoLabel(vehiculoById, detail.data.registroVehiculoId)}
+                  {detailVehiculo?.label ??
+                    rmVehiculoLabel(new Map(), detail.data.registroVehiculoId, detail.data)}
                   {detailVehiculo?.tipoRegistro ? (
                     <span className="muted" style={{ display: 'block', marginTop: '0.2rem' }}>
                       Tipo: {tipoRegistroLabel(detailVehiculo.tipoRegistro)}
