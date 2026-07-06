@@ -778,19 +778,6 @@ export function InventoryPage() {
                   onChange={(e) => setRmFilters((f) => ({ ...f, fechaHasta: e.target.value }))}
                 />
               </label>
-              {(tab === 'vehiculos' || tab === 'entradas' || tab === 'salidas') && (
-                <label className="field">
-                  <span className="small">Tipo registro</span>
-                  <select
-                    value={rmFilters.tipoRegistro}
-                    onChange={(e) => setRmFilters((f) => ({ ...f, tipoRegistro: e.target.value }))}
-                  >
-                    <option value="">Todos</option>
-                    <option value="ingreso">Ingreso</option>
-                    <option value="salida">Salida</option>
-                  </select>
-                </label>
-              )}
               <div className="field" style={{ justifyContent: 'flex-end' }}>
                 <span className="small" style={{ visibility: 'hidden' }}>.</span>
                 <button
