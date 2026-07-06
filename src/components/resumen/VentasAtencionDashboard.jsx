@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ArcElement,
   BarController,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
+  DoughnutController,
   Filler,
   Legend,
   LinearScale,
@@ -50,6 +52,8 @@ ChartJS.register(
   LinearScale,
   BarController,
   BarElement,
+  DoughnutController,
+  ArcElement,
   LineController,
   LineElement,
   PointElement,
