@@ -8,7 +8,7 @@ Leyenda acciones: **V** view · **C** create · **U** update · **D** delete · 
 
 | Ítem menú | Feature | MASTER | ADMIN | ADMIN_PROD | DESPACHO | PRODUCCION |
 |-----------|---------|:------:|:-----:|:----------:|:--------:|:----------:|
-| Resumen | `dashboard.resumen` | V | V | — | — | — |
+| Resumen | `dashboard.resumen` **o** `dashboard.ventas` | V | V | — | — | — |
 | Órdenes | `biesse.orders` | * | * | V S U | V U | V U |
 | Palés | `pales.list` | * | * | V | V | V |
 | Inventario | `inventory` | * | * | V C U | V | V C |
@@ -24,6 +24,7 @@ Leyenda acciones: **V** view · **C** create · **U** update · **D** delete · 
 | Módulo | Feature | MASTER / ADMIN | ADMIN_PROD | DESPACHO | PRODUCCION |
 |--------|---------|----------------|------------|----------|------------|
 | Resumen ejecutivo | `dashboard.resumen` | V | — | — | — |
+| Resumen ventas | `dashboard.ventas` | V | V* | — | V |
 | Órdenes Biesse | `biesse.orders` | * | V S U | V U | V U |
 | Auditoría Biesse | `biesse.audit` | * | V A | V A | V A |
 | Escaneo Biesse | `biesse.scan` | * | * | — | V S U |
@@ -55,5 +56,7 @@ Leyenda acciones: **V** view · **C** create · **U** update · **D** delete · 
 
 - `canAccessFeature(employee, feature, action?)` — comprobaciones fuera de React.
 - `useAppAbility()` — dentro de componentes.
-- `canViewResumen(employee)` — landing y `ResumenPage`.
+- `canViewResumenPage(employee)` — acceso a la página Resumen (operación y/o ventas).
+- `canViewResumen(employee)` — pestaña Operación.
+- `canViewVentasResumen(employee)` — pestaña Ventas.
 - `canManageEmployees(employee)` — pestañas empleados/roles en Gestión.

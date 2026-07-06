@@ -24,10 +24,25 @@ import {
 export const PORTAL_ACCESS_MODULES = [
   {
     id: 'resumen',
-    label: 'Resumen ejecutivo',
-    description: 'Panel KPI (solo administración)',
+    label: 'Resumen · Operación',
+    description: 'Panel KPI de palés, guías y escaneo (administración)',
     features: [FEATURE.DASHBOARD_RESUMEN],
     suggestedRoles: [ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS],
+  },
+  {
+    id: 'resumen_ventas',
+    label: 'Resumen · Ventas',
+    description: 'Tiempos de atención, cotización y venta en proyectos de optimización',
+    features: [FEATURE.DASHBOARD_VENTAS],
+    suggestedRoles: [
+      ROLE_MASTER,
+      ROLE_ADMIN,
+      ROLE_ADMINISTRADOR,
+      ROLE_SISTEMAS,
+      ROLE_GERENCIA,
+      ROLE_VENTAS,
+      ROLE_ADMIN_VENTAS,
+    ],
   },
   {
     id: 'ordenes',
@@ -191,14 +206,14 @@ export const ACCESS_TEMPLATES = [
     id: 'ventas',
     label: 'Ventas',
     description: 'Proyecto optimización (crear/leer)',
-    moduleIds: ['proyecto-optimizacion'],
+    moduleIds: ['proyecto-optimizacion', 'resumen_ventas'],
     roleNames: [ROLE_VENTAS],
   },
   {
     id: 'admin_ventas',
     label: 'Admin ventas',
     description: 'Proyectos, clientes portal y gestión comercial',
-    moduleIds: ['proyecto-optimizacion', 'gestion_clientes_portal', 'gestion_proyectos'],
+    moduleIds: ['proyecto-optimizacion', 'gestion_clientes_portal', 'gestion_proyectos', 'resumen_ventas'],
     roleNames: [ROLE_ADMIN_VENTAS],
   },
   {
@@ -280,7 +295,7 @@ export function permissionRulesFromModules(moduleIds) {
         if (feature === FEATURE.LOCATION_CATALOG) {
           for (const a of [ACTION.CREATE, ACTION.UPDATE, ACTION.DELETE]) push(a, feature)
         }
-      } else if (mod.id === 'resumen' || mod.id === 'api') {
+      } else if (mod.id === 'resumen' || mod.id === 'resumen_ventas' || mod.id === 'api') {
         push(ACTION.VIEW, feature)
       } else if (mod.id === 'gestion_clientes_portal' || mod.id === 'gestion_proyectos') {
         for (const a of [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.CANCEL]) push(a, feature)

@@ -58,6 +58,7 @@ function roleRulesGrantPortalAccess(rules) {
     'gestion.proyectos',
     'employee.admin',
     'dashboard.resumen',
+    'dashboard.ventas',
   ])
   return rules.some((r) => r?.subject === 'all' || opsSubjects.has(r?.subject))
 }

@@ -28,6 +28,7 @@ export const FEATURE = {
   GESTION_CLIENTES_PORTAL: 'gestion.clientes',
   GESTION_PROYECTOS: 'gestion.proyectos',
   DASHBOARD_RESUMEN: 'dashboard.resumen',
+  DASHBOARD_VENTAS: 'dashboard.ventas',
   BACKUP_ADMIN: 'backup.admin',
 }
 

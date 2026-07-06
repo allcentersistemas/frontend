@@ -95,11 +95,16 @@ const READ_CREATE_ROLE_RULES = [...READ_CREATE_OPS]
 const MANAGER_OPS = [...ADMIN_OPS]
 
 export const ROLE_PERMISSIONS = {
-  [ROLE_MASTER]: [{ action: ACTION.MANAGE, subject: 'all' }, { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN }],
+  [ROLE_MASTER]: [
+    { action: ACTION.MANAGE, subject: 'all' },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
+  ],
 
   [ROLE_SISTEMAS]: [
     { action: ACTION.MANAGE, subject: 'all' },
     { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
     ...GESTION_ADMIN,
     ...AUDIT_RULES,
     ...rules(allActions, ...OPS_FEATURES),
@@ -107,6 +112,7 @@ export const ROLE_PERMISSIONS = {
 
   [ROLE_ADMIN]: [
     { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
     ...GESTION_ADMIN,
     ...AUDIT_RULES,
     ...MANAGER_OPS,
@@ -114,12 +120,17 @@ export const ROLE_PERMISSIONS = {
 
   [ROLE_ADMINISTRADOR]: [
     { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_RESUMEN },
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
     ...GESTION_ADMIN,
     ...AUDIT_RULES,
     ...MANAGER_OPS,
   ],
 
-  [ROLE_GERENCIA]: [...MANAGER_OPS, ...AUDIT_RULES],
+  [ROLE_GERENCIA]: [
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
+    ...MANAGER_OPS,
+    ...AUDIT_RULES,
+  ],
 
   [ROLE_SEGURIDAD]: READ_CREATE_ROLE_RULES,
   [ROLE_PROCESOS]: READ_CREATE_ROLE_RULES,
@@ -127,10 +138,14 @@ export const ROLE_PERMISSIONS = {
   [ROLE_CALIDAD]: READ_CREATE_ROLE_RULES,
   [ROLE_DESPACHO]: READ_CREATE_ROLE_RULES,
   [ROLE_PRODUCCION]: READ_CREATE_ROLE_RULES,
-  [ROLE_VENTAS]: rules(readCreate, FEATURE.PROJECT_LIST),
+  [ROLE_VENTAS]: [
+    ...rules(readCreate, FEATURE.PROJECT_LIST),
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
+  ],
 
   [ROLE_ADMIN_VENTAS]: [
     ...rules(readCreate, FEATURE.PROJECT_LIST),
+    { action: ACTION.VIEW, subject: FEATURE.DASHBOARD_VENTAS },
     ...rules(
       [ACTION.VIEW, ACTION.CREATE, ACTION.UPDATE, ACTION.CANCEL],
       FEATURE.GESTION_CLIENTES_PORTAL,

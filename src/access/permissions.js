@@ -18,6 +18,15 @@ export function canViewResumen(employee) {
   return canAccessFeature(employee, FEATURE.DASHBOARD_RESUMEN)
 }
 
+export function canViewVentasResumen(employee) {
+  return canAccessFeature(employee, FEATURE.DASHBOARD_VENTAS)
+}
+
+/** Acceso a la página Resumen (operación y/o ventas). */
+export function canViewResumenPage(employee) {
+  return canViewResumen(employee) || canViewVentasResumen(employee)
+}
+
 export function canViewGestion(employee) {
   return canViewGestionMenu(roleNamesFromEmployee(employee))
 }
@@ -62,7 +71,7 @@ export function defaultInventoryPath(base, employee) {
 /** Ruta inicial tras login (CASL: resumen vs inventario vs proyectos). */
 export function defaultDashboardPath(dashboardRole, employee) {
   const base = dashboardPath(dashboardRole)
-  if (canViewResumen(employee)) {
+  if (canViewResumenPage(employee)) {
     return `${base}/resumen`
   }
   if (canViewInventoryHub(employee)) {
