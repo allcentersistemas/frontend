@@ -163,6 +163,43 @@ export function BiesseStickerPrintButton({ detail }) {
     ])
   }
 
+  function addAllPiecesToBulkQueue() {
+    if (!selectedPart) return
+    const piezas = selectedPart.piezas?.length
+      ? selectedPart.piezas
+      : Array.from({ length: Math.max(1, Number(selectedPart.cantidad) || 1) }, (_, i) => ({
+          numeroPieza: i + 1,
+        }))
+    const remaining = MAX_BULK - bulkQueue.length
+    if (remaining <= 0) {
+      window.alert(`La cola ya tiene el máximo de ${MAX_BULK} etiquetas.`)
+      return
+    }
+    const toAdd = []
+    for (const pieza of piezas) {
+      if (toAdd.length >= remaining) break
+      const n = pieza.numeroPieza ?? 1
+      const key = `${selectedPart.partId}-${n}`
+      if (bulkQueue.some((q) => q.key === key) || toAdd.some((q) => q.key === key)) continue
+      toAdd.push({
+        key,
+        partId: selectedPart.partId,
+        numeroPieza: n,
+        label: queueLabel(selectedPart, n),
+      })
+    }
+    if (!toAdd.length) {
+      window.alert('Todas las piezas de esta parte ya están en la cola.')
+      return
+    }
+    if (piezas.length > toAdd.length) {
+      window.alert(
+        `Se agregaron ${toAdd.length} pieza(s). El máximo por impresión masiva es ${MAX_BULK}.`,
+      )
+    }
+    setBulkQueue((prev) => [...prev, ...toAdd])
+  }
+
   async function handlePrintSingle() {
     if (!detail || !selectedPart) return
     const useZpl = printSize === 'label_80x50'
@@ -407,18 +444,31 @@ export function BiesseStickerPrintButton({ detail }) {
                     <span className="text-sm font-medium text-slate-200">
                       Cola ({bulkQueue.length}/{MAX_BULK})
                     </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="!py-1.5 text-xs"
-                      disabled={!selectedPart || bulkQueue.length >= MAX_BULK}
-                      onClick={addToBulkQueue}
-                    >
-                      Agregar a cola
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="!py-1.5 text-xs"
+                        disabled={!selectedPart || bulkQueue.length >= MAX_BULK}
+                        onClick={addAllPiecesToBulkQueue}
+                      >
+                        Agregar todas las piezas
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="!py-1.5 text-xs"
+                        disabled={!selectedPart || bulkQueue.length >= MAX_BULK}
+                        onClick={addToBulkQueue}
+                      >
+                        Agregar pieza actual
+                      </Button>
+                    </div>
                   </div>
                   {!bulkQueue.length ? (
-                    <p className="text-xs text-slate-500">Seleccione parte y pieza, luego agregue a la cola.</p>
+                    <p className="text-xs text-slate-500">
+                      Use «Agregar todas las piezas» para imprimir cada unidad (1, 2, 3…) o agregue piezas una a una.
+                    </p>
                   ) : (
                     <ul className="m-0 flex list-none flex-col gap-1 p-0">
                       {bulkQueue.map((q) => (

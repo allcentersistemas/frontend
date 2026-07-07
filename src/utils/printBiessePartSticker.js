@@ -129,6 +129,14 @@ function buildStyles(orientation = 'landscape') {
       max-height: ${LABEL_H_MM}mm;
       overflow: hidden;
     }
+    html.print-bulk,
+    body.print-bulk {
+      width: auto !important;
+      height: auto !important;
+      max-width: none !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
     body {
       font-family: Arial, Helvetica, sans-serif;
       color: #000;
@@ -501,6 +509,16 @@ function buildStyles(orientation = 'landscape') {
         page-break-after: avoid;
         page-break-inside: avoid;
       }
+      body.print-bulk .print-size--label_80x50 .sticker,
+      body.print-bulk .print-size--auto .sticker,
+      body.print-bulk .print-size--fill .sticker {
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      body.print-bulk .sticker:last-child {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
       .print-size--label_80x50 .body,
       .print-size--auto .body,
       .print-size--fill .body {
@@ -583,11 +601,20 @@ function triggerPrint(win) {
         })
       })
   }
-  const img = win.document.querySelector('.qr img')
-  if (img && !img.complete) {
-    img.addEventListener('load', run, { once: true })
-    img.addEventListener('error', run, { once: true })
-    setTimeout(run, 3000)
+
+  const imgs = [...win.document.querySelectorAll('.qr img')]
+  const pending = imgs.filter((img) => !img.complete)
+  if (pending.length > 0) {
+    let settled = 0
+    const onSettled = () => {
+      settled += 1
+      if (settled >= pending.length) run()
+    }
+    for (const img of pending) {
+      img.addEventListener('load', onSettled, { once: true })
+      img.addEventListener('error', onSettled, { once: true })
+    }
+    setTimeout(run, 5000)
   } else {
     run()
   }
@@ -711,13 +738,13 @@ function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape') 
   const orientClass = `print-orient--${printOrientation}`
   const bodies = items.map((item) => buildStickerInnerHtml(item)).join('\n')
   return `<!DOCTYPE html>
-<html lang="es" class="print-size ${sizeClass} ${orientClass}">
+<html lang="es" class="print-size ${sizeClass} ${orientClass} print-bulk">
 <head>
   <meta charset="utf-8" />
   <title>Etiquetas (${items.length})</title>
   <style>${buildStyles(printOrientation)}</style>
 </head>
-<body class="print-size ${sizeClass} ${orientClass}">
+<body class="print-size ${sizeClass} ${orientClass} print-bulk">
   ${bodies}
 </body>
 </html>`
