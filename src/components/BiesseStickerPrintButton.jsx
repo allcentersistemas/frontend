@@ -319,12 +319,12 @@ export function BiesseStickerPrintButton({ detail }) {
           }}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-depth backdrop-blur-xl"
+            className="flex max-h-[min(92vh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-depth backdrop-blur-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="sticker-dialog-title"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
               <h3 id="sticker-dialog-title" className="text-base font-semibold text-white">
                 Etiqueta de pieza
               </h3>
@@ -332,7 +332,8 @@ export function BiesseStickerPrintButton({ detail }) {
                 Cerrar
               </Button>
             </div>
-            <div className="flex flex-col gap-4 p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              <div className="flex flex-col gap-4">
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -470,7 +471,7 @@ export function BiesseStickerPrintButton({ detail }) {
                       Use «Agregar todas las piezas» para imprimir cada unidad (1, 2, 3…) o agregue piezas una a una.
                     </p>
                   ) : (
-                    <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                    <ul className="m-0 flex max-h-40 list-none flex-col gap-1 overflow-y-auto p-0">
                       {bulkQueue.map((q) => (
                         <li
                           key={q.key}
@@ -490,25 +491,26 @@ export function BiesseStickerPrintButton({ detail }) {
                   )}
                 </div>
               ) : null}
-
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
-                <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
-                  Cerrar
-                </Button>
-                {mode === 'bulk' ? (
-                  <Button
-                    type="button"
-                    disabled={printing || !bulkQueue.length}
-                    onClick={() => void handlePrintBulk()}
-                  >
-                    {printing ? 'Generando…' : `Imprimir ${bulkQueue.length || ''} etiqueta(s)`}
-                  </Button>
-                ) : (
-                  <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrintSingle()}>
-                    {printing ? 'Generando…' : 'Imprimir'}
-                  </Button>
-                )}
               </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-white/10 px-5 py-4">
+              <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
+                Cerrar
+              </Button>
+              {mode === 'bulk' ? (
+                <Button
+                  type="button"
+                  disabled={printing || !bulkQueue.length}
+                  onClick={() => void handlePrintBulk()}
+                >
+                  {printing ? 'Generando…' : `Imprimir ${bulkQueue.length || ''} etiqueta(s)`}
+                </Button>
+              ) : (
+                <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrintSingle()}>
+                  {printing ? 'Generando…' : 'Imprimir'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
