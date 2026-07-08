@@ -26,6 +26,14 @@ function statusLabel(status) {
   return status ?? '—'
 }
 
+function restoreOriginLabel(triggerType) {
+  if (triggerType === 'RESTORE_SYSTEM') return 'app_db'
+  if (triggerType === 'RESTORE_BIESSE') return 'obras'
+  if (triggerType === 'RESTORE_UPLOAD_ZIP') return 'ZIP subido'
+  if (triggerType?.startsWith('RESTORE')) return 'Restauración'
+  return triggerType ?? '—'
+}
+
 export function GestionBackupPanel() {
   const { employee } = useAuth()
   const canManage = canViewBackupMenu(roleNamesFromEmployee(employee))
@@ -48,17 +56,23 @@ export function GestionBackupPanel() {
   const [emailRecipients, setEmailRecipients] = useState('')
   const [includeBiesseDb, setIncludeBiesseDb] = useState(true)
   const [retentionCount, setRetentionCount] = useState(7)
+  const [restoreHistory, setRestoreHistory] = useState([])
+  const [restoreConfirm, setRestoreConfirm] = useState('')
+  const [restoreFile, setRestoreFile] = useState(null)
+  const [restoring, setRestoring] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setErr(null)
     try {
-      const [cfg, hist] = await Promise.all([
+      const [cfg, hist, restores] = await Promise.all([
         systemApi.fetchBackupConfig(),
         systemApi.fetchBackupHistory(),
+        systemApi.fetchRestoreHistory(),
       ])
       setConfig(cfg)
       setHistory(hist ?? [])
+      setRestoreHistory(restores ?? [])
       setEnabled(Boolean(cfg.enabled))
       setIntervalHours(cfg.intervalHours ?? 24)
       setScheduledHour(cfg.scheduledHour ?? 3)
@@ -152,6 +166,89 @@ export function GestionBackupPanel() {
       setRunning(false)
       setProgressPercent(0)
       setProgressStage('')
+    }
+  }
+
+  async function restoreFromServer(runId, filename) {
+    if (restoreConfirm.trim() !== 'RESTAURAR') {
+      setErr('Escriba RESTAURAR para confirmar la restauración')
+      return
+    }
+    if (!window.confirm(`¿Restaurar ${filename}? Esto SOBRESCRIBE datos actuales.`)) {
+      return
+    }
+    setRestoring(true)
+    setProgressPercent(0)
+    setProgressStage('Iniciando restauración…')
+    setErr(null)
+    setOk(null)
+    try {
+      const started = await systemApi.restoreBackupFromHistory({
+        confirmText: 'RESTAURAR',
+        runId,
+        filename,
+      })
+      const result = await systemApi.waitForBackupRun(started.id, {
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'Restaurando…')
+        },
+      })
+      setOk(result.message || 'Restauración completada')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } catch (e) {
+      setErr(e?.message ?? 'La restauración falló')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } finally {
+      setRestoring(false)
+      setProgressPercent(0)
+      setProgressStage('')
+      setRestoreConfirm('')
+    }
+  }
+
+  async function restoreFromUpload(e) {
+    e.preventDefault()
+    if (!restoreFile) {
+      setErr('Seleccione un archivo .sql.gz o .zip')
+      return
+    }
+    if (restoreConfirm.trim() !== 'RESTAURAR') {
+      setErr('Escriba RESTAURAR para confirmar la restauración')
+      return
+    }
+    if (!window.confirm('¿Restaurar desde archivo subido? Esto SOBRESCRIBE datos actuales.')) {
+      return
+    }
+    setRestoring(true)
+    setProgressPercent(0)
+    setProgressStage('Subiendo archivo…')
+    setErr(null)
+    setOk(null)
+    try {
+      const started = await systemApi.restoreBackupUpload('RESTAURAR', restoreFile)
+      const result = await systemApi.waitForBackupRun(started.id, {
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'Restaurando…')
+        },
+      })
+      setOk(result.message || 'Restauración completada')
+      setRestoreFile(null)
+      e.target.reset()
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } catch (e2) {
+      setErr(e2?.message ?? 'La restauración falló')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } finally {
+      setRestoring(false)
+      setProgressPercent(0)
+      setProgressStage('')
+      setRestoreConfirm('')
     }
   }
 
@@ -309,7 +406,7 @@ export function GestionBackupPanel() {
           {err ? <p className="form-inline-error">{err}</p> : null}
           {ok ? <p className="form-success">{ok}</p> : null}
 
-          {running ? (
+          {running || restoring ? (
             <div style={{ marginTop: '1rem' }}>
               <div
                 style={{
@@ -320,7 +417,7 @@ export function GestionBackupPanel() {
                   fontSize: '0.9rem',
                 }}
               >
-                <span>{progressStage || 'Generando backup…'}</span>
+                <span>{progressStage || (restoring ? 'Restaurando…' : 'Generando backup…')}</span>
                 <span className="muted">{progressPercent}%</span>
               </div>
               <div
@@ -348,13 +445,13 @@ export function GestionBackupPanel() {
           ) : null}
 
           <div className="form-actions">
-            <button type="submit" className="btn btn--primary" disabled={saving || running}>
+            <button type="submit" className="btn btn--primary" disabled={saving || running || restoring}>
               {saving ? 'Guardando…' : 'Guardar configuración'}
             </button>
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={running || saving || !config?.pgDumpAvailable}
+              disabled={running || restoring || saving || !config?.pgDumpAvailable}
               onClick={() => void runBackupNow()}
             >
               {running
@@ -401,15 +498,25 @@ export function GestionBackupPanel() {
                         ? '—'
                         : row.files.map((f) =>
                             f.downloadable ? (
-                              <button
-                                key={f.name}
-                                type="button"
-                                className="linkish"
-                                style={{ display: 'block', textAlign: 'left' }}
-                                onClick={() => void downloadFile(row.id, f.name)}
-                              >
-                                {f.name}
-                              </button>
+                              <span key={f.name} style={{ display: 'block' }}>
+                                <button
+                                  type="button"
+                                  className="linkish"
+                                  style={{ textAlign: 'left' }}
+                                  onClick={() => void downloadFile(row.id, f.name)}
+                                >
+                                  {f.name}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn--secondary"
+                                  style={{ marginTop: '0.25rem', fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
+                                  disabled={restoring || running}
+                                  onClick={() => void restoreFromServer(row.id, f.name)}
+                                >
+                                  Restaurar
+                                </button>
+                              </span>
                             ) : (
                               <span key={f.name} className="muted" style={{ display: 'block' }}>
                                 {f.name}
@@ -423,6 +530,76 @@ export function GestionBackupPanel() {
                         <div className="muted small">→ {row.emailRecipientsSent}</div>
                       ) : null}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card pad form-section" style={{ marginTop: '1rem', borderColor: 'var(--warn, #c90)' }}>
+        <h2>Restaurar backup</h2>
+        <p className="muted small form-hint">
+          <strong>Peligro:</strong> sobrescribe los datos actuales de la base. Use solo en mantenimiento.
+          Archivos <code className="code-inline">app_db_*.sql.gz</code> restauran app_db;
+          <code className="code-inline">obras_*.sql.gz</code> restaura Biesse. También acepta ZIP del correo.
+        </p>
+        <form onSubmit={(e) => void restoreFromUpload(e)}>
+          <label className="field">
+            <span>Archivo local (.sql.gz o .zip)</span>
+            <input
+              type="file"
+              accept=".sql.gz,.zip,application/gzip,application/zip"
+              onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+              disabled={restoring || running}
+            />
+          </label>
+          <label className="field">
+            <span>Confirmación (escriba RESTAURAR)</span>
+            <input
+              value={restoreConfirm}
+              onChange={(e) => setRestoreConfirm(e.target.value)}
+              placeholder="RESTAURAR"
+              disabled={restoring || running}
+              autoComplete="off"
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="btn btn--secondary" disabled={restoring || running || !restoreFile}>
+              {restoring ? `Restaurando… ${progressPercent > 0 ? `${progressPercent}%` : ''}` : 'Restaurar desde archivo'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="card card--table" style={{ marginTop: '1rem' }}>
+        <h2 className="card__title pad">Historial de restauraciones</h2>
+        {restoreHistory.length === 0 ? (
+          <p className="muted pad">Aún no hay restauraciones registradas.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Estado</th>
+                  <th>Origen</th>
+                  <th>Archivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {restoreHistory.map((row) => (
+                  <tr key={`restore-${row.id}`}>
+                    <td className="small">{formatInstant(row.startedAt)}</td>
+                    <td>
+                      <span className={row.status === 'FAILED' ? 'form-inline-error' : undefined}>
+                        {statusLabel(row.status)}
+                      </span>
+                      {row.message ? <div className="muted small">{row.message}</div> : null}
+                    </td>
+                    <td className="small">{restoreOriginLabel(row.triggerType)}</td>
+                    <td className="small">{(row.files ?? []).map((f) => f.name).join(', ') || '—'}</td>
                   </tr>
                 ))}
               </tbody>

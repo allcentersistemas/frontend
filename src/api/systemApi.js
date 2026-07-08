@@ -875,6 +875,55 @@ export async function fetchBackupHistory() {
   return systemJson('/api/admin/backup/history')
 }
 
+export async function restoreBackupFromHistory(body) {
+  return systemJson('/api/admin/backup/restore', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function restoreBackupUpload(confirmText, file) {
+  const form = new FormData()
+  form.append('confirmText', confirmText)
+  form.append('file', file)
+  const tokens = getStoredTokens()
+  const url = `${systemApiBase}/api/admin/backup/restore/upload`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
+    body: form,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function fetchRestoreHistory() {
+  return systemJson('/api/admin/backup/restore/history')
+}
+
+/** Espera restauración por id (misma tabla backup_run). */
+export async function waitForBackupRun(runId, options = {}) {
+  const pollMs = options.pollMs ?? 2000
+  const maxWaitMs = options.maxWaitMs ?? 60 * 60 * 1000
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    const run = await fetchBackupRun(runId)
+    if (onProgress) onProgress(run)
+    if (run.status === 'SUCCESS' || run.status === 'FAILED') {
+      if (run.status === 'FAILED') {
+        throw new Error(run.message || 'La operación falló')
+      }
+      return run
+    }
+    await sleep(pollMs)
+  }
+  throw new Error('La operación sigue en curso. Revise el historial.')
+}
+
 export async function downloadBackupFile(runId, filename) {
   const tokens = getStoredTokens()
   const url = `${systemApiBase}/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`

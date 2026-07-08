@@ -216,6 +216,9 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/admin/backup/history'],
       ['GET', '/api/admin/backup/history/{runId}'],
       ['GET', '/api/admin/backup/history/{runId}/files/{filename}'],
+      ['POST', '/api/admin/backup/restore'],
+      ['POST', '/api/admin/backup/restore/upload'],
+      ['GET', '/api/admin/backup/restore/history'],
     ],
   },
 ]
