@@ -16,6 +16,7 @@ import { ProyectoOrdenPiezasModal } from '../components/ProyectoOrdenPiezasModal
 import { ClientDetailModal } from '../components/ClientDetailModal.jsx'
 import {
   ESTADOS_PROYECTO,
+  canCapturarProyectoOptimizacion,
   downloadProyectoJson,
   emptyProyectoFilters,
   formatEstadoProyecto,
@@ -496,7 +497,7 @@ export function ProyectoOptimizacionPage() {
   }
 
   function canCapturar(row) {
-    return row.vendedorId == null
+    return canCapturarProyectoOptimizacion(row)
   }
 
   return (

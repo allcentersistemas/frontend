@@ -31,6 +31,12 @@ export function estadoTagClass(estado) {
   return map[estado] || 'tag'
 }
 
+export function canCapturarProyectoOptimizacion(row) {
+  if (!row || row.vendedorId != null) return false
+  const estado = row.estado
+  return estado !== 'CANCELADO' && estado !== 'VENDIDO'
+}
+
 export function formatProyectoEstadoTiempo(estadoTiempos, estado) {
   if (!estadoTiempos || !estado) return null
   const keyMap = {
