@@ -831,6 +831,10 @@ export async function runBackupNow() {
   return systemJson('/api/admin/backup/run', { method: 'POST' })
 }
 
+export async function runMediaBackupNow() {
+  return systemJson('/api/admin/backup/run/files', { method: 'POST' })
+}
+
 export async function fetchBackupRun(runId) {
   return systemJson(`/api/admin/backup/history/${runId}`)
 }
@@ -871,6 +875,38 @@ export async function runBackupNowAndWait(options = {}) {
   throw new Error('El backup sigue en curso. Revise el historial en unos minutos.')
 }
 
+/** Inicia backup solo de archivos y espera hasta SUCCESS/FAILED. */
+export async function runMediaBackupNowAndWait(options = {}) {
+  const pollMs = options.pollMs ?? 2000
+  const maxWaitMs = options.maxWaitMs ?? 30 * 60 * 1000
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null
+  const started = await runMediaBackupNow()
+  const runId = started?.id
+  if (!runId) {
+    throw new Error('No se recibió el id del backup de archivos')
+  }
+  if (onProgress) onProgress(started)
+  if (started.status === 'SUCCESS' || started.status === 'FAILED') {
+    if (started.status === 'FAILED') {
+      throw new Error(started.message || 'El backup de archivos falló')
+    }
+    return started
+  }
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    await sleep(pollMs)
+    const run = await fetchBackupRun(runId)
+    if (onProgress) onProgress(run)
+    if (run.status === 'SUCCESS' || run.status === 'FAILED') {
+      if (run.status === 'FAILED') {
+        throw new Error(run.message || 'El backup de archivos falló')
+      }
+      return run
+    }
+  }
+  throw new Error('El backup de archivos sigue en curso. Revise el historial en unos minutos.')
+}
+
 export async function fetchBackupHistory() {
   return systemJson('/api/admin/backup/history')
 }
@@ -882,12 +918,37 @@ export async function restoreBackupFromHistory(body) {
   })
 }
 
+export async function restoreMediaBackupFromHistory(body) {
+  return systemJson('/api/admin/backup/restore/files', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function restoreBackupUpload(confirmText, file) {
   const form = new FormData()
   form.append('confirmText', confirmText)
   form.append('file', file)
   const tokens = getStoredTokens()
   const url = `${systemApiBase}/api/admin/backup/restore/upload`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
+    body: form,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function restoreMediaBackupUpload(confirmText, file) {
+  const form = new FormData()
+  form.append('confirmText', confirmText)
+  form.append('file', file)
+  const tokens = getStoredTokens()
+  const url = `${systemApiBase}/api/admin/backup/restore/files/upload`
   const res = await fetch(url, {
     method: 'POST',
     headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},

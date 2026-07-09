@@ -30,8 +30,21 @@ function restoreOriginLabel(triggerType) {
   if (triggerType === 'RESTORE_SYSTEM') return 'app_db'
   if (triggerType === 'RESTORE_BIESSE') return 'obras'
   if (triggerType === 'RESTORE_UPLOAD_ZIP') return 'ZIP subido'
+  if (triggerType === 'RESTORE_MEDIA') return 'Archivos (historial)'
+  if (triggerType === 'RESTORE_MEDIA_UPLOAD') return 'Archivos (subido)'
   if (triggerType?.startsWith('RESTORE')) return 'Restauración'
   return triggerType ?? '—'
+}
+
+function backupOriginLabel(triggerType) {
+  if (triggerType === 'MANUAL') return 'BD manual'
+  if (triggerType === 'SCHEDULED') return 'BD programado'
+  if (triggerType === 'MANUAL_FILES') return 'Archivos manual'
+  return triggerType ?? '—'
+}
+
+function isMediaBackupFilename(name) {
+  return Boolean(name?.startsWith('media_files_') && name.endsWith('.zip'))
 }
 
 export function GestionBackupPanel() {
@@ -55,11 +68,15 @@ export function GestionBackupPanel() {
   const [sendByEmail, setSendByEmail] = useState(false)
   const [emailRecipients, setEmailRecipients] = useState('')
   const [includeBiesseDb, setIncludeBiesseDb] = useState(true)
+  const [includeMediaFiles, setIncludeMediaFiles] = useState(false)
   const [retentionCount, setRetentionCount] = useState(7)
   const [restoreHistory, setRestoreHistory] = useState([])
   const [restoreConfirm, setRestoreConfirm] = useState('')
   const [restoreFile, setRestoreFile] = useState(null)
+  const [restoreMediaConfirm, setRestoreMediaConfirm] = useState('')
+  const [restoreMediaFile, setRestoreMediaFile] = useState(null)
   const [restoring, setRestoring] = useState(false)
+  const [runningFiles, setRunningFiles] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -80,6 +97,7 @@ export function GestionBackupPanel() {
       setSendByEmail(Boolean(cfg.sendByEmail))
       setEmailRecipients(cfg.emailRecipients ?? '')
       setIncludeBiesseDb(cfg.includeBiesseDb !== false)
+      setIncludeMediaFiles(Boolean(cfg.includeMediaFiles))
       setRetentionCount(cfg.retentionCount ?? 7)
     } catch (e) {
       setErr(e?.message ?? 'No se pudo cargar la configuración de backups')
@@ -110,6 +128,7 @@ export function GestionBackupPanel() {
         sendByEmail,
         emailRecipients,
         includeBiesseDb,
+        includeMediaFiles,
         retentionCount: Number(retentionCount),
       })
       setConfig(updated)
@@ -136,6 +155,7 @@ export function GestionBackupPanel() {
         sendByEmail,
         emailRecipients,
         includeBiesseDb,
+        includeMediaFiles,
         retentionCount: Number(retentionCount),
       })
       const result = await systemApi.runBackupNowAndWait({
@@ -164,6 +184,33 @@ export function GestionBackupPanel() {
       setHistory(hist ?? [])
     } finally {
       setRunning(false)
+      setProgressPercent(0)
+      setProgressStage('')
+    }
+  }
+
+  async function runMediaBackupNow() {
+    setRunningFiles(true)
+    setProgressPercent(0)
+    setProgressStage('Comprimiendo archivos…')
+    setErr(null)
+    setOk(null)
+    try {
+      const result = await systemApi.runMediaBackupNowAndWait({
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'En curso…')
+        },
+      })
+      setOk(result.message || 'Backup de archivos completado')
+      const hist = await systemApi.fetchBackupHistory()
+      setHistory(hist ?? [])
+    } catch (e) {
+      setErr(e?.message ?? 'El backup de archivos falló')
+      const hist = await systemApi.fetchBackupHistory()
+      setHistory(hist ?? [])
+    } finally {
+      setRunningFiles(false)
       setProgressPercent(0)
       setProgressStage('')
     }
@@ -206,6 +253,89 @@ export function GestionBackupPanel() {
       setProgressPercent(0)
       setProgressStage('')
       setRestoreConfirm('')
+    }
+  }
+
+  async function restoreMediaFromServer(runId, filename) {
+    if (restoreMediaConfirm.trim() !== 'RESTAURAR') {
+      setErr('Escriba RESTAURAR para confirmar la restauración de archivos')
+      return
+    }
+    if (!window.confirm(`¿Restaurar archivos desde ${filename}? Esto SOBRESCRIBE cotizaciones y fotos RM actuales.`)) {
+      return
+    }
+    setRestoring(true)
+    setProgressPercent(0)
+    setProgressStage('Iniciando restauración de archivos…')
+    setErr(null)
+    setOk(null)
+    try {
+      const started = await systemApi.restoreMediaBackupFromHistory({
+        confirmText: 'RESTAURAR',
+        runId,
+        filename,
+      })
+      const result = await systemApi.waitForBackupRun(started.id, {
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'Restaurando archivos…')
+        },
+      })
+      setOk(result.message || 'Archivos restaurados')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } catch (e) {
+      setErr(e?.message ?? 'La restauración de archivos falló')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } finally {
+      setRestoring(false)
+      setProgressPercent(0)
+      setProgressStage('')
+      setRestoreMediaConfirm('')
+    }
+  }
+
+  async function restoreMediaFromUpload(e) {
+    e.preventDefault()
+    if (!restoreMediaFile) {
+      setErr('Seleccione un archivo media_files_*.zip')
+      return
+    }
+    if (restoreMediaConfirm.trim() !== 'RESTAURAR') {
+      setErr('Escriba RESTAURAR para confirmar la restauración de archivos')
+      return
+    }
+    if (!window.confirm('¿Restaurar archivos desde el ZIP subido? Esto SOBRESCRIBE cotizaciones y fotos RM.')) {
+      return
+    }
+    setRestoring(true)
+    setProgressPercent(0)
+    setProgressStage('Subiendo archivo de medios…')
+    setErr(null)
+    setOk(null)
+    try {
+      const started = await systemApi.restoreMediaBackupUpload('RESTAURAR', restoreMediaFile)
+      const result = await systemApi.waitForBackupRun(started.id, {
+        onProgress: (run) => {
+          setProgressPercent(run.progressPercent ?? 0)
+          setProgressStage(run.progressStage || 'Restaurando archivos…')
+        },
+      })
+      setOk(result.message || 'Archivos restaurados')
+      setRestoreMediaFile(null)
+      e.target.reset()
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } catch (e2) {
+      setErr(e2?.message ?? 'La restauración de archivos falló')
+      const restores = await systemApi.fetchRestoreHistory()
+      setRestoreHistory(restores ?? [])
+    } finally {
+      setRestoring(false)
+      setProgressPercent(0)
+      setProgressStage('')
+      setRestoreMediaConfirm('')
     }
   }
 
@@ -277,7 +407,9 @@ export function GestionBackupPanel() {
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
         Copias de seguridad de PostgreSQL (<code className="code-inline">app_db</code>
-        {config?.biesseConfigured ? ' y obras' : ''}). Por defecto: cada 24 h a las 3:00.
+        {config?.biesseConfigured ? ' y obras' : ''}) y, opcionalmente, archivos en disco
+        (cotizaciones en <code className="code-inline">optimizacion-media</code>, fotos RM en{' '}
+        <code className="code-inline">rm-media</code>). Por defecto: cada 24 h a las 3:00.
         Los backups automáticos se revisan cada 15 minutos.
       </p>
 
@@ -384,6 +516,24 @@ export function GestionBackupPanel() {
               />
               <span>Incluir base Biesse (obras)</span>
             </label>
+            <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={includeMediaFiles}
+                onChange={(e) => setIncludeMediaFiles(e.target.checked)}
+              />
+              <span>Incluir archivos al backup de BD</span>
+            </label>
+          </div>
+
+          {config?.optimizacionMediaRoot || config?.rmMediaRoot ? (
+            <p className="muted small form-hint">
+              Archivos: cotizaciones → {config.optimizacionMediaRoot || '—'} · RM →{' '}
+              {config.rmMediaRoot || '—'}
+            </p>
+          ) : null}
+
+          <div className="form-row-2">
             <label className="field">
               <span>Copias a conservar</span>
               <input
@@ -406,7 +556,7 @@ export function GestionBackupPanel() {
           {err ? <p className="form-inline-error">{err}</p> : null}
           {ok ? <p className="form-success">{ok}</p> : null}
 
-          {running || restoring ? (
+          {running || runningFiles || restoring ? (
             <div style={{ marginTop: '1rem' }}>
               <div
                 style={{
@@ -445,18 +595,28 @@ export function GestionBackupPanel() {
           ) : null}
 
           <div className="form-actions">
-            <button type="submit" className="btn btn--primary" disabled={saving || running || restoring}>
+            <button type="submit" className="btn btn--primary" disabled={saving || running || runningFiles || restoring}>
               {saving ? 'Guardando…' : 'Guardar configuración'}
             </button>
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={running || restoring || saving || !config?.pgDumpAvailable}
+              disabled={running || runningFiles || restoring || saving || !config?.pgDumpAvailable}
               onClick={() => void runBackupNow()}
             >
               {running
-                ? `Generando backup… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
-                : 'Generar backup ahora'}
+                ? `Generando backup BD… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
+                : 'Generar backup BD ahora'}
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={running || runningFiles || restoring || saving}
+              onClick={() => void runMediaBackupNow()}
+            >
+              {runningFiles
+                ? `Generando backup archivos… ${progressPercent > 0 ? `${progressPercent}%` : ''}`
+                : 'Generar backup archivos ahora'}
             </button>
           </div>
         </form>
@@ -491,7 +651,7 @@ export function GestionBackupPanel() {
                         <div className="muted small">{row.message}</div>
                       ) : null}
                     </td>
-                    <td className="small">{row.triggerType === 'MANUAL' ? 'Manual' : 'Programado'}</td>
+                    <td className="small">{backupOriginLabel(row.triggerType)}</td>
                     <td className="small">{formatBytes(row.totalBytes)}</td>
                     <td className="small">
                       {(row.files ?? []).length === 0
@@ -507,15 +667,27 @@ export function GestionBackupPanel() {
                                 >
                                   {f.name}
                                 </button>
-                                <button
-                                  type="button"
-                                  className="btn btn--secondary"
-                                  style={{ marginTop: '0.25rem', fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
-                                  disabled={restoring || running}
-                                  onClick={() => void restoreFromServer(row.id, f.name)}
-                                >
-                                  Restaurar
-                                </button>
+                                {isMediaBackupFilename(f.name) ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn--secondary"
+                                    style={{ marginTop: '0.25rem', fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
+                                    disabled={restoring || running || runningFiles}
+                                    onClick={() => void restoreMediaFromServer(row.id, f.name)}
+                                  >
+                                    Restaurar archivos
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="btn btn--secondary"
+                                    style={{ marginTop: '0.25rem', fontSize: '0.75rem', padding: '0.15rem 0.4rem' }}
+                                    disabled={restoring || running || runningFiles}
+                                    onClick={() => void restoreFromServer(row.id, f.name)}
+                                  >
+                                    Restaurar BD
+                                  </button>
+                                )}
                               </span>
                             ) : (
                               <span key={f.name} className="muted" style={{ display: 'block' }}>
@@ -539,7 +711,45 @@ export function GestionBackupPanel() {
       </div>
 
       <div className="card pad form-section" style={{ marginTop: '1rem', borderColor: 'var(--warn, #c90)' }}>
-        <h2>Restaurar backup</h2>
+        <h2>Restaurar solo archivos</h2>
+        <p className="muted small form-hint">
+          Restaura cotizaciones y fotos RM desde <code className="code-inline">media_files_*.zip</code>.
+          No modifica las bases de datos.
+        </p>
+        <form onSubmit={(e) => void restoreMediaFromUpload(e)}>
+          <label className="field">
+            <span>Archivo ZIP de archivos (media_files_*.zip)</span>
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              onChange={(e) => setRestoreMediaFile(e.target.files?.[0] ?? null)}
+              disabled={restoring || running || runningFiles}
+            />
+          </label>
+          <label className="field">
+            <span>Confirmación (escriba RESTAURAR)</span>
+            <input
+              value={restoreMediaConfirm}
+              onChange={(e) => setRestoreMediaConfirm(e.target.value)}
+              placeholder="RESTAURAR"
+              disabled={restoring || running || runningFiles}
+              autoComplete="off"
+            />
+          </label>
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn btn--secondary"
+              disabled={restoring || running || runningFiles || !restoreMediaFile}
+            >
+              {restoring ? `Restaurando archivos… ${progressPercent > 0 ? `${progressPercent}%` : ''}` : 'Restaurar archivos desde ZIP'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="card pad form-section" style={{ marginTop: '1rem', borderColor: 'var(--warn, #c90)' }}>
+        <h2>Restaurar backup de base de datos</h2>
         <p className="muted small form-hint">
           <strong>Peligro:</strong> sobrescribe los datos actuales de la base. Use solo en mantenimiento.
           Archivos <code className="code-inline">app_db_*.sql.gz</code> restauran app_db;
@@ -552,7 +762,7 @@ export function GestionBackupPanel() {
               type="file"
               accept=".sql.gz,.zip,application/gzip,application/zip"
               onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
-              disabled={restoring || running}
+              disabled={restoring || running || runningFiles}
             />
           </label>
           <label className="field">
@@ -561,13 +771,13 @@ export function GestionBackupPanel() {
               value={restoreConfirm}
               onChange={(e) => setRestoreConfirm(e.target.value)}
               placeholder="RESTAURAR"
-              disabled={restoring || running}
+              disabled={restoring || running || runningFiles}
               autoComplete="off"
             />
           </label>
           <div className="form-actions">
-            <button type="submit" className="btn btn--secondary" disabled={restoring || running || !restoreFile}>
-              {restoring ? `Restaurando… ${progressPercent > 0 ? `${progressPercent}%` : ''}` : 'Restaurar desde archivo'}
+            <button type="submit" className="btn btn--secondary" disabled={restoring || running || runningFiles || !restoreFile}>
+              {restoring ? `Restaurando BD… ${progressPercent > 0 ? `${progressPercent}%` : ''}` : 'Restaurar BD desde archivo'}
             </button>
           </div>
         </form>
