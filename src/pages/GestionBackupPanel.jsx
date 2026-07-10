@@ -68,7 +68,7 @@ export function GestionBackupPanel() {
   const [sendByEmail, setSendByEmail] = useState(false)
   const [emailRecipients, setEmailRecipients] = useState('')
   const [includeBiesseDb, setIncludeBiesseDb] = useState(true)
-  const [includeMediaFiles, setIncludeMediaFiles] = useState(false)
+  const [includeMediaFiles, setIncludeMediaFiles] = useState(true)
   const [retentionCount, setRetentionCount] = useState(7)
   const [restoreHistory, setRestoreHistory] = useState([])
   const [restoreConfirm, setRestoreConfirm] = useState('')
@@ -97,7 +97,7 @@ export function GestionBackupPanel() {
       setSendByEmail(Boolean(cfg.sendByEmail))
       setEmailRecipients(cfg.emailRecipients ?? '')
       setIncludeBiesseDb(cfg.includeBiesseDb !== false)
-      setIncludeMediaFiles(Boolean(cfg.includeMediaFiles))
+      setIncludeMediaFiles(cfg.includeMediaFiles !== false)
       setRetentionCount(cfg.retentionCount ?? 7)
     } catch (e) {
       setErr(e?.message ?? 'No se pudo cargar la configuración de backups')
@@ -522,14 +522,14 @@ export function GestionBackupPanel() {
                 checked={includeMediaFiles}
                 onChange={(e) => setIncludeMediaFiles(e.target.checked)}
               />
-              <span>Incluir archivos al backup de BD</span>
+              <span>Incluir cotizaciones y fotos RM</span>
             </label>
           </div>
 
           {config?.optimizacionMediaRoot || config?.rmMediaRoot ? (
             <p className="muted small form-hint">
-              Archivos: cotizaciones → {config.optimizacionMediaRoot || '—'} · RM →{' '}
-              {config.rmMediaRoot || '—'}
+              Incluido en backups automáticos y manuales de BD cuando está activo. Cotizaciones →{' '}
+              {config.optimizacionMediaRoot || '—'} · RM → {config.rmMediaRoot || '—'}
             </p>
           ) : null}
 
