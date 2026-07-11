@@ -658,7 +658,7 @@ export function GestionBackupPanel() {
                         ? '—'
                         : row.files.map((f) =>
                             f.downloadable ? (
-                              <span key={f.name} style={{ display: 'block' }}>
+                              <span key={f.name} style={{ display: 'block', marginBottom: '0.35rem' }}>
                                 <button
                                   type="button"
                                   className="linkish"
@@ -690,8 +690,9 @@ export function GestionBackupPanel() {
                                 )}
                               </span>
                             ) : (
-                              <span key={f.name} className="muted" style={{ display: 'block' }}>
+                              <span key={f.name} className="muted" style={{ display: 'block', marginBottom: '0.35rem' }}>
                                 {f.name}
+                                <div className="small">No está en disco (purgado o no guardado)</div>
                               </span>
                             ),
                           )}

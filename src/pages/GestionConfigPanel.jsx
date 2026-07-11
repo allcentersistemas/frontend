@@ -28,6 +28,9 @@ export function GestionConfigPanel() {
   const [smtpAuth, setSmtpAuth] = useState(false)
   const [smtpStarttls, setSmtpStarttls] = useState(true)
   const [testMailTo, setTestMailTo] = useState('')
+  const [plantillaInfo, setPlantillaInfo] = useState(null)
+  const [plantillaFile, setPlantillaFile] = useState(null)
+  const [uploadingPlantilla, setUploadingPlantilla] = useState(false)
 
   const applyConfig = useCallback((cfg) => {
     setKardexEnabled(Boolean(cfg.kardexEnabled))
@@ -47,8 +50,12 @@ export function GestionConfigPanel() {
     setLoading(true)
     setErr(null)
     try {
-      const cfg = await systemApi.fetchAppConfig()
+      const [cfg, plantilla] = await Promise.all([
+        systemApi.fetchAppConfig(),
+        systemApi.fetchPlantillaPlanillaInfo().catch(() => null),
+      ])
       applyConfig(cfg)
+      setPlantillaInfo(plantilla)
     } catch (e) {
       setErr(e?.message ?? 'No se pudo cargar la configuración')
     } finally {
@@ -128,6 +135,51 @@ export function GestionConfigPanel() {
     }
   }
 
+  async function uploadPlantilla() {
+    if (!plantillaFile) {
+      setErr('Seleccione un archivo Excel (.xlsx)')
+      return
+    }
+    setUploadingPlantilla(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const info = await systemApi.uploadPlantillaPlanilla(plantillaFile)
+      setPlantillaInfo(info)
+      setPlantillaFile(null)
+      setOk('Plantilla de planilla de corte actualizada. Los clientes la descargarán desde el portal.')
+    } catch (e) {
+      setErr(e?.message ?? 'No se pudo subir la plantilla')
+    } finally {
+      setUploadingPlantilla(false)
+    }
+  }
+
+  async function removePlantilla() {
+    if (!window.confirm('¿Eliminar la plantilla del servidor? Los clientes volverán a la plantilla generada localmente.')) {
+      return
+    }
+    setUploadingPlantilla(true)
+    setErr(null)
+    setOk(null)
+    try {
+      await systemApi.deletePlantillaPlanilla()
+      setPlantillaInfo({ available: false, filename: '', sizeBytes: 0, uploadedAt: '' })
+      setOk('Plantilla eliminada')
+    } catch (e) {
+      setErr(e?.message ?? 'No se pudo eliminar la plantilla')
+    } finally {
+      setUploadingPlantilla(false)
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (bytes == null || bytes <= 0) return '—'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
   if (!canManage) {
     return (
       <div className="card pad">
@@ -143,9 +195,12 @@ export function GestionConfigPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Ajustes globales del portal: kardex de almacén y correo SMTP. Los cambios aplican de inmediato
-        sin reiniciar el servidor.
+        Ajustes globales del portal: kardex de almacén, plantilla de planilla y correo SMTP. Los cambios
+        aplican de inmediato sin reiniciar el servidor.
       </p>
+
+      {err ? <p className="form-inline-error" style={{ marginBottom: '0.75rem' }}>{err}</p> : null}
+      {ok ? <p className="form-success" style={{ marginBottom: '0.75rem' }}>{ok}</p> : null}
 
       <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
         <h2>Kardex de inventario</h2>
@@ -179,6 +234,69 @@ export function GestionConfigPanel() {
             </button>
           </div>
         ) : null}
+      </div>
+
+      <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
+        <h2>Plantilla planilla de corte</h2>
+        <p className="muted small form-hint">
+          Suba el Excel que los clientes descargarán en el portal (botón «Descargar plantilla»). Si no hay
+          archivo cargado, el cliente usa la plantilla generada automáticamente.
+        </p>
+        {plantillaInfo?.available ? (
+          <p className="small" style={{ marginBottom: '0.75rem' }}>
+            Actual: <strong>{plantillaInfo.filename || 'plantilla_listado_piezas.xlsx'}</strong>
+            {' · '}
+            {formatBytes(plantillaInfo.sizeBytes)}
+            {plantillaInfo.uploadedAt
+              ? ` · ${new Date(plantillaInfo.uploadedAt).toLocaleString()}`
+              : ''}
+          </p>
+        ) : (
+          <p className="muted small" style={{ marginBottom: '0.75rem' }}>
+            No hay plantilla cargada en el servidor.
+          </p>
+        )}
+        <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+          <label className="field">
+            <span>Archivo Excel (.xlsx / .xls)</span>
+            <input
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(e) => setPlantillaFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <div className="form-actions" style={{ marginTop: 0 }}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={uploadingPlantilla || !plantillaFile}
+              onClick={() => void uploadPlantilla()}
+            >
+              {uploadingPlantilla ? 'Subiendo…' : 'Subir plantilla'}
+            </button>
+            {plantillaInfo?.available ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={uploadingPlantilla}
+                  onClick={() => void systemApi.downloadPlantillaPlanillaAdmin().catch((e) => setErr(e.message))}
+                >
+                  Descargar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={uploadingPlantilla}
+                  style={{ color: 'var(--danger, #b00020)' }}
+                  onClick={() => void removePlantilla()}
+                >
+                  Eliminar
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <div className="card pad form-section">
@@ -272,9 +390,6 @@ export function GestionConfigPanel() {
             />
             <span>STARTTLS (puerto 587)</span>
           </label>
-
-          {err ? <p className="form-inline-error">{err}</p> : null}
-          {ok ? <p className="form-success">{ok}</p> : null}
 
           <div className="form-actions">
             <button type="submit" className="btn btn--primary" disabled={saving || resetting}>

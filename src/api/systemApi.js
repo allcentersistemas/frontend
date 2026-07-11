@@ -987,15 +987,28 @@ export async function waitForBackupRun(runId, options = {}) {
 
 export async function downloadBackupFile(runId, filename) {
   const tokens = getStoredTokens()
-  const url = `${systemApiBase}/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`
+  const url = `${apiPath.replace(/\/+$/, '')}/api/admin/backup/history/${runId}/files/${encodeURIComponent(filename)}`
   const res = await fetch(url, {
     headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(text || `HTTP ${res.status}`)
+    let message = `No se pudo descargar (${res.status})`
+    try {
+      const body = text ? JSON.parse(text) : null
+      if (body?.message) message = body.message
+      else if (text && text.length < 280) message = text
+    } catch {
+      if (text && text.length < 280) message = text
+    }
+    throw new Error(message)
   }
   const blob = await res.blob()
+  if (!blob || blob.size === 0) {
+    throw new Error('El archivo llegó vacío. Puede que ya no esté en el servidor.')
+  }
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = filename
@@ -1025,4 +1038,44 @@ export async function testAppMail(body) {
 
 export async function resetKardexInventory() {
   return systemJson('/api/admin/config/kardex/reset', { method: 'POST' })
+}
+
+export async function fetchPlantillaPlanillaInfo() {
+  return systemJson('/api/admin/config/plantilla-planilla')
+}
+
+export async function uploadPlantillaPlanilla(file) {
+  const form = new FormData()
+  form.append('file', file)
+  return systemJson('/api/admin/config/plantilla-planilla', {
+    method: 'POST',
+    body: form,
+  })
+}
+
+export async function deletePlantillaPlanilla() {
+  return systemJson('/api/admin/config/plantilla-planilla', { method: 'DELETE' })
+}
+
+export async function downloadPlantillaPlanillaAdmin() {
+  const tokens = getStoredTokens()
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`
+  const url = `${apiPath.replace(/\/+$/, '')}/api/admin/config/plantilla-planilla?download=true`
+  const res = await fetch(url, {
+    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || 'No se pudo descargar la plantilla')
+  }
+  const blob = await res.blob()
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/i)
+  const filename = match?.[1] || 'plantilla_listado_piezas.xlsx'
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
 }
