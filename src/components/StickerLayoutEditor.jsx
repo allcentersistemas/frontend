@@ -610,11 +610,11 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                 />
               </label>
               <label className="block text-xs text-slate-400">
-                Finura global ({stickerDesign.charWidthRatio.toFixed(2)})
+                Grosor global de letra ({stickerDesign.charWidthRatio.toFixed(2)} — mayor = más gruesa)
                 <input
                   type="range"
-                  min={36}
-                  max={55}
+                  min={35}
+                  max={60}
                   className="mt-1 w-full accent-amber-500"
                   value={Math.round(stickerDesign.charWidthRatio * 100)}
                   onChange={(e) => patchDesign({ charWidthRatio: Number(e.target.value) / 100 })}
@@ -738,11 +738,12 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                     />
                   </label>
                   <label className="mt-2 block text-xs text-slate-400">
-                    Finura ({(selected.charWidthRatio ?? stickerDesign.charWidthRatio).toFixed(2)})
+                    Grosor de letra (
+                    {(selected.charWidthRatio ?? stickerDesign.charWidthRatio).toFixed(2)} — sube para trazo más grueso)
                     <input
                       type="range"
-                      min={36}
-                      max={55}
+                      min={35}
+                      max={65}
                       className="mt-1 w-full accent-amber-500"
                       value={Math.round((selected.charWidthRatio ?? stickerDesign.charWidthRatio) * 100)}
                       onChange={(e) =>
@@ -750,15 +751,31 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                       }
                     />
                   </label>
+                  <label className="mt-2 block text-xs text-slate-400">
+                    Separación entre líneas (mm)
+                    <input
+                      type="number"
+                      min={0.1}
+                      max={4}
+                      step={0.1}
+                      className={`${inputClass} mt-1`}
+                      placeholder="Auto"
+                      value={selected.lineGapMm ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        patchElement(selectedId, { lineGapMm: v === '' ? undefined : Number(v) })
+                      }}
+                    />
+                  </label>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <label className="block text-xs text-slate-400">
-                      Líneas
+                      Líneas máx. (0 = auto)
                       <input
                         type="number"
-                        min={1}
-                        max={4}
+                        min={0}
+                        max={6}
                         className={`${inputClass} mt-1`}
-                        value={selected.maxLines ?? 1}
+                        value={selected.maxLines ?? 0}
                         onChange={(e) => patchElement(selectedId, { maxLines: Number(e.target.value) })}
                       />
                     </label>
@@ -775,6 +792,10 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                       </select>
                     </label>
                   </div>
+                  <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                    Si el texto se corta: agranda el cuadro (ancho y alto), sube Líneas máx. o reduce Grosor de letra.
+                    Con 0 líneas el alto del cuadro define cuántas caben.
+                  </p>
                 </>
               ) : null}
               {(selected.fieldKey ?? selectedId) === 'qr' ? (

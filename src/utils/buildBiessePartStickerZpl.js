@@ -98,6 +98,35 @@ function formatStickerDate(date = new Date()) {
   return `${mm}/${dd}/${yy}`
 }
 
+/** Textos de etiqueta; en diseño visual no recorta agresivamente (el cuadro ^FB hace el ajuste). */
+function buildStickerTextFields({
+  orderName,
+  bookingCode,
+  part,
+  orientation,
+  useVisualLayout,
+}) {
+  const isPortrait = orientation === 'portrait'
+  const visualCap = 200
+  const cap = (text, autoMax, visualMax = visualCap) =>
+    zplTrunc(text, useVisualLayout ? visualMax : autoMax)
+
+  const partNumber = part?.partNumber ?? part?.partId ?? 0
+
+  return {
+    headerTitle: cap(String(orderName ?? '').toUpperCase(), isPortrait ? 28 : 48),
+    booking: bookingCode ? cap(String(bookingCode).trim(), isPortrait ? 24 : 36) : '',
+    matLine: cap(String(part?.material ?? '').trim().toUpperCase() || '—', isPortrait ? 28 : 40),
+    subDesc: cap(part?.descripcion1 ?? '', isPortrait ? 28 : 40),
+    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
+    centerLabel: cap(String(part?.descripcion ?? '—').trim(), 28, 80),
+    upLabel: cap(part?.matedgeup ?? '', 18, 40),
+    loLabel: cap(part?.matedgelo ?? '', 18, 40),
+    leftLabel: cap(part?.matedgel ?? '', 12, 24),
+    rightLabel: cap(part?.matedger ?? '', 12, 24),
+  }
+}
+
 /**
  * @param {ZebraLabelSizeId | string} [labelSize]
  * @param {'landscape'|'portrait'} [orientation]
@@ -134,11 +163,30 @@ function textBlock(lines, u, x, y, width, maxLines, heightMm, text, justify = 'L
 }
 
 /** @param {import('./stickerVisualLayout.js').LayoutElement} el */
+function effectiveLineGapMm(u, el) {
+  const heightMm = (el.fontHm ?? 4) * (el.fontScale ?? 1) * u.design.fontScale
+  if (el.lineGapMm != null && Number.isFinite(el.lineGapMm)) {
+    return Math.max(0.1, el.lineGapMm)
+  }
+  return Math.max(0.35, heightMm * 0.2)
+}
+
+/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
+function effectiveMaxLines(u, el) {
+  const heightMm = (el.fontHm ?? 4) * (el.fontScale ?? 1) * u.design.fontScale
+  const gapMm = effectiveLineGapMm(u, el)
+  const fromBox = Math.max(1, Math.floor(el.hMm / Math.max(0.5, heightMm + gapMm * 0.85)))
+  const configured = el.maxLines ?? 0
+  if (configured <= 0) return fromBox
+  return Math.max(configured, fromBox)
+}
+
+/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
 function elementFontCmd(u, el) {
   const globalScale = u.design.fontScale
   const elScale = el.fontScale ?? 1
   const h = (el.fontHm ?? 4) * globalScale * elScale
-  const ratio = el.charWidthRatio ?? u.design.charWidthRatio
+  const ratio = Math.min(0.7, Math.max(0.3, el.charWidthRatio ?? u.design.charWidthRatio))
   const w = Math.max(1, h * ratio)
   return `^A0N,${u.mmToDots(h)},${u.mmToDots(w)}`
 }
@@ -148,12 +196,12 @@ function visualTextBlock(lines, u, el, text) {
   const content = String(text ?? '')
   if (!content.trim()) return
   const justify = el.justify ?? 'L'
-  const maxLines = el.maxLines ?? 1
-  const heightMm = (el.fontHm ?? 4) * (el.fontScale ?? 1)
+  const maxLines = effectiveMaxLines(u, el)
+  const gapMm = effectiveLineGapMm(u, el)
   const x = u.mmToDots(el.xMm)
   const y = u.mmToDots(el.yMm)
   const w = u.mmToDots(el.wMm)
-  const gap = u.fbLineGap(heightMm)
+  const gap = u.mmToDots(gapMm)
   const fontCmd = elementFontCmd(u, el)
   lines.push(`^FO${x},${y}^FB${w},${maxLines},${gap},${justify},0${fontCmd}^FD${zplEscape(content)}^FS`)
 }
@@ -614,20 +662,24 @@ export function buildBiessePartStickerZpl({
   const partNumber = part?.partNumber ?? part?.partId ?? 0
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
-  const isPortrait = orientation === 'portrait'
-  const headerTitle = zplTrunc(String(orderName ?? '').toUpperCase(), isPortrait ? 28 : 48)
-  const booking = bookingCode ? zplTrunc(String(bookingCode).trim(), isPortrait ? 24 : 36) : ''
-  const matLine = zplTrunc(
-    String(part?.material ?? '').trim().toUpperCase() || '—',
-    isPortrait ? 28 : 40,
-  )
-  const subDesc = zplTrunc(part?.descripcion1 ?? '', isPortrait ? 28 : 40)
-  const refLine = partNumber != null && partNumber !== '' ? String(partNumber) : '0'
-  const centerLabel = zplTrunc(String(part?.descripcion ?? '—').trim(), 28)
-  const upLabel = zplTrunc(part?.matedgeup ?? '', 18)
-  const loLabel = zplTrunc(part?.matedgelo ?? '', 18)
-  const leftLabel = zplTrunc(part?.matedgel ?? '', 12)
-  const rightLabel = zplTrunc(part?.matedger ?? '', 12)
+  const {
+    headerTitle,
+    booking,
+    matLine,
+    subDesc,
+    refLine,
+    centerLabel,
+    upLabel,
+    loLabel,
+    leftLabel,
+    rightLabel,
+  } = buildStickerTextFields({
+    orderName,
+    bookingCode,
+    part,
+    orientation,
+    useVisualLayout: Boolean(useVisualLayout && visualLayout?.elements),
+  })
   const L = roundDim(part?.longitud)
   const A = roundDim(part?.ancho)
   const pCode = `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`
@@ -663,6 +715,7 @@ export function buildBiessePartStickerZpl({
     return buildVisualLayoutZpl(ctx, normalizedLayout, { widthMm: wMm, heightMm: hMm })
   }
 
+  const isPortrait = orientation === 'portrait'
   return isPortrait ? buildPortraitZpl(ctx) : buildLandscapeZpl(ctx)
 }
 

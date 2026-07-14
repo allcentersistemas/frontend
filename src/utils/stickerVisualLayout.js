@@ -16,9 +16,10 @@ export const STICKER_VISUAL_LAYOUT_KEY = 'biesse-sticker-visual-layout'
  * @property {boolean} [enabled]
  * @property {string} [fieldKey] Clave de dato (headerTitle, qr, customText…).
  * @property {number} [fontHm] Alto de fuente en mm.
- * @property {number} [charWidthRatio] Ancho/carácter vs alto (finura).
+ * @property {number} [charWidthRatio] Grosor/ancho de trazo (0.35–0.65). Mayor = letras más gruesas.
  * @property {number} [fontScale] Multiplicador adicional de tamaño (1 = estándar).
- * @property {number} [maxLines] Líneas máximas en ^FB.
+ * @property {number} [maxLines] Líneas máximas en ^FB (0 = automático según alto del cuadro).
+ * @property {number} [lineGapMm] Separación entre líneas en mm.
  * @property {LayoutTextJustify} [justify] Alineación L/C/R.
  * @property {string} [customText] Texto fijo (fieldKey customText).
  * @property {string} [prefix] Prefijo opcional antes del valor.
@@ -34,7 +35,7 @@ export const STICKER_VISUAL_LAYOUT_KEY = 'biesse-sticker-visual-layout'
 
 /** Catálogo de campos que se pueden colocar en la etiqueta. */
 export const LAYOUT_FIELD_CATALOG = {
-  headerTitle: { label: 'Título pedido', type: 'text', minW: 18, minH: 4, defaultFontHm: 5.4, maxLines: 2 },
+  headerTitle: { label: 'Título pedido', type: 'text', minW: 18, minH: 4, defaultFontHm: 5.4, maxLines: 0 },
   booking: { label: 'Booking', type: 'text', minW: 14, minH: 3, defaultFontHm: 3.6, optional: true },
   material: { label: 'Material', type: 'text', minW: 14, minH: 3.5, defaultFontHm: 4.2 },
   subdesc: { label: 'Descripción 2', type: 'text', minW: 14, minH: 3, defaultFontHm: 3.2, optional: true },
@@ -59,7 +60,7 @@ const BASE_LANDSCAPE_H = 50
 
 /** Plantilla landscape 100×50 mm. */
 const TEMPLATE_LANDSCAPE_100x50 = {
-  headerTitle: { xMm: 1, yMm: 1, wMm: 58, hMm: 12, fontHm: 5.4, maxLines: 2, enabled: true, fieldKey: 'headerTitle' },
+  headerTitle: { xMm: 1, yMm: 1, wMm: 58, hMm: 12, fontHm: 5.4, maxLines: 0, enabled: true, fieldKey: 'headerTitle' },
   booking: { xMm: 1, yMm: 13, wMm: 58, hMm: 4, fontHm: 3.6, enabled: true, fieldKey: 'booking' },
   material: { xMm: 1, yMm: 17.5, wMm: 58, hMm: 5, fontHm: 4.2, enabled: true, fieldKey: 'material' },
   subdesc: { xMm: 1, yMm: 22.5, wMm: 58, hMm: 4, fontHm: 3.2, enabled: true, fieldKey: 'subdesc' },
@@ -104,7 +105,8 @@ export function normalizeLayoutElement(id, el, labelW, labelH) {
     fontHm: el.fontHm ?? meta.defaultFontHm ?? 4,
     charWidthRatio: el.charWidthRatio,
     fontScale: el.fontScale ?? 1,
-    maxLines: el.maxLines ?? meta.maxLines ?? 1,
+    maxLines: el.maxLines ?? meta.maxLines ?? 0,
+    lineGapMm: el.lineGapMm,
     justify: el.justify ?? 'L',
     customText: el.customText,
     prefix: el.prefix ?? meta.prefix,
