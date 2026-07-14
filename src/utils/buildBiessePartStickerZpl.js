@@ -10,12 +10,12 @@ import {
   getStickerDesignSettings,
   normalizeStickerDesignSettings,
 } from './stickerDesignSettings.js'
-import { LAYOUT_ELEMENT_META } from './stickerVisualLayout.js'
+import { LAYOUT_FIELD_CATALOG, normalizeVisualLayoutForPrint } from './stickerVisualLayout.js'
 
 const DEFAULT_ZPL_DPI = 203
 
 export const STICKER_ZPL_LAYOUT_VERSION = 9
-export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 10
+export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 11
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -59,8 +59,9 @@ function createZplUnits(dpi, design) {
     },
     qrMag(sizeMm = design.qrSizeMm) {
       const modules = 33
-      const mag = Math.round((sizeMm / 25.4) * resolvedDpi / modules)
-      return Math.max(3, Math.min(8, mag))
+      const targetDots = mmToDots(sizeMm)
+      const mag = Math.round(targetDots / modules)
+      return Math.max(1, Math.min(15, mag))
     },
   }
 }
@@ -121,11 +122,47 @@ export function labelDotsForSize(
   }
 }
 
-function textBlock(lines, u, x, y, width, maxLines, heightMm, text, justify = 'L') {
+function textBlock(lines, u, x, y, width, maxLines, heightMm, text, justify = 'L', charWidthRatio) {
   const gap = u.fbLineGap(heightMm)
+  const h = heightMm * u.design.fontScale
+  const ratio = charWidthRatio ?? u.design.charWidthRatio
+  const w = Math.max(1, h * ratio)
+  const fontCmd = `^A0N,${u.mmToDots(h)},${u.mmToDots(w)}`
   lines.push(
-    `^FO${x},${y}^FB${width},${maxLines},${gap},${justify},0${u.text(heightMm)}^FD${zplEscape(text)}^FS`,
+    `^FO${x},${y}^FB${width},${maxLines},${gap},${justify},0${fontCmd}^FD${zplEscape(text)}^FS`,
   )
+}
+
+/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
+function elementFontCmd(u, el) {
+  const globalScale = u.design.fontScale
+  const elScale = el.fontScale ?? 1
+  const h = (el.fontHm ?? 4) * globalScale * elScale
+  const ratio = el.charWidthRatio ?? u.design.charWidthRatio
+  const w = Math.max(1, h * ratio)
+  return `^A0N,${u.mmToDots(h)},${u.mmToDots(w)}`
+}
+
+/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
+function visualTextBlock(lines, u, el, text) {
+  const content = String(text ?? '')
+  if (!content.trim()) return
+  const justify = el.justify ?? 'L'
+  const maxLines = el.maxLines ?? 1
+  const heightMm = (el.fontHm ?? 4) * (el.fontScale ?? 1)
+  const x = u.mmToDots(el.xMm)
+  const y = u.mmToDots(el.yMm)
+  const w = u.mmToDots(el.wMm)
+  const gap = u.fbLineGap(heightMm)
+  const fontCmd = elementFontCmd(u, el)
+  lines.push(`^FO${x},${y}^FB${w},${maxLines},${gap},${justify},0${fontCmd}^FD${zplEscape(content)}^FS`)
+}
+
+/** Tamaño QR en puntos según mm del elemento (sin límite bajo de mag 3). */
+function qrMagForElementMm(u, sizeMm) {
+  const modules = 33
+  const targetDots = u.mmToDots(sizeMm)
+  return Math.max(1, Math.min(15, Math.round(targetDots / modules)))
 }
 
 /** Reserva hueco vertical aunque el texto esté vacío (layout estable). */
@@ -415,8 +452,9 @@ function buildPortraitZpl(ctx) {
 
 /**
  * @param {import('./stickerVisualLayout.js').StickerVisualLayout} visualLayout
+ * @param {{ widthMm: number, heightMm: number }} labelMm
  */
-function buildVisualLayoutZpl(ctx, visualLayout) {
+function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
   const {
     u,
     PW,
@@ -440,12 +478,18 @@ function buildVisualLayoutZpl(ctx, visualLayout) {
     dateStr,
   } = ctx
 
-  const elements = visualLayout?.elements ?? {}
+  const layout = normalizeVisualLayoutForPrint(
+    visualLayout,
+    labelMm.widthMm,
+    labelMm.heightMm,
+    visualLayout.orientation ?? 'landscape',
+  )
+  const elements = layout?.elements ?? {}
   const pad = u.mmToDots(0.5)
 
   const lines = [
     '^XA',
-    `^FX Biesse layout visual v${STICKER_ZPL_VISUAL_LAYOUT_VERSION} ${u.dpi}dpi`,
+    `^FX Biesse layout visual v${STICKER_ZPL_VISUAL_LAYOUT_VERSION} ${u.dpi}dpi ${labelMm.widthMm}x${labelMm.heightMm}mm`,
     '^MMT',
     '^PON',
     '^PW' + PW,
@@ -455,133 +499,84 @@ function buildVisualLayoutZpl(ctx, visualLayout) {
     '^PR2,2',
   ]
 
-  function el(id) {
-    return elements[id]
+  /** @param {string} id @param {import('./stickerVisualLayout.js').LayoutElement} el */
+  function resolveElementText(id, el) {
+    const fieldKey = el.fieldKey ?? id
+    if (fieldKey === 'customText') {
+      return el.customText ?? ''
+    }
+    const prefix = el.prefix ?? ''
+    switch (fieldKey) {
+      case 'headerTitle':
+        return headerTitle
+      case 'booking':
+        return booking
+      case 'material':
+        return matLine
+      case 'subdesc':
+        return subDesc
+      case 'refLine':
+        return refLine
+      case 'dimsL':
+        return `${prefix}${L != null ? L : '—'}`
+      case 'dimsA':
+        return `${prefix}${A != null ? A : '—'}`
+      case 'fraction':
+        return `${numeroPieza} / ${cantidad}`
+      case 'footerLeft':
+        return pCode
+      case 'footerRight':
+        return dateStr
+      default:
+        return ''
+    }
   }
 
-  function fontHm(id) {
-    const meta = LAYOUT_ELEMENT_META[id]
-    return el(id)?.fontHm ?? meta?.defaultFontHm ?? 4
-  }
+  for (const [id, el] of Object.entries(elements)) {
+    if (el.enabled === false) continue
+    const fieldKey = el.fieldKey ?? id
+    const meta = LAYOUT_FIELD_CATALOG[fieldKey]
 
-  const headerEl = el('header')
-  if (headerEl) {
-    textBlock(
-      lines,
-      u,
-      u.mmToDots(headerEl.xMm),
-      u.mmToDots(headerEl.yMm),
-      u.mmToDots(headerEl.wMm),
-      2,
-      fontHm('header'),
-      headerTitle,
-    )
-  }
+    if (meta?.type === 'qr' || fieldKey === 'qr') {
+      const qrSizeMm = Math.min(el.wMm, el.hMm)
+      const qrMag = qrMagForElementMm(u, qrSizeMm)
+      const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
+      lines.push(
+        `^FO${u.mmToDots(el.xMm)},${u.mmToDots(el.yMm)}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`,
+      )
+      continue
+    }
 
-  const bookingEl = el('booking')
-  if (bookingEl && booking) {
-    textBlock(
-      lines,
-      u,
-      u.mmToDots(bookingEl.xMm),
-      u.mmToDots(bookingEl.yMm),
-      u.mmToDots(bookingEl.wMm),
-      1,
-      fontHm('booking'),
-      booking,
-    )
-  }
+    if (meta?.type === 'diagram' || fieldKey === 'diagram') {
+      const pieceBoxW = u.mmToDots(Math.max(12, el.wMm))
+      const pieceBoxH = u.mmToDots(Math.max(10, el.hMm))
+      const shapeX = u.mmToDots(el.xMm)
+      const shapeY = u.mmToDots(el.yMm)
+      const leftX = Math.max(pad, shapeX - u.mmToDots(7))
+      const edgeHm = el.fontHm ? Math.min(el.fontHm, 4) : 3.4
+      const centerHm = el.fontHm ?? 3.6
+      drawPieceDiagram(lines, u, {
+        pieceBoxW,
+        pieceBoxH,
+        leftX,
+        shapeX,
+        shapeY,
+        centerLabel,
+        upLabel,
+        loLabel,
+        leftLabel,
+        rightLabel,
+        edgeHm,
+        centerHm,
+      })
+      continue
+    }
 
-  const materialEl = el('material')
-  if (materialEl) {
-    textBlock(
-      lines,
-      u,
-      u.mmToDots(materialEl.xMm),
-      u.mmToDots(materialEl.yMm),
-      u.mmToDots(materialEl.wMm),
-      1,
-      fontHm('material'),
-      matLine,
-    )
-  }
-
-  const subdescEl = el('subdesc')
-  if (subdescEl && subDesc) {
-    textBlock(
-      lines,
-      u,
-      u.mmToDots(subdescEl.xMm),
-      u.mmToDots(subdescEl.yMm),
-      u.mmToDots(subdescEl.wMm),
-      1,
-      fontHm('subdesc'),
-      subDesc,
-    )
-  }
-
-  const refEl = el('ref')
-  if (refEl) {
-    lines.push(
-      `^FO${u.mmToDots(refEl.xMm)},${u.mmToDots(refEl.yMm)}${u.text(fontHm('ref'))}^FD${zplEscape(refLine)}^FS`,
-    )
-  }
-
-  const diagramEl = el('diagram')
-  if (diagramEl) {
-    const pieceBoxW = u.mmToDots(Math.max(12, diagramEl.wMm))
-    const pieceBoxH = u.mmToDots(Math.max(10, diagramEl.hMm))
-    const shapeX = u.mmToDots(diagramEl.xMm)
-    const shapeY = u.mmToDots(diagramEl.yMm)
-    const leftX = Math.max(pad, shapeX - u.mmToDots(7))
-    drawPieceDiagram(lines, u, {
-      pieceBoxW,
-      pieceBoxH,
-      leftX,
-      shapeX,
-      shapeY,
-      centerLabel,
-      upLabel,
-      loLabel,
-      leftLabel,
-      rightLabel,
-    })
-  }
-
-  const qrEl = el('qr')
-  if (qrEl) {
-    const qrSize = Math.min(qrEl.wMm, qrEl.hMm)
-    const qrMag = u.qrMag(qrSize)
-    const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
-    lines.push(
-      `^FO${u.mmToDots(qrEl.xMm)},${u.mmToDots(qrEl.yMm)}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`,
-    )
-  }
-
-  const dimsEl = el('dims')
-  if (dimsEl) {
-    const lineHm = fontHm('dims')
-    let infoY = u.mmToDots(dimsEl.yMm)
-    const infoX = u.mmToDots(dimsEl.xMm)
-    lines.push(`^FO${infoX},${infoY}${u.text(lineHm)}^FDL: ${L != null ? L : '—'}^FS`)
-    infoY = reserveRow(u, infoY, lineHm, 0.55)
-    lines.push(`^FO${infoX},${infoY}${u.text(lineHm)}^FDA: ${A != null ? A : '—'}^FS`)
-    infoY = reserveRow(u, infoY, lineHm, 0.55)
-    lines.push(`^FO${infoX},${infoY}${u.text(lineHm * 0.95)}^FD${numeroPieza} / ${cantidad}^FS`)
-  }
-
-  const footLeftEl = el('footerLeft')
-  if (footLeftEl) {
-    lines.push(
-      `^FO${u.mmToDots(footLeftEl.xMm)},${u.mmToDots(footLeftEl.yMm)}${u.text(fontHm('footerLeft'))}^FD${zplEscape(pCode)}^FS`,
-    )
-  }
-
-  const footRightEl = el('footerRight')
-  if (footRightEl) {
-    lines.push(
-      `^FO${u.mmToDots(footRightEl.xMm)},${u.mmToDots(footRightEl.yMm)}${u.text(fontHm('footerRight'))}^FD${zplEscape(dateStr)}^FS`,
-    )
+    if (meta?.type === 'text' || !meta) {
+      const text = resolveElementText(id, el)
+      if (!text && meta?.optional) continue
+      visualTextBlock(lines, u, el, text)
+    }
   }
 
   lines.push('^XZ')
@@ -612,7 +607,8 @@ export function buildBiessePartStickerZpl({
   const resolvedDesign = normalizeStickerDesignSettings(design)
   const resolvedDpi = clampStickerPrintDpi(dpi)
   const u = createZplUnits(resolvedDpi, resolvedDesign)
-  const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation, resolvedDpi, customLabelMm)
+  const labelDots = labelDotsForSize(labelSize, orientation, resolvedDpi, customLabelMm)
+  const { pw: PW, ll: LL, wMm, hMm } = labelDots
   const pieceBoxW = u.mmToDots(PIECE_FRAME_W_MM)
   const pieceBoxH = u.mmToDots(PIECE_FRAME_H_MM)
   const partNumber = part?.partNumber ?? part?.partId ?? 0
@@ -663,7 +659,8 @@ export function buildBiessePartStickerZpl({
   }
 
   if (useVisualLayout && visualLayout?.elements) {
-    return buildVisualLayoutZpl(ctx, visualLayout)
+    const normalizedLayout = normalizeVisualLayoutForPrint(visualLayout, wMm, hMm, orientation)
+    return buildVisualLayoutZpl(ctx, normalizedLayout, { widthMm: wMm, heightMm: hMm })
   }
 
   return isPortrait ? buildPortraitZpl(ctx) : buildLandscapeZpl(ctx)
