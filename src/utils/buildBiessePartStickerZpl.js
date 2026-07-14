@@ -9,7 +9,7 @@ import { clampStickerPrintDpi } from './stickerPrintDpi.js'
 const DEFAULT_ZPL_DPI = 203
 
 /** Incrementar al cambiar layout; sirve para verificar que el navegador usa código nuevo. */
-export const STICKER_ZPL_LAYOUT_VERSION = 6
+export const STICKER_ZPL_LAYOUT_VERSION = 7
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -19,8 +19,11 @@ const PIECE_FRAME_W_MM = 40
 const PIECE_FRAME_H_MM = 22
 const QR_SIZE_MM = 23
 
-/** Ancho de carácter estrecho (≈36% del alto) → trazo fino, no negrita en térmica. */
-const LIGHT_WIDTH_RATIO = 0.36
+/**
+ * Ancho de carácter vs alto. 0.36 quedaba ilegible (letras pegadas).
+ * ~0.50 = trazo moderado, legible y sin verse negrita.
+ */
+const CHAR_WIDTH_RATIO = 0.5
 
 /** @param {number} dpi */
 function createMmToDots(dpi) {
@@ -34,10 +37,18 @@ function createZplUnits(dpi) {
   return {
     dpi: resolvedDpi,
     mmToDots,
-    /** Texto grande y delgado: alto en mm, ancho proporcional estrecho. */
-    light(heightMm) {
-      const widthMm = Math.max(0.9, heightMm * LIGHT_WIDTH_RATIO)
+    /** Tipografía legible: alto en mm, ancho proporcional con separación entre letras. */
+    text(heightMm) {
+      const widthMm = Math.max(1.1, heightMm * CHAR_WIDTH_RATIO)
       return `^A0N,${mmToDots(heightMm)},${mmToDots(widthMm)}`
+    },
+    /** Espacio extra entre líneas dentro de un ^FB (mm). */
+    fbLineGap(heightMm) {
+      return mmToDots(Math.max(0.5, heightMm * 0.22))
+    },
+    /** Salto vertical tras un renglón (mm de fuente + aire). */
+    rowAdvance(heightMm, gapMm = 0.7) {
+      return mmToDots(heightMm + gapMm)
     },
     /** Magnificación QR según tamaño físico deseado en mm. */
     qrMag(sizeMm = QR_SIZE_MM) {
@@ -103,6 +114,13 @@ export function labelDotsForSize(
   }
 }
 
+function textBlock(lines, u, x, y, width, maxLines, heightMm, text, justify = 'L') {
+  const gap = u.fbLineGap(heightMm)
+  lines.push(
+    `^FO${x},${y}^FB${width},${maxLines},${gap},${justify},0${u.text(heightMm)}^FD${zplEscape(text)}^FS`,
+  )
+}
+
 function drawPieceDiagram(lines, u, {
   pieceBoxW,
   pieceBoxH,
@@ -114,38 +132,39 @@ function drawPieceDiagram(lines, u, {
   loLabel,
   leftLabel,
   rightLabel,
-  edgeHm = 3.8,
-  centerHm = 4,
+  edgeHm = 3.6,
+  centerHm = 3.8,
 }) {
   const edgeH = u.mmToDots(edgeHm)
-  const edgeW = u.mmToDots(Math.max(0.9, edgeHm * LIGHT_WIDTH_RATIO))
+  const edgeW = u.mmToDots(Math.max(1.1, edgeHm * CHAR_WIDTH_RATIO))
   const centerH = u.mmToDots(centerHm)
 
   if (upLabel) {
-    const upX = shapeX + Math.max(0, Math.round((pieceBoxW - upLabel.length * edgeW * 0.55) / 2))
-    lines.push(`^FO${upX},${shapeY - edgeH - u.mmToDots(0.5)}${u.light(edgeHm)}^FD${zplEscape(upLabel)}^FS`)
+    const upX = shapeX + Math.max(0, Math.round((pieceBoxW - upLabel.length * edgeW * 0.62) / 2))
+    lines.push(`^FO${upX},${shapeY - edgeH - u.mmToDots(0.6)}${u.text(edgeHm)}^FD${zplEscape(upLabel)}^FS`)
   }
 
   lines.push(`^FO${shapeX},${shapeY}^GB${pieceBoxW},${pieceBoxH},2,B^FS`)
-  const textY = shapeY + Math.max(u.mmToDots(0.4), Math.round((pieceBoxH - centerH) / 2))
+  const textY = shapeY + Math.max(u.mmToDots(0.5), Math.round((pieceBoxH - centerH) / 2))
+  const gap = u.fbLineGap(centerHm)
   lines.push(
-    `^FO${shapeX + u.mmToDots(0.5)},${textY}^FB${pieceBoxW - u.mmToDots(1)},2,0,C,0${u.light(centerHm)}^FD${zplEscape(centerLabel)}^FS`,
+    `^FO${shapeX + u.mmToDots(0.5)},${textY}^FB${pieceBoxW - u.mmToDots(1)},2,${gap},C,0${u.text(centerHm)}^FD${zplEscape(centerLabel)}^FS`,
   )
 
   const midY = shapeY + Math.round(pieceBoxH / 2) - Math.round(edgeH / 2)
   if (leftLabel) {
-    lines.push(`^FO${leftX},${midY}${u.light(edgeHm)}^FD${zplEscape(leftLabel)}^FS`)
+    lines.push(`^FO${leftX},${midY}${u.text(edgeHm)}^FD${zplEscape(leftLabel)}^FS`)
   }
   if (rightLabel) {
     lines.push(
-      `^FO${shapeX + pieceBoxW + u.mmToDots(0.6)},${midY}${u.light(edgeHm)}^FD${zplEscape(rightLabel)}^FS`,
+      `^FO${shapeX + pieceBoxW + u.mmToDots(0.8)},${midY}${u.text(edgeHm)}^FD${zplEscape(rightLabel)}^FS`,
     )
   }
 
   if (loLabel) {
-    const loX = shapeX + Math.max(0, Math.round((pieceBoxW - loLabel.length * edgeW * 0.55) / 2))
+    const loX = shapeX + Math.max(0, Math.round((pieceBoxW - loLabel.length * edgeW * 0.62) / 2))
     lines.push(
-      `^FO${loX},${shapeY + pieceBoxH + u.mmToDots(0.5)}${u.light(edgeHm)}^FD${zplEscape(loLabel)}^FS`,
+      `^FO${loX},${shapeY + pieceBoxH + u.mmToDots(0.6)}${u.text(edgeHm)}^FD${zplEscape(loLabel)}^FS`,
     )
   }
 }
@@ -194,26 +213,28 @@ function buildLandscapeZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${leftX},${y}^FB${textColW},2,0,L,0${u.light(5.6)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
-  y += u.mmToDots(5.4)
+  textBlock(lines, u, leftX, y, textColW, 2, 5.4, headerTitle)
+  y += u.rowAdvance(5.4, 0.8)
+
   if (booking) {
-    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.light(3.9)}^FD${zplEscape(booking)}^FS`)
-    y += u.mmToDots(3.8)
+    textBlock(lines, u, leftX, y, textColW, 1, 3.8, booking)
+    y += u.rowAdvance(3.8, 0.7)
   }
 
-  lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.light(4.6)}^FD${zplEscape(matLine)}^FS`)
+  textBlock(lines, u, leftX, y, textColW, 1, 4.4, matLine)
+  y += u.rowAdvance(4.4, 0.7)
 
   if (subDesc) {
-    y += u.mmToDots(3.9)
-    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.light(3.5)}^FD${zplEscape(subDesc)}^FS`)
+    textBlock(lines, u, leftX, y, textColW, 1, 3.4, subDesc)
+    y += u.rowAdvance(3.4, 0.7)
   }
 
-  y += u.mmToDots(3.9)
-  lines.push(`^FO${leftX},${y}${u.light(4.6)}^FD${zplEscape(refLine)}^FS`)
+  lines.push(`^FO${leftX},${y}${u.text(4.4)}^FD${zplEscape(refLine)}^FS`)
+  y += u.rowAdvance(4.4, 0.5)
 
-  const shapeY = y + (upLabel ? u.mmToDots(4.2) : u.mmToDots(2.2))
+  const shapeY = y + (upLabel ? u.mmToDots(3.8) : u.mmToDots(1.8))
   drawPieceDiagram(lines, u, {
     pieceBoxW,
     pieceBoxH,
@@ -232,16 +253,16 @@ function buildLandscapeZpl(ctx) {
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${rightX},${qrY}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`)
 
-  let infoY = qrY + u.mmToDots(QR_SIZE_MM + 0.4)
-  lines.push(`^FO${rightX},${infoY}${u.light(4.6)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += u.mmToDots(4.1)
-  lines.push(`^FO${rightX},${infoY}${u.light(4.6)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += u.mmToDots(4.3)
-  lines.push(`^FO${rightX},${infoY}${u.light(4.4)}^FD${numeroPieza} / ${cantidad}^FS`)
+  let infoY = qrY + u.mmToDots(QR_SIZE_MM + 0.5)
+  lines.push(`^FO${rightX},${infoY}${u.text(4.4)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += u.rowAdvance(4.4, 0.6)
+  lines.push(`^FO${rightX},${infoY}${u.text(4.4)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += u.rowAdvance(4.4, 0.6)
+  lines.push(`^FO${rightX},${infoY}${u.text(4.2)}^FD${numeroPieza} / ${cantidad}^FS`)
 
-  const footY = LL - u.mmToDots(3.5)
-  lines.push(`^FO${leftX},${footY}${u.light(3.5)}^FD${zplEscape(pCode)}^FS`)
-  lines.push(`^FO${rightX},${footY}${u.light(3.5)}^FD${zplEscape(dateStr)}^FS`)
+  const footY = LL - u.mmToDots(3.6)
+  lines.push(`^FO${leftX},${footY}${u.text(3.4)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${rightX},${footY}${u.text(3.4)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
@@ -286,24 +307,26 @@ function buildPortraitZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${pad},${y}^FB${textColW},2,0,L,0${u.light(4.8)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
-  y += u.mmToDots(4.6)
+  textBlock(lines, u, pad, y, textColW, 2, 4.6, headerTitle)
+  y += u.rowAdvance(4.6, 0.7)
+
   if (booking) {
-    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.light(3.5)}^FD${zplEscape(booking)}^FS`)
-    y += u.mmToDots(3.5)
+    textBlock(lines, u, pad, y, textColW, 1, 3.4, booking)
+    y += u.rowAdvance(3.4, 0.6)
   }
 
-  lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.light(4.2)}^FD${zplEscape(matLine)}^FS`)
+  textBlock(lines, u, pad, y, textColW, 1, 4, matLine)
+  y += u.rowAdvance(4, 0.6)
 
   if (subDesc) {
-    y += u.mmToDots(3.5)
-    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.light(3.2)}^FD${zplEscape(subDesc)}^FS`)
+    textBlock(lines, u, pad, y, textColW, 1, 3.2, subDesc)
+    y += u.rowAdvance(3.2, 0.6)
   }
 
-  y += u.mmToDots(3.5)
-  lines.push(`^FO${pad},${y}${u.light(4.2)}^FD${zplEscape(refLine)}^FS`)
+  lines.push(`^FO${pad},${y}${u.text(4)}^FD${zplEscape(refLine)}^FS`)
+  y += u.rowAdvance(4, 0.5)
 
   const shapeX = Math.max(pad + u.mmToDots(12), Math.round((PW - pieceBoxW) / 2))
   const shapeY = y + (upLabel ? u.mmToDots(3.5) : u.mmToDots(1.8))
@@ -318,27 +341,27 @@ function buildPortraitZpl(ctx) {
     loLabel,
     leftLabel,
     rightLabel,
-    edgeHm: 3.5,
-    centerHm: 3.7,
+    edgeHm: 3.4,
+    centerHm: 3.6,
   })
 
-  const qrY = shapeY + pieceBoxH + (loLabel ? u.mmToDots(3.4) : u.mmToDots(2.2))
+  const qrY = shapeY + pieceBoxH + (loLabel ? u.mmToDots(3.2) : u.mmToDots(2))
   const qrX = PW - pad - u.mmToDots(QR_SIZE_MM)
   const qrMag = u.qrMag(QR_SIZE_MM)
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${qrX},${qrY}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`)
 
   let infoY = qrY
-  lines.push(`^FO${pad},${infoY}${u.light(4.4)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += u.mmToDots(4.1)
-  lines.push(`^FO${pad},${infoY}${u.light(4.4)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += u.mmToDots(4.1)
-  lines.push(`^FO${pad},${infoY}${u.light(4.2)}^FD${numeroPieza} / ${cantidad}^FS`)
-  infoY += u.mmToDots(3.5)
-  lines.push(`^FO${pad},${infoY}${u.light(3.2)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${pad},${infoY}${u.text(4.2)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += u.rowAdvance(4.2, 0.6)
+  lines.push(`^FO${pad},${infoY}${u.text(4.2)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += u.rowAdvance(4.2, 0.6)
+  lines.push(`^FO${pad},${infoY}${u.text(4)}^FD${numeroPieza} / ${cantidad}^FS`)
+  infoY += u.rowAdvance(4, 0.5)
+  lines.push(`^FO${pad},${infoY}${u.text(3.2)}^FD${zplEscape(pCode)}^FS`)
 
   const footY = LL - u.mmToDots(3.2)
-  lines.push(`^FO${pad},${footY}${u.light(3.2)}^FD${zplEscape(dateStr)}^FS`)
+  lines.push(`^FO${pad},${footY}${u.text(3.2)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
