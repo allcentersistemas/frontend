@@ -15,7 +15,7 @@ import { LAYOUT_FIELD_CATALOG, normalizeVisualLayoutForPrint } from './stickerVi
 const DEFAULT_ZPL_DPI = 203
 
 export const STICKER_ZPL_LAYOUT_VERSION = 9
-export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 11
+export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 12
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -547,6 +547,24 @@ function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
     '^PR2,2',
   ]
 
+  /** @param {import('./stickerVisualLayout.js').LayoutElement} el @param {string} partValue */
+  function resolveFieldContent(el, partValue) {
+    const prefix = el.prefix ?? ''
+    const source = el.contentSource ?? 'auto'
+    if (source === 'dimensionL') {
+      return `${prefix}${L != null ? L : '—'}`
+    }
+    if (source === 'dimensionA') {
+      return `${prefix}${A != null ? A : '—'}`
+    }
+    if (source === 'custom') {
+      return String(el.customText ?? '').trim()
+    }
+    const custom = String(el.customText ?? '').trim()
+    if (custom) return custom
+    return partValue ?? ''
+  }
+
   /** @param {string} id @param {import('./stickerVisualLayout.js').LayoutElement} el */
   function resolveElementText(id, el) {
     const fieldKey = el.fieldKey ?? id
@@ -565,8 +583,20 @@ function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
         return subDesc
       case 'refLine':
         return refLine
+      case 'pieceCenter':
+        return resolveFieldContent(el, centerLabel)
+      case 'edgeUp':
+        return resolveFieldContent(el, upLabel)
+      case 'edgeLo':
+        return resolveFieldContent(el, loLabel)
+      case 'edgeLeft':
+        return resolveFieldContent(el, leftLabel)
+      case 'edgeRight':
+        return resolveFieldContent(el, rightLabel)
+      case 'dimLongitud':
       case 'dimsL':
         return `${prefix}${L != null ? L : '—'}`
+      case 'dimAncho':
       case 'dimsA':
         return `${prefix}${A != null ? A : '—'}`
       case 'fraction':
@@ -591,6 +621,15 @@ function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
       const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
       lines.push(
         `^FO${u.mmToDots(el.xMm)},${u.mmToDots(el.yMm)}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`,
+      )
+      continue
+    }
+
+    if (meta?.type === 'frame' || fieldKey === 'pieceFrame') {
+      const frameW = u.mmToDots(Math.max(8, el.wMm))
+      const frameH = u.mmToDots(Math.max(8, el.hMm))
+      lines.push(
+        `^FO${u.mmToDots(el.xMm)},${u.mmToDots(el.yMm)}^GB${frameW},${frameH},2,B^FS`,
       )
       continue
     }

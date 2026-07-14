@@ -126,6 +126,47 @@
     @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
   }
 
+  .detail-dl {
+    @apply m-0 grid gap-4 sm:grid-cols-2;
+  }
+  .detail-dl dt {
+    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
+  }
+  .detail-dl dd {
+    @apply mt-1 text-sm text-slate-900 dark:text-slate-100;
+  }
+
+  .client-audit-block {
+    @apply mt-6 border-t border-slate-200/80 pt-5 dark:border-white/10;
+  }
+  .client-audit-summary {
+    @apply m-0 mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+  .client-audit-summary dt {
+    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
+  }
+  .client-audit-summary dd {
+    @apply mt-1 text-sm font-medium text-slate-900 dark:text-slate-100;
+  }
+  .client-audit-history {
+    @apply mt-4;
+  }
+  .client-audit-history--compact {
+    @apply mt-6 border-t border-slate-200/80 pt-5 dark:border-white/10;
+  }
+  .client-audit-event {
+    @apply font-medium text-slate-800 dark:text-slate-200;
+  }
+  .client-audit-event--fail {
+    @apply text-red-700 dark:text-red-300;
+  }
+  .client-audit-ua {
+    @apply max-w-[280px] break-words text-slate-600 dark:text-slate-400;
+  }
+  .client-audit-pagination {
+    @apply mt-4 flex flex-wrap items-center justify-center gap-3;
+  }
+
   .form-section {
     @apply mb-6 last:mb-0;
   }

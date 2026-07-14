@@ -4,8 +4,9 @@ import { resolveLabelDimensionsMm } from './stickerPrintSize.js'
 
 export const STICKER_VISUAL_LAYOUT_KEY = 'biesse-sticker-visual-layout'
 
-/** @typedef {'text' | 'diagram' | 'qr' | 'dims'} LayoutElementType */
+/** @typedef {'text' | 'diagram' | 'frame' | 'qr' | 'dims'} LayoutElementType */
 /** @typedef {'L' | 'C' | 'R'} LayoutTextJustify */
+/** @typedef {'auto' | 'dimensionL' | 'dimensionA' | 'custom'} LayoutContentSource */
 
 /**
  * @typedef {object} LayoutElement
@@ -21,9 +22,19 @@ export const STICKER_VISUAL_LAYOUT_KEY = 'biesse-sticker-visual-layout'
  * @property {number} [maxLines] Líneas máximas en ^FB (0 = automático según alto del cuadro).
  * @property {number} [lineGapMm] Separación entre líneas en mm.
  * @property {LayoutTextJustify} [justify] Alineación L/C/R.
- * @property {string} [customText] Texto fijo (fieldKey customText).
+ * @property {string} [customText] Texto fijo (fieldKey customText o contentSource custom).
  * @property {string} [prefix] Prefijo opcional antes del valor.
+ * @property {LayoutContentSource} [contentSource] Origen del texto en cantos/medidas.
  */
+
+/** Campos de cantos/pieza que admiten texto personalizado o medidas L/A. */
+export const PIECE_EDGE_FIELD_KEYS = new Set([
+  'pieceCenter',
+  'edgeUp',
+  'edgeLo',
+  'edgeLeft',
+  'edgeRight',
+])
 
 /**
  * @typedef {object} StickerVisualLayout
@@ -40,7 +51,15 @@ export const LAYOUT_FIELD_CATALOG = {
   material: { label: 'Material', type: 'text', minW: 14, minH: 3.5, defaultFontHm: 4.2 },
   subdesc: { label: 'Descripción 2', type: 'text', minW: 14, minH: 3, defaultFontHm: 3.2, optional: true },
   refLine: { label: 'Referencia', type: 'text', minW: 8, minH: 3, defaultFontHm: 4.2 },
-  diagram: { label: 'Pieza / cantos', type: 'diagram', minW: 24, minH: 14 },
+  pieceFrame: { label: 'Marco pieza', type: 'frame', minW: 18, minH: 10 },
+  pieceCenter: { label: 'Centro pieza', type: 'text', minW: 10, minH: 3, defaultFontHm: 3.4, maxLines: 0 },
+  edgeUp: { label: 'Canto superior', type: 'text', minW: 8, minH: 2.5, defaultFontHm: 3, optional: true },
+  edgeLo: { label: 'Canto inferior', type: 'text', minW: 8, minH: 2.5, defaultFontHm: 3, optional: true },
+  edgeLeft: { label: 'Canto izquierdo', type: 'text', minW: 5, minH: 2.5, defaultFontHm: 3, optional: true },
+  edgeRight: { label: 'Canto derecho', type: 'text', minW: 5, minH: 2.5, defaultFontHm: 3, optional: true },
+  dimLongitud: { label: 'Medida L', type: 'text', minW: 8, minH: 2.5, defaultFontHm: 3.2, prefix: 'L: ' },
+  dimAncho: { label: 'Medida A', type: 'text', minW: 8, minH: 2.5, defaultFontHm: 3.2, prefix: 'A: ' },
+  diagram: { label: 'Pieza / cantos (legacy)', type: 'diagram', minW: 24, minH: 14 },
   qr: { label: 'Código QR', type: 'qr', minW: 12, minH: 12 },
   dimsL: { label: 'Longitud (L)', type: 'text', minW: 10, minH: 3, defaultFontHm: 4.2, prefix: 'L: ' },
   dimsA: { label: 'Ancho (A)', type: 'text', minW: 10, minH: 3, defaultFontHm: 4.2, prefix: 'A: ' },
@@ -65,7 +84,63 @@ const TEMPLATE_LANDSCAPE_100x50 = {
   material: { xMm: 1, yMm: 17.5, wMm: 58, hMm: 5, fontHm: 4.2, enabled: true, fieldKey: 'material' },
   subdesc: { xMm: 1, yMm: 22.5, wMm: 58, hMm: 4, fontHm: 3.2, enabled: true, fieldKey: 'subdesc' },
   refLine: { xMm: 1, yMm: 27, wMm: 20, hMm: 5, fontHm: 4.2, enabled: true, fieldKey: 'refLine' },
-  diagram: { xMm: 15, yMm: 32, wMm: 40, hMm: 22, enabled: true, fieldKey: 'diagram' },
+  pieceFrame: { xMm: 15, yMm: 28, wMm: 40, hMm: 16, enabled: true, fieldKey: 'pieceFrame' },
+  pieceCenter: {
+    xMm: 16,
+    yMm: 34,
+    wMm: 38,
+    hMm: 5,
+    fontHm: 3.4,
+    maxLines: 0,
+    justify: 'C',
+    enabled: true,
+    fieldKey: 'pieceCenter',
+    contentSource: 'auto',
+  },
+  edgeUp: {
+    xMm: 18,
+    yMm: 24.5,
+    wMm: 34,
+    hMm: 3,
+    fontHm: 3,
+    justify: 'C',
+    enabled: true,
+    fieldKey: 'edgeUp',
+    contentSource: 'auto',
+  },
+  edgeLo: {
+    xMm: 18,
+    yMm: 44.5,
+    wMm: 34,
+    hMm: 3,
+    fontHm: 3,
+    justify: 'C',
+    enabled: true,
+    fieldKey: 'edgeLo',
+    contentSource: 'auto',
+  },
+  edgeLeft: {
+    xMm: 7,
+    yMm: 33,
+    wMm: 7,
+    hMm: 4,
+    fontHm: 3,
+    justify: 'C',
+    enabled: true,
+    fieldKey: 'edgeLeft',
+    contentSource: 'auto',
+  },
+  edgeRight: {
+    xMm: 56,
+    yMm: 33,
+    wMm: 7,
+    hMm: 4,
+    fontHm: 3,
+    justify: 'C',
+    enabled: true,
+    fieldKey: 'edgeRight',
+    contentSource: 'auto',
+  },
   qr: { xMm: 76, yMm: 1, wMm: 19, hMm: 19, enabled: true, fieldKey: 'qr' },
   dimsL: { xMm: 76, yMm: 21.5, wMm: 23, hMm: 4.5, fontHm: 4.2, enabled: true, fieldKey: 'dimsL', prefix: 'L: ' },
   dimsA: { xMm: 76, yMm: 26, wMm: 23, hMm: 4.5, fontHm: 4.2, enabled: true, fieldKey: 'dimsA', prefix: 'A: ' },
@@ -110,6 +185,7 @@ export function normalizeLayoutElement(id, el, labelW, labelH) {
     justify: el.justify ?? 'L',
     customText: el.customText,
     prefix: el.prefix ?? meta.prefix,
+    contentSource: el.contentSource ?? 'auto',
   }
   return clampLayoutElement(normalized, labelW, labelH, id, fieldKey)
 }
@@ -139,6 +215,72 @@ function migrateLegacyElements(elements, labelW, labelH) {
     delete next.dims
   }
 
+  if (next.diagram && !next.pieceFrame) {
+    const d = next.diagram
+    const cx = d.xMm
+    const cy = d.yMm
+    const cw = d.wMm
+    const ch = d.hMm
+    next.pieceFrame = { xMm: cx, yMm: cy, wMm: cw, hMm: ch, enabled: true, fieldKey: 'pieceFrame' }
+    next.pieceCenter = {
+      xMm: roundMm(cx + 1),
+      yMm: roundMm(cy + ch / 2 - 2.5),
+      wMm: roundMm(cw - 2),
+      hMm: 5,
+      fontHm: 3.4,
+      justify: 'C',
+      maxLines: 0,
+      enabled: true,
+      fieldKey: 'pieceCenter',
+      contentSource: 'auto',
+    }
+    next.edgeUp = {
+      xMm: roundMm(cx + 2),
+      yMm: roundMm(cy - 3.5),
+      wMm: roundMm(cw - 4),
+      hMm: 3,
+      fontHm: 3,
+      justify: 'C',
+      enabled: true,
+      fieldKey: 'edgeUp',
+      contentSource: 'auto',
+    }
+    next.edgeLo = {
+      xMm: roundMm(cx + 2),
+      yMm: roundMm(cy + ch + 0.5),
+      wMm: roundMm(cw - 4),
+      hMm: 3,
+      fontHm: 3,
+      justify: 'C',
+      enabled: true,
+      fieldKey: 'edgeLo',
+      contentSource: 'auto',
+    }
+    next.edgeLeft = {
+      xMm: roundMm(Math.max(0, cx - 7)),
+      yMm: roundMm(cy + ch / 2 - 2),
+      wMm: 7,
+      hMm: 4,
+      fontHm: 3,
+      justify: 'C',
+      enabled: true,
+      fieldKey: 'edgeLeft',
+      contentSource: 'auto',
+    }
+    next.edgeRight = {
+      xMm: roundMm(cx + cw + 1),
+      yMm: roundMm(cy + ch / 2 - 2),
+      wMm: 7,
+      hMm: 4,
+      fontHm: 3,
+      justify: 'C',
+      enabled: true,
+      fieldKey: 'edgeRight',
+      contentSource: 'auto',
+    }
+    delete next.diagram
+  }
+
   /** @type {Record<string, LayoutElement>} */
   const normalized = {}
   for (const [id, el] of Object.entries(next)) {
@@ -158,7 +300,7 @@ export function listAddableFields(layout) {
     getActiveLayoutElements(layout.elements).map(([id, el]) => el.fieldKey ?? id),
   )
   return Object.entries(LAYOUT_FIELD_CATALOG)
-    .filter(([key]) => key !== 'customText' && !activeKeys.has(key))
+    .filter(([key]) => key !== 'customText' && key !== 'diagram' && !activeKeys.has(key))
     .map(([key, meta]) => ({ key, ...meta }))
 }
 

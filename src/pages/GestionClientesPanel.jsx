@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
+import { ClientAuditSummary, ClientLoginHistorySection } from '../components/ClientLoginHistorySection.jsx'
 import { isStrongPassword, validatePassword } from '../utils/passwordPolicy'
+import { formatAppDateTime } from '../utils/appDateTime'
 
 const TIPOS_DOCUMENTO = ['DNI', 'CE', 'PASAPORTE']
 
@@ -52,6 +54,7 @@ export function GestionClientesPanel() {
   const [editBusy, setEditBusy] = useState(false)
   const [editErr, setEditErr] = useState(null)
   const [editOk, setEditOk] = useState(null)
+  const [auditClient, setAuditClient] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,11 +106,13 @@ export function GestionClientesPanel() {
     setMode('edit')
     setEditingId(row.id)
     setEditForm(rowToEditForm(row))
+    setAuditClient(row)
     setResetPassword('')
     setEditErr(null)
     setEditOk(null)
     setCreateErr(null)
     setCreateOk(null)
+    void systemApi.getClient(row.id).then(setAuditClient).catch(() => setAuditClient(row))
   }
 
   function patchEdit(key, value) {
@@ -118,6 +123,7 @@ export function GestionClientesPanel() {
     setMode('list')
     setEditingId(null)
     setEditForm(null)
+    setAuditClient(null)
     setResetPassword('')
     setCreateErr(null)
     setCreateOk(null)
@@ -484,6 +490,15 @@ export function GestionClientesPanel() {
               </button>
             </div>
           </form>
+
+          <div className="card pad" style={{ marginTop: '1rem' }}>
+            <h3 className="card__title">Actividad de la cuenta</h3>
+            <ClientAuditSummary client={auditClient || editingRow} />
+          </div>
+
+          <div className="card pad" style={{ marginTop: '1rem' }}>
+            <ClientLoginHistorySection clientId={editingId} />
+          </div>
         </div>
       ) : null}
 
@@ -513,6 +528,7 @@ export function GestionClientesPanel() {
                       <th>Usuario</th>
                       <th>Nombre</th>
                       <th>Documento / RUC</th>
+                      <th>Último acceso</th>
                       <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
@@ -520,7 +536,7 @@ export function GestionClientesPanel() {
                   <tbody>
                     {filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="muted small">
+                        <td colSpan={7} className="muted small">
                           No hay clientes que coincidan.
                         </td>
                       </tr>
@@ -535,6 +551,7 @@ export function GestionClientesPanel() {
                             ? c.ruc || '—'
                             : [c.tipoDocumento, c.numeroDocumento].filter(Boolean).join(' ') || '—'}
                         </td>
+                        <td className="small">{formatAppDateTime(c.lastLoginAt)}</td>
                         <td>{c.active ? 'Activo' : 'Inactivo'}</td>
                         <td className="small">
                           <button type="button" className="btn btn--ghost" onClick={() => startEdit(c)}>

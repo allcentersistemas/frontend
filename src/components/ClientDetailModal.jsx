@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DetailModal } from './DetailModal.jsx'
+import { ClientAuditSummary, ClientLoginHistorySection } from './ClientLoginHistorySection.jsx'
 import * as systemApi from '../api/systemApi'
 import { formatAppDateTime } from '../utils/appDateTime'
 
@@ -52,6 +53,7 @@ export function ClientDetailModal({ clientUserId, proyectoId, clientLabel, open,
       title={client?.displayName || client?.razonSocial || clientLabel || 'Cliente'}
       subtitle={client?.email || ''}
       onClose={onClose}
+      wide
     >
       {loading ? <p className="muted">Cargando datos del cliente…</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
@@ -79,13 +81,20 @@ export function ClientDetailModal({ clientUserId, proyectoId, clientLabel, open,
           <Field label="Ciudad" value={client.ciudad} />
           <Field label="Distrito" value={client.distrito} />
           <Field label="Departamento" value={client.departamento} />
-          {client.createdAt ? (
-            <Field
-              label="Registrado"
-              value={formatAppDateTime(client.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
-            />
-          ) : null}
+          <Field
+            label="Registrado"
+            value={formatAppDateTime(client.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
+          />
         </dl>
+      ) : null}
+      {!loading && !error && client ? (
+        <>
+          <div className="client-audit-block">
+            <h3 className="card__title">Actividad de la cuenta</h3>
+            <ClientAuditSummary client={client} />
+          </div>
+          <ClientLoginHistorySection clientId={client.id} compact />
+        </>
       ) : null}
     </DetailModal>
   )

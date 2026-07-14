@@ -814,6 +814,11 @@ export async function resetClientPassword(id, body) {
   })
 }
 
+export async function getClientLoginHistory(id, { page = 0, size = 20 } = {}) {
+  const q = new URLSearchParams({ page: String(page), size: String(size) })
+  return systemJson(`/api/gestion/clientes/${id}/login-history?${q}`)
+}
+
 /* ——— Backups (admin) ——— */
 
 export async function fetchBackupConfig() {

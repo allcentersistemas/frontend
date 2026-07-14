@@ -33,6 +33,7 @@ import {
   getVisualLayoutForLabel,
   listAddableFields,
   normalizeLayoutElement,
+  PIECE_EDGE_FIELD_KEYS,
   resetVisualLayoutForLabel,
   scaleVisualLayoutToSize,
   setUseVisualLayout,
@@ -47,6 +48,14 @@ const ELEMENT_COLORS = {
   material: 'rgba(134, 239, 172, 0.3)',
   subdesc: 'rgba(196, 181, 253, 0.3)',
   refLine: 'rgba(253, 186, 116, 0.35)',
+  pieceFrame: 'rgba(148, 163, 184, 0.12)',
+  pieceCenter: 'rgba(148, 163, 184, 0.28)',
+  edgeUp: 'rgba(96, 165, 250, 0.28)',
+  edgeLo: 'rgba(96, 165, 250, 0.28)',
+  edgeLeft: 'rgba(96, 165, 250, 0.28)',
+  edgeRight: 'rgba(96, 165, 250, 0.28)',
+  dimLongitud: 'rgba(244, 114, 182, 0.28)',
+  dimAncho: 'rgba(244, 114, 182, 0.28)',
   diagram: 'rgba(148, 163, 184, 0.25)',
   qr: 'rgba(56, 189, 248, 0.35)',
   dimsL: 'rgba(244, 114, 182, 0.28)',
@@ -63,6 +72,14 @@ const ELEMENT_BORDER = {
   material: '#86efac',
   subdesc: '#c4b5fd',
   refLine: '#fdba74',
+  pieceFrame: '#64748b',
+  pieceCenter: '#94a3b8',
+  edgeUp: '#60a5fa',
+  edgeLo: '#60a5fa',
+  edgeLeft: '#60a5fa',
+  edgeRight: '#60a5fa',
+  dimLongitud: '#f472b6',
+  dimAncho: '#f472b6',
   diagram: '#94a3b8',
   qr: '#38bdf8',
   dimsL: '#f472b6',
@@ -337,6 +354,11 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
     const fieldKey = el.fieldKey ?? id
     if (fieldKey === 'customText') return el.customText || 'Texto libre'
     const prefix = el.prefix ?? ''
+    const source = el.contentSource ?? 'auto'
+    if (source === 'dimensionL') return `${prefix}${sample.L ?? '—'}`
+    if (source === 'dimensionA') return `${prefix}${sample.A ?? '—'}`
+    if (source === 'custom') return el.customText || '(texto fijo)'
+    if (el.customText?.trim()) return el.customText
     switch (fieldKey) {
       case 'headerTitle':
         return sample.headerTitle
@@ -348,14 +370,26 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
         return sample.subdesc || '(vacío)'
       case 'refLine':
         return sample.refLine
+      case 'pieceCenter':
+        return sample.centerLabel
+      case 'edgeUp':
+        return sample.upLabel || '(vacío)'
+      case 'edgeLo':
+        return sample.loLabel || '(vacío)'
+      case 'edgeLeft':
+        return sample.leftLabel || '(vacío)'
+      case 'edgeRight':
+        return sample.rightLabel || '(vacío)'
+      case 'dimLongitud':
+      case 'dimsL':
+        return `${prefix}${sample.L ?? '—'}`
+      case 'dimAncho':
+      case 'dimsA':
+        return `${prefix}${sample.A ?? '—'}`
       case 'diagram':
         return sample.centerLabel
       case 'qr':
         return 'QR'
-      case 'dimsL':
-        return `${prefix}${sample.L ?? '—'}`
-      case 'dimsA':
-        return `${prefix}${sample.A ?? '—'}`
       case 'fraction':
         return `${sample.numeroPieza} / ${sample.cantidad}`
       case 'footerLeft':
@@ -371,6 +405,9 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   const selectedMeta = selected ? getElementMeta(selectedId, selected) : null
   const isTextField = selectedMeta?.type === 'text'
   const isCustomText = (selected?.fieldKey ?? selectedId) === 'customText'
+  const isPieceEdgeField = PIECE_EDGE_FIELD_KEYS.has(selected?.fieldKey ?? selectedId ?? '')
+  const showContentSource =
+    isPieceEdgeField || selected?.fieldKey === 'pieceCenter'
 
   return (
     <DetailModal
@@ -431,7 +468,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                       border: `2px solid ${isSelected ? '#f59e0b' : borderForElement(id, el)}`,
                       borderRadius: 2,
                       cursor: 'move',
-                      zIndex: isSelected ? 20 : 10,
+                      zIndex: meta.type === 'frame' ? 5 : isSelected ? 20 : 10,
                     }}
                     onPointerDown={(e) => handlePointerDown(e, id, 'move')}
                     onClick={(e) => {
@@ -445,7 +482,9 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                     >
                       {meta.label}
                     </div>
-                    {meta.type === 'diagram' ? (
+                    {meta.type === 'frame' ? (
+                      <div className="pointer-events-none h-full w-full border-2 border-slate-600 bg-transparent" />
+                    ) : meta.type === 'diagram' ? (
                       <div className="pointer-events-none flex h-full flex-col items-center justify-center p-1 text-center">
                         <span className="text-[8px] text-slate-500">{sample.upLabel || ' '}</span>
                         <div className="my-0.5 flex w-full flex-1 items-center justify-center border-2 border-slate-600">
@@ -712,6 +751,41 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                   </label>
                 ))}
               </div>
+              {showContentSource ? (
+                <>
+                  <label className="mt-2 block text-xs text-slate-400">
+                    Contenido
+                    <select
+                      className={`${inputClass} mt-1`}
+                      value={selected.contentSource ?? 'auto'}
+                      onChange={(e) =>
+                        patchElement(selectedId, { contentSource: e.target.value })
+                      }
+                    >
+                      <option value="auto">Dato Biesse (canto / descripción)</option>
+                      <option value="dimensionL">Medida L (longitud)</option>
+                      <option value="dimensionA">Medida A (ancho)</option>
+                      <option value="custom">Texto fijo</option>
+                    </select>
+                  </label>
+                  {(selected.contentSource === 'custom' || selected.customText) ? (
+                    <label className="mt-2 block text-xs text-slate-400">
+                      Texto fijo
+                      <input
+                        type="text"
+                        className={`${inputClass} mt-1`}
+                        value={selected.customText ?? ''}
+                        onChange={(e) => patchElement(selectedId, { customText: e.target.value })}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Puedes mover cada canto por separado y poner L o A dentro del recuadro. También agrega
+                    «Medida L» / «Medida A» desde la lista de campos.
+                  </p>
+                </>
+              ) : null}
+
               {isCustomText ? (
                 <label className="mt-2 block text-xs text-slate-400">
                   Texto fijo
