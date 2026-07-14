@@ -191,7 +191,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
     .col-left { width: auto; padding-right: 1.5mm; }
     .col-right {
-      width: 28mm;
+      width: 24mm;
       text-align: center;
       vertical-align: top;
     }
@@ -290,10 +290,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       word-break: break-word;
     }
 
-    .qr { line-height: 0; margin-bottom: 0.8mm; width: 100%; text-align: center; }
+    .qr { line-height: 0; margin-bottom: 1.2mm; width: 100%; text-align: center; }
     .qr img {
-      width: 23mm;
-      height: 23mm;
+      width: 19mm;
+      height: 19mm;
       display: inline-block;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -310,12 +310,13 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       font-weight: 400;
       font-size: 12.5pt;
       letter-spacing: 0.04em;
-      line-height: 1.15;
+      line-height: 1.25;
       text-align: left;
       padding-left: 0.5mm;
+      margin-top: 1mm;
     }
     .frac {
-      margin-top: 0.6mm;
+      margin-top: 0.8mm;
       font-size: 12.5pt;
       font-weight: 400;
       letter-spacing: 0.04em;

@@ -9,7 +9,7 @@ import { clampStickerPrintDpi } from './stickerPrintDpi.js'
 const DEFAULT_ZPL_DPI = 203
 
 /** Incrementar al cambiar layout; sirve para verificar que el navegador usa código nuevo. */
-export const STICKER_ZPL_LAYOUT_VERSION = 7
+export const STICKER_ZPL_LAYOUT_VERSION = 8
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -17,7 +17,9 @@ export { ZEBRA_LABEL_SIZES } from './stickerPrintSize.js'
 
 const PIECE_FRAME_W_MM = 40
 const PIECE_FRAME_H_MM = 22
-const QR_SIZE_MM = 23
+const QR_SIZE_MM = 19
+/** Espacio entre el borde inferior del QR y el texto L/A (mm). */
+const QR_TEXT_GAP_MM = 1.2
 
 /**
  * Ancho de carácter vs alto. 0.36 quedaba ilegible (letras pegadas).
@@ -52,8 +54,9 @@ function createZplUnits(dpi) {
     },
     /** Magnificación QR según tamaño físico deseado en mm. */
     qrMag(sizeMm = QR_SIZE_MM) {
-      const mag = Math.round((sizeMm / 25.4) * resolvedDpi / 33)
-      return Math.max(4, Math.min(10, mag))
+      const modules = 33
+      const mag = Math.round((sizeMm / 25.4) * resolvedDpi / modules)
+      return Math.max(3, Math.min(8, mag))
     },
   }
 }
@@ -196,7 +199,7 @@ function buildLandscapeZpl(ctx) {
   } = ctx
 
   const pad = u.mmToDots(1)
-  const rightColW = u.mmToDots(28)
+  const rightColW = u.mmToDots(24)
   const leftX = pad
   const rightX = PW - pad - rightColW
   const textColW = Math.max(u.mmToDots(30), rightX - leftX - u.mmToDots(1))
@@ -253,7 +256,7 @@ function buildLandscapeZpl(ctx) {
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${rightX},${qrY}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`)
 
-  let infoY = qrY + u.mmToDots(QR_SIZE_MM + 0.5)
+  let infoY = qrY + u.mmToDots(QR_SIZE_MM + QR_TEXT_GAP_MM)
   lines.push(`^FO${rightX},${infoY}${u.text(4.4)}^FDL: ${L != null ? L : '—'}^FS`)
   infoY += u.rowAdvance(4.4, 0.6)
   lines.push(`^FO${rightX},${infoY}${u.text(4.4)}^FDA: ${A != null ? A : '—'}^FS`)
