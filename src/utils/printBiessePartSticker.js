@@ -124,7 +124,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       display: flex;
       flex-direction: column;
       font-family: Arial, Helvetica, sans-serif;
-      font-weight: 500;
+      font-weight: 400;
     }
 
     .print-size--auto .sticker,
@@ -152,10 +152,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       margin-bottom: 0.8mm;
     }
     .head__title {
-      font-weight: 600;
-      line-height: 1.1;
-      font-size: 8.5pt;
-      letter-spacing: 0.01em;
+      font-weight: 400;
+      line-height: 1.12;
+      font-size: 10.5pt;
+      letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -163,9 +163,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       word-break: break-word;
     }
     .head__sub {
-      font-weight: 500;
+      font-weight: 400;
       margin-top: 0.15em;
-      font-size: 6.5pt;
+      font-size: 8pt;
+      letter-spacing: 0.015em;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -191,9 +192,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
 
     .mat {
-      font-weight: 600;
-      font-size: 7.5pt;
-      line-height: 1.1;
+      font-weight: 400;
+      font-size: 9.5pt;
+      line-height: 1.12;
+      letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
       overflow: hidden;
       display: -webkit-box;
@@ -202,16 +204,18 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       word-break: break-word;
     }
     .desc1 {
-      font-size: 6.5pt;
-      font-weight: 500;
+      font-size: 8pt;
+      font-weight: 400;
+      letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
     .ref {
-      font-size: 8pt;
-      font-weight: 600;
+      font-size: 10pt;
+      font-weight: 400;
+      letter-spacing: 0.02em;
       margin-bottom: 1mm;
     }
 
@@ -228,8 +232,9 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
 
     .edge {
-      font-weight: 600;
-      font-size: 6pt;
+      font-weight: 400;
+      font-size: 7.5pt;
+      letter-spacing: 0.02em;
       line-height: 1.05;
       overflow: hidden;
       word-break: break-word;
@@ -268,10 +273,11 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
 
     .piece-shape__txt {
-      font-weight: 700;
+      font-weight: 400;
       text-align: center;
-      line-height: 1.1;
-      font-size: 7.5pt;
+      line-height: 1.12;
+      font-size: 9pt;
+      letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -296,16 +302,18 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
 
     .dims {
       font-family: Arial, Helvetica, sans-serif;
-      font-weight: 600;
-      font-size: 8pt;
+      font-weight: 400;
+      font-size: 9.5pt;
+      letter-spacing: 0.02em;
       line-height: 1.15;
       text-align: left;
       padding-left: 0.5mm;
     }
     .frac {
       margin-top: 0.6mm;
-      font-size: 7.5pt;
-      font-weight: 600;
+      font-size: 9pt;
+      font-weight: 400;
+      letter-spacing: 0.02em;
       text-align: left;
       padding-left: 0.5mm;
     }
@@ -315,8 +323,9 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       display: flex;
       justify-content: space-between;
       gap: 0.5em;
-      font-weight: 500;
-      font-size: 6.5pt;
+      font-weight: 400;
+      font-size: 8pt;
+      letter-spacing: 0.015em;
     }
     .col-left .foot {
       margin-top: 2mm;
