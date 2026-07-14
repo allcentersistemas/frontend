@@ -6,6 +6,7 @@
 import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
 import { getStickerPrintSize, isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
 import { getStickerPrintDpi } from './stickerPrintDpi.js'
+import { getStickerDesignSettings } from './stickerDesignSettings.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
 function esc(s) {
@@ -720,6 +721,7 @@ export async function printBiessePartStickersBulk({
                                                     printOrientation = 'landscape',
                                                     printDpi = getStickerPrintDpi(),
                                                     customLabelMm = null,
+                                                    stickerDesign = getStickerDesignSettings(),
                                                     printWindow = null,
                                                   }) {
   if (!items?.length) {
@@ -750,6 +752,7 @@ export async function printBiessePartStickersBulk({
           labelSize: printSize,
           dpi: printDpi,
           customLabelMm,
+          design: stickerDesign,
         })
         await sendZplToZebra(zpl)
       }
@@ -806,6 +809,7 @@ export async function printBiessePartSticker({
                                                printOrientation = 'landscape',
                                                printDpi = getStickerPrintDpi(),
                                                customLabelMm = null,
+                                               stickerDesign = getStickerDesignSettings(),
                                              }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
@@ -833,6 +837,7 @@ export async function printBiessePartSticker({
       labelSize: printSize,
       dpi: printDpi,
       customLabelMm,
+      design: stickerDesign,
     })
     try {
       await sendZplToZebra(zpl)

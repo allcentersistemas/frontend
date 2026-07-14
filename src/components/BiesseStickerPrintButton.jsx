@@ -29,6 +29,11 @@ import {
   clampStickerPrintDpi,
   STICKER_PRINT_DPI_PRESETS,
 } from '../utils/stickerPrintDpi'
+import {
+  getStickerDesignSettings,
+  setStickerDesignSettings,
+  resetStickerDesignSettings,
+} from '../utils/stickerDesignSettings'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -106,6 +111,8 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
+  const [stickerDesign, setStickerDesign] = useState(getStickerDesignSettings)
+  const [designOpen, setDesignOpen] = useState(false)
   const [customWidthMm, setCustomWidthMm] = useState(() => getStickerPrintCustomSize().widthMm)
   const [customHeightMm, setCustomHeightMm] = useState(() => getStickerPrintCustomSize().heightMm)
   const [bulkQueue, setBulkQueue] = useState([])
@@ -162,6 +169,7 @@ export function BiesseStickerPrintButton({ detail }) {
       setPrintSize(getStickerPrintSize())
       setPrintOrientation(getStickerPrintOrientation())
       setPrintDpi(getStickerPrintDpi())
+      setStickerDesign(getStickerDesignSettings())
       const custom = getStickerPrintCustomSize()
       setCustomWidthMm(custom.widthMm)
       setCustomHeightMm(custom.heightMm)
@@ -186,6 +194,11 @@ export function BiesseStickerPrintButton({ detail }) {
       cancelled = true
     }
   }, [open, useZpl, printSize])
+
+  function patchDesign(patch) {
+    const next = setStickerDesignSettings(patch)
+    setStickerDesign(next)
+  }
 
   function buildOrderPayload() {
     return {
@@ -273,6 +286,7 @@ export function BiesseStickerPrintButton({ detail }) {
       labelSize: printSize,
       dpi: printDpi,
       customLabelMm,
+      design: stickerDesign,
     })
   }
 
@@ -297,6 +311,7 @@ export function BiesseStickerPrintButton({ detail }) {
         printOrientation,
         printDpi,
         customLabelMm,
+        stickerDesign,
         order: buildOrderPayload(),
         part,
         piece,
@@ -353,6 +368,7 @@ export function BiesseStickerPrintButton({ detail }) {
         printOrientation,
         printDpi,
         customLabelMm,
+        stickerDesign,
         printWindow,
       })
 
@@ -569,6 +585,101 @@ export function BiesseStickerPrintButton({ detail }) {
                     ZPL: ^PW/^LL según {printDpi} dpi.
                   </p>
                 </div>
+              ) : null}
+
+              {useZpl ? (
+                <details
+                  className="rounded-xl border border-white/10 bg-black/20"
+                  open={designOpen}
+                  onToggle={(e) => setDesignOpen(e.currentTarget.open)}
+                >
+                  <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
+                    Diseño del sticker (ZPL)
+                  </summary>
+                  <div className="space-y-3 border-t border-white/10 px-3 py-3">
+                    <p className="text-xs leading-relaxed text-slate-500">
+                      Ajustes guardados en este navegador. El rectángulo y los cantos mantienen la misma posición
+                      aunque falte canto superior o inferior. La fuente es vectorial Zebra (similar a sans fina;
+                      Calibri real requiere cargar la fuente en la impresora).
+                    </p>
+
+                    <label className="block text-xs text-slate-400">
+                      Tamaño texto ({Math.round(stickerDesign.fontScale * 100)}%)
+                      <input
+                        type="range"
+                        min={85}
+                        max={120}
+                        step={1}
+                        className="mt-1 w-full accent-amber-500"
+                        value={Math.round(stickerDesign.fontScale * 100)}
+                        onChange={(e) => patchDesign({ fontScale: Number(e.target.value) / 100 })}
+                      />
+                    </label>
+
+                    <label className="block text-xs text-slate-400">
+                      Finura letra ({stickerDesign.charWidthRatio.toFixed(2)} — menor = más fina)
+                      <input
+                        type="range"
+                        min={36}
+                        max={52}
+                        step={1}
+                        className="mt-1 w-full accent-amber-500"
+                        value={Math.round(stickerDesign.charWidthRatio * 100)}
+                        onChange={(e) => patchDesign({ charWidthRatio: Number(e.target.value) / 100 })}
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block text-xs text-slate-400">
+                        QR (mm)
+                        <input
+                          type="number"
+                          min={14}
+                          max={28}
+                          step={0.5}
+                          className={`${inputClass} mt-1`}
+                          value={stickerDesign.qrSizeMm}
+                          onChange={(e) => patchDesign({ qrSizeMm: Number(e.target.value) })}
+                        />
+                      </label>
+                      <label className="block text-xs text-slate-400">
+                        Hueco QR → L/A (mm)
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={3}
+                          step={0.1}
+                          className={`${inputClass} mt-1`}
+                          value={stickerDesign.qrTextGapMm}
+                          onChange={(e) => patchDesign({ qrTextGapMm: Number(e.target.value) })}
+                        />
+                      </label>
+                    </div>
+
+                    <label className="block text-xs text-slate-400">
+                      Banda cantos arriba/abajo ({stickerDesign.edgeBandMm} mm)
+                      <input
+                        type="range"
+                        min={25}
+                        max={60}
+                        step={1}
+                        className="mt-1 w-full accent-amber-500"
+                        value={Math.round(stickerDesign.edgeBandMm * 10)}
+                        onChange={(e) => patchDesign({ edgeBandMm: Number(e.target.value) / 10 })}
+                      />
+                    </label>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn btn--sm btn--ghost"
+                        onClick={() => setStickerDesign(resetStickerDesignSettings())}
+                      >
+                        Restaurar valores
+                      </button>
+                    </div>
+                  </div>
+                </details>
               ) : null}
 
               {useZpl ? (
