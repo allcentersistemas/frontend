@@ -154,6 +154,20 @@ export function BiesseStickerPrintButton({ detail }) {
     setUseVisualLayoutState(getUseVisualLayout())
   }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation, layoutEditorOpen])
 
+  const activeLayoutVersion = useVisualLayout ? STICKER_ZPL_VISUAL_LAYOUT_VERSION : STICKER_ZPL_LAYOUT_VERSION
+
+  useEffect(() => {
+    setPartId(null)
+    setNumeroPieza(1)
+    setBulkQueue([])
+    setMode('single')
+  }, [detail?.orderId])
+
+  const selectedPart = useMemo(
+    () => partes.find((p) => p.partId === partId) ?? null,
+    [partes, partId],
+  )
+
   const layoutPreviewData = useMemo(() => {
     if (!detail) return undefined
     const part = selectedPart
@@ -199,20 +213,6 @@ export function BiesseStickerPrintButton({ detail }) {
       dateStr,
     }
   }, [detail, selectedPart, numeroPieza])
-
-  const activeLayoutVersion = useVisualLayout ? STICKER_ZPL_VISUAL_LAYOUT_VERSION : STICKER_ZPL_LAYOUT_VERSION
-
-  useEffect(() => {
-    setPartId(null)
-    setNumeroPieza(1)
-    setBulkQueue([])
-    setMode('single')
-  }, [detail?.orderId])
-
-  const selectedPart = useMemo(
-    () => partes.find((p) => p.partId === partId) ?? null,
-    [partes, partId],
-  )
 
   useEffect(() => {
     if (!open || !partes.length) return
