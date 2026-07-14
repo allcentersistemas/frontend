@@ -159,7 +159,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     .head__title {
       font-weight: 500;
       line-height: 1.12;
-      font-size: 12pt;
+      font-size: 13.5pt;
       letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
@@ -170,7 +170,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     .head__sub {
       font-weight: 500;
       margin-top: 0.15em;
-      font-size: 9pt;
+      font-size: 11pt;
       letter-spacing: 0.015em;
       overflow: hidden;
       white-space: nowrap;
@@ -191,14 +191,14 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
     .col-left { width: auto; padding-right: 1.5mm; }
     .col-right {
-      width: 28mm;
+      width: 31mm;
       text-align: center;
       vertical-align: top;
     }
 
     .mat {
       font-weight: 500;
-      font-size: 11pt;
+      font-size: 12pt;
       line-height: 1.12;
       letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
@@ -209,7 +209,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       word-break: break-word;
     }
     .desc1 {
-      font-size: 9pt;
+      font-size: 11pt;
       font-weight: 500;
       letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
@@ -218,7 +218,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       text-overflow: ellipsis;
     }
     .ref {
-      font-size: 11.5pt;
+      font-size: 13pt;
       font-weight: 500;
       letter-spacing: 0.02em;
       margin-bottom: 1mm;
@@ -238,7 +238,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
 
     .edge {
       font-weight: 500;
-      font-size: 8.5pt;
+      font-size: 9.5pt;
       letter-spacing: 0.02em;
       line-height: 1.05;
       overflow: hidden;
@@ -281,7 +281,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       font-weight: 500;
       text-align: center;
       line-height: 1.12;
-      font-size: 10pt;
+      font-size: 11pt;
       letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
@@ -292,8 +292,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
 
     .qr { line-height: 0; margin-bottom: 0.8mm; width: 100%; text-align: center; }
     .qr img {
-      width: 22mm;
-      height: 22mm;
+      width: 26mm;
+      height: 26mm;
       display: inline-block;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -308,7 +308,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     .dims {
       font-family: Arial, Helvetica, sans-serif;
       font-weight: 500;
-      font-size: 11pt;
+      font-size: 12pt;
       letter-spacing: 0.02em;
       line-height: 1.15;
       text-align: left;
@@ -316,7 +316,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
     .frac {
       margin-top: 0.6mm;
-      font-size: 10.5pt;
+      font-size: 12pt;
       font-weight: 500;
       letter-spacing: 0.02em;
       text-align: left;
@@ -329,7 +329,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       justify-content: space-between;
       gap: 0.5em;
       font-weight: 500;
-      font-size: 9pt;
+      font-size: 11pt;
       letter-spacing: 0.015em;
     }
     .col-left .foot {
@@ -663,7 +663,7 @@ export async function resolveStickerItemData({
       numeroPieza,
   )
   const printedAt = new Date()
-  const qrPixels = isZebraZplSize(printSize) ? 640 : 240
+  const qrPixels = isZebraZplSize(printSize) ? 720 : 280
   let qrBlock = ''
   try {
     const QRCode = (await import('qrcode')).default
