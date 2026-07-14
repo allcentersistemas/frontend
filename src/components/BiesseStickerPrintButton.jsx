@@ -14,6 +14,7 @@ import {
   getStickerPrintSize,
   setStickerPrintSize,
   STICKER_PRINT_SIZES,
+  isZebraZplSize,
 } from '../utils/stickerPrintSize'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
@@ -202,7 +203,7 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrintSingle() {
     if (!detail || !selectedPart) return
-    const useZpl = printSize === 'label_80x50'
+    const useZpl = isZebraZplSize(printSize)
     const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
@@ -222,8 +223,8 @@ export function BiesseStickerPrintButton({ detail }) {
       if (useZpl && printResult?.printMethod === 'html') {
         window.alert(
           'No se detectó Zebra Browser Print.\n\n' +
-            'Para etiquetas nítidas en la ZD230/ZD420 instala el servicio "Zebra Browser Print" en este equipo, ' +
-            'configura la Zebra como impresora por defecto y vuelve a imprimir.\n\n' +
+            'Para etiquetas nítidas en ZD230 / ZD420 instala el servicio "Zebra Browser Print" en este equipo, ' +
+            'configura la impresora Zebra como predeterminada y vuelve a imprimir.\n\n' +
             'Se ha abierto la impresión HTML (menor calidad). Si el driver rasteriza mal, usa Browser Print.'
         )
       }
@@ -249,7 +250,7 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrintBulk() {
     if (!detail || !bulkQueue.length) return
-    const useZpl = printSize === 'label_80x50'
+    const useZpl = isZebraZplSize(printSize)
     const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
@@ -352,8 +353,9 @@ export function BiesseStickerPrintButton({ detail }) {
               </div>
 
               <p className="text-sm leading-relaxed text-slate-400">
-                El código QR coincide con el formato Biesse (<InlineCode>pieces/resolve</InlineCode>).
-                Elija orientación y tamaño. Con Zebra ZD230/ZD420 usa{' '}
+                QR Biesse (<InlineCode>pieces/resolve</InlineCode>). Compatible con{' '}
+                <strong className="font-medium text-slate-300">ZD230 y ZD420</strong> (y otras
+                Zebra) vía{' '}
                 <a
                   href={ZEBRA_BROWSER_PRINT_URL}
                   target="_blank"
@@ -362,7 +364,7 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   Zebra Browser Print
                 </a>
-                .
+                . Elija orientación y tamaño de etiqueta.
               </p>
 
               <div>
@@ -404,6 +406,9 @@ export function BiesseStickerPrintButton({ detail }) {
                     </option>
                   ))}
                 </select>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                  {STICKER_PRINT_SIZES.find((s) => s.id === printSize)?.hint}
+                </p>
               </div>
 
               <div>
