@@ -223,9 +223,9 @@ export function BiesseStickerPrintButton({ detail }) {
       if (useZpl && printResult?.printMethod === 'html') {
         window.alert(
           'No se detectó Zebra Browser Print.\n\n' +
-            'Para etiquetas nítidas en ZD230 / ZD420 instala el servicio "Zebra Browser Print" en este equipo, ' +
-            'configura la impresora Zebra como predeterminada y vuelve a imprimir.\n\n' +
-            'Se ha abierto la impresión HTML (menor calidad). Si el driver rasteriza mal, usa Browser Print.'
+            'La vista previa del navegador puede verse bien, pero si la etiqueta sale deformada al imprimir, ' +
+            'revisa en el diálogo: papel del mismo tamaño elegido (ej. 80×50 mm), escala 100% y márgenes 0.\n\n' +
+            'Para ZD230 / ZD420 instala Browser Print y configura la impresora como predeterminada (evita deformaciones).'
         )
       }
 
@@ -282,7 +282,9 @@ export function BiesseStickerPrintButton({ detail }) {
 
       if (useZpl && results[0]?.printMethod === 'html') {
         window.alert(
-          'No se detectó Zebra Browser Print. Se abrió impresión HTML para todas las etiquetas.'
+          'No se detectó Zebra Browser Print.\n\n' +
+            'Si la vista previa se ve bien pero imprime deformado: papel correcto (ej. 80×50 mm), escala 100%, márgenes 0.\n\n' +
+            'Se abrió impresión HTML para todas las etiquetas.'
         )
       }
 
@@ -364,7 +366,8 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   Zebra Browser Print
                 </a>
-                . Elija orientación y tamaño de etiqueta.
+                . Elija orientación y tamaño de etiqueta. Si la vista previa se ve bien pero
+                imprime deformado, use Browser Print o configure papel y escala 100% en el driver.
               </p>
 
               <div>

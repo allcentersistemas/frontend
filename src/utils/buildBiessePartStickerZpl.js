@@ -168,6 +168,7 @@ function buildLandscapeZpl(ctx) {
   const lines = [
     '^XA',
     '^MMT',
+    '^PON',
     '^PW' + PW,
     '^LL' + LL,
     '^LH0,0',
@@ -255,6 +256,7 @@ function buildPortraitZpl(ctx) {
   const lines = [
     '^XA',
     '^MMT',
+    '^PON',
     '^PW' + PW,
     '^LL' + LL,
     '^LH0,0',

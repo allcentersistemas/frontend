@@ -74,7 +74,6 @@ function labelSizeMm(printSize, orientation) {
 
 function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
   const { w: LABEL_W_MM, h: LABEL_H_MM } = labelSizeMm(printSize, orientation)
-  const pageOrient = orientation === 'portrait' ? 'portrait' : 'landscape'
   const zebraClass = isZebraZplSize(printSize)
       ? `
     html.print-size--${printSize},
@@ -88,19 +87,28 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       : ''
 
   return `
-    @page { size: ${pageOrient}; margin: 0; }
-    @page fixed-label {
-      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm ${pageOrient};
+    @page {
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
       margin: 0;
     }
-    @page fill-sheet { size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm ${pageOrient}; margin: 0; }
+    @page fixed-label {
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
+      margin: 0;
+    }
+    @page fill-sheet {
+      size: ${LABEL_W_MM}mm ${LABEL_H_MM}mm;
+      margin: 0;
+    }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
+      width: ${LABEL_W_MM}mm;
+      height: ${LABEL_H_MM}mm;
+      max-width: ${LABEL_W_MM}mm;
+      max-height: ${LABEL_H_MM}mm;
+      overflow: hidden;
     }
     ${zebraClass}
     html.print-bulk,
@@ -331,6 +339,17 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       margin-top: 2mm;
     }
 
+    .print-hint {
+      display: block;
+      margin: 0 0 8px;
+      padding: 8px 10px;
+      border: 1px solid #f59e0b;
+      border-radius: 6px;
+      background: #fffbeb;
+      color: #92400e;
+      font: 12px/1.35 Arial, Helvetica, sans-serif;
+    }
+
     .print-orient--portrait .body {
       display: block !important;
     }
@@ -362,7 +381,24 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
 
     @media print {
-      html, body { width: 100%; height: 100%; }
+      .print-hint { display: none !important; }
+      html, body {
+        width: ${LABEL_W_MM}mm !important;
+        height: ${LABEL_H_MM}mm !important;
+        max-width: ${LABEL_W_MM}mm !important;
+        max-height: ${LABEL_H_MM}mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      body.print-bulk,
+      body.print-bulk html {
+        width: auto !important;
+        height: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
       .print-size--auto .sticker,
       .print-size--fill .sticker,
       .print-size--label_80x50 .sticker,
@@ -373,6 +409,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
         min-height: 0 !important;
         max-height: ${LABEL_H_MM}mm !important;
         page-break-inside: avoid;
+        transform: none !important;
+        zoom: 1 !important;
       }
       body.print-bulk .sticker {
         page-break-after: always !important;
@@ -561,6 +599,15 @@ function buildStickerInnerHtml(data) {
   </div>`
 }
 
+function buildPrintHintHtml(printSize, printOrientation) {
+  const { w, h } = labelSizeMm(printSize, printOrientation)
+  return `<div class="print-hint" role="note">
+    <strong>Antes de imprimir:</strong> en el diálogo elige papel <strong>${w} × ${h} mm</strong>,
+    escala <strong>100%</strong> (sin «ajustar a página») y márgenes <strong>ninguno</strong>.
+    Si la etiqueta sale estirada o girada, el driver no coincide con el tamaño elegido aquí.
+  </div>`
+}
+
 function buildStickerHtml(data) {
   const { scanCode, printSize, printOrientation = 'landscape' } = data
   const sizeClass = `print-size--${printSize}`
@@ -574,6 +621,7 @@ function buildStickerHtml(data) {
   <style>${buildStyles(printOrientation, printSize)}</style>
 </head>
 <body class="print-size ${sizeClass} ${orientClass}">
+  ${buildPrintHintHtml(printSize, printOrientation)}
   ${buildStickerInnerHtml(data)}
 </body>
 </html>`
@@ -591,6 +639,7 @@ function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape') 
   <style>${buildStyles(printOrientation, printSize)}</style>
 </head>
 <body class="print-size ${sizeClass} ${orientClass} print-bulk">
+  ${buildPrintHintHtml(printSize, printOrientation)}
   ${bodies}
 </body>
 </html>`
