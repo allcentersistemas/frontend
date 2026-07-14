@@ -1,9 +1,9 @@
 /**
- * Etiqueta Biesse en ZPL (Zebra ZD230 / ZD420, 203 dpi).
+ * Etiqueta Biesse en ZPL (Zebra ZD230 / ZD420).
  * Estilo taller: diagrama grande con cantos, tipografía más delgada, sin línea sobre el QR.
  */
 
-const DPI = 203
+const DEFAULT_ZPL_DPI = 203
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40'} ZebraLabelSizeId */
 
@@ -21,12 +21,10 @@ export const ZEBRA_LABEL_SIZES = {
 const PIECE_FRAME_W_MM = 40
 const PIECE_FRAME_H_MM = 22
 
-function mmToDots(mm) {
-  return Math.round((mm / 25.4) * DPI)
+/** @param {number} dpi */
+function createMmToDots(dpi) {
+  return (mm) => Math.round((mm / 25.4) * dpi)
 }
-
-const PIECE_BOX_W = mmToDots(PIECE_FRAME_W_MM)
-const PIECE_BOX_H = mmToDots(PIECE_FRAME_H_MM)
 
 /**
  * Tipografía grande y fina: alto mayor, ancho más estrecho
@@ -71,16 +69,20 @@ function formatStickerDate(date = new Date()) {
 /**
  * @param {ZebraLabelSizeId | string} [labelSize]
  * @param {'landscape'|'portrait'} [orientation]
+ * @param {number} [dpi]
  */
-export function labelDotsForSize(labelSize = 'label_80x50', orientation = 'landscape') {
+export function labelDotsForSize(labelSize = 'label_80x50', orientation = 'landscape', dpi = DEFAULT_ZPL_DPI) {
+  const mmToDots = createMmToDots(dpi)
   const size = ZEBRA_LABEL_SIZES[labelSize] ?? ZEBRA_LABEL_SIZES.label_80x50
   if (orientation === 'portrait') {
-    return { pw: mmToDots(size.hMm), ll: mmToDots(size.wMm), wMm: size.hMm, hMm: size.wMm }
+    return { pw: mmToDots(size.hMm), ll: mmToDots(size.wMm), wMm: size.hMm, hMm: size.wMm, dpi }
   }
-  return { pw: mmToDots(size.wMm), ll: mmToDots(size.hMm), wMm: size.wMm, hMm: size.hMm }
+  return { pw: mmToDots(size.wMm), ll: mmToDots(size.hMm), wMm: size.wMm, hMm: size.hMm, dpi }
 }
 
 function drawPieceDiagram(lines, {
+  pieceBoxW,
+  pieceBoxH,
   leftX,
   shapeX,
   shapeY,
@@ -94,47 +96,42 @@ function drawPieceDiagram(lines, {
   centerFontH = 22,
   centerFontW = 11,
 }) {
-  // Canto superior (centrado sobre la caja)
   if (upLabel) {
-    const upX = shapeX + Math.max(0, Math.round((PIECE_BOX_W - upLabel.length * edgeFontW * 0.55) / 2))
+    const upX = shapeX + Math.max(0, Math.round((pieceBoxW - upLabel.length * edgeFontW * 0.55) / 2))
     lines.push(
       `^FO${upX},${shapeY - edgeFontH - 4}${font(edgeFontH, edgeFontW)}^FD${zplEscape(upLabel)}^FS`,
     )
   }
 
-  // Marco fijo + texto centrado
-  lines.push(`^FO${shapeX},${shapeY}^GB${PIECE_BOX_W},${PIECE_BOX_H},2,B^FS`)
-  const textY = shapeY + Math.max(4, Math.round((PIECE_BOX_H - centerFontH) / 2))
+  lines.push(`^FO${shapeX},${shapeY}^GB${pieceBoxW},${pieceBoxH},2,B^FS`)
+  const textY = shapeY + Math.max(4, Math.round((pieceBoxH - centerFontH) / 2))
   lines.push(
-    `^FO${shapeX + 4},${textY}^FB${PIECE_BOX_W - 8},2,0,C,0${font(centerFontH, centerFontW)}^FD${zplEscape(centerLabel)}^FS`,
+    `^FO${shapeX + 4},${textY}^FB${pieceBoxW - 8},2,0,C,0${font(centerFontH, centerFontW)}^FD${zplEscape(centerLabel)}^FS`,
   )
 
-  // Cantos laterales
-  const midY = shapeY + Math.round(PIECE_BOX_H / 2) - Math.round(edgeFontH / 2)
+  const midY = shapeY + Math.round(pieceBoxH / 2) - Math.round(edgeFontH / 2)
   if (leftLabel) {
     lines.push(`^FO${leftX},${midY}${font(edgeFontH, edgeFontW)}^FD${zplEscape(leftLabel)}^FS`)
   }
   if (rightLabel) {
     lines.push(
-      `^FO${shapeX + PIECE_BOX_W + 6},${midY}${font(edgeFontH, edgeFontW)}^FD${zplEscape(rightLabel)}^FS`,
+      `^FO${shapeX + pieceBoxW + 6},${midY}${font(edgeFontH, edgeFontW)}^FD${zplEscape(rightLabel)}^FS`,
     )
   }
 
-  // Canto inferior
   if (loLabel) {
-    const loX = shapeX + Math.max(0, Math.round((PIECE_BOX_W - loLabel.length * edgeFontW * 0.55) / 2))
+    const loX = shapeX + Math.max(0, Math.round((pieceBoxW - loLabel.length * edgeFontW * 0.55) / 2))
     lines.push(
-      `^FO${loX},${shapeY + PIECE_BOX_H + 4}${font(edgeFontH, edgeFontW)}^FD${zplEscape(loLabel)}^FS`,
+      `^FO${loX},${shapeY + pieceBoxH + 4}${font(edgeFontH, edgeFontW)}^FD${zplEscape(loLabel)}^FS`,
     )
   }
 }
 
-/**
- * Horizontal 80×50 (lectura normal): texto izq. + diagrama grande | QR der.
- * Sin línea separadora (evita solape con el QR).
- */
 function buildLandscapeZpl(ctx) {
   const {
+    mmToDots,
+    pieceBoxW,
+    pieceBoxH,
     PW,
     LL,
     scanCode,
@@ -160,7 +157,7 @@ function buildLandscapeZpl(ctx) {
   const rightColW = mmToDots(24)
   const leftX = pad
   const rightX = PW - pad - rightColW
-  // Diagrama anclado a la izquierda con espacio para cantos laterales
+  const textColW = Math.max(80, rightX - leftX - mmToDots(2))
   const sideCantoW = mmToDots(14)
   const shapeX = leftX + sideCantoW
 
@@ -174,29 +171,29 @@ function buildLandscapeZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    // Tipografía grande y fina (alto ↑, ancho ↓)
-    `^FO${leftX},${y}${font(28, 12)}^FD${zplEscape(headerTitle)}^FS`,
+    `^FO${leftX},${y}^FB${textColW},2,0,L,0${font(28, 12)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
+  y += 30
   if (booking) {
-    y += 26
-    lines.push(`^FO${leftX},${y}${font(20, 10)}^FD${zplEscape(booking)}^FS`)
+    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(20, 10)}^FD${zplEscape(booking)}^FS`)
+    y += 22
   }
 
-  y += booking ? 20 : 28
-  lines.push(`^FO${leftX},${y}${font(24, 11)}^FD${zplEscape(matLine)}^FS`)
+  lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(24, 11)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
     y += 22
-    lines.push(`^FO${leftX},${y}${font(18, 9)}^FD${zplEscape(subDesc)}^FS`)
+    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(18, 9)}^FD${zplEscape(subDesc)}^FS`)
   }
 
   y += 22
   lines.push(`^FO${leftX},${y}${font(24, 11)}^FD${zplEscape(refLine)}^FS`)
 
-  // Diagrama: reserva espacio para canto superior
   const shapeY = y + (upLabel ? 32 : 16)
   drawPieceDiagram(lines, {
+    pieceBoxW,
+    pieceBoxH,
     leftX,
     shapeX,
     shapeY,
@@ -207,7 +204,6 @@ function buildLandscapeZpl(ctx) {
     rightLabel,
   })
 
-  // QR columna derecha, arriba — sin línea cerca
   const qrY = 6
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${rightX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
@@ -229,6 +225,9 @@ function buildLandscapeZpl(ctx) {
 
 function buildPortraitZpl(ctx) {
   const {
+    mmToDots,
+    pieceBoxW,
+    pieceBoxH,
     PW,
     LL,
     scanCode,
@@ -252,6 +251,7 @@ function buildPortraitZpl(ctx) {
 
   const pad = 8
   const sideCantoW = mmToDots(12)
+  const textColW = Math.max(60, PW - pad * 2)
   let y = 8
   const lines = [
     '^XA',
@@ -262,28 +262,30 @@ function buildPortraitZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${pad},${y}${font(24, 11)}^FD${zplEscape(headerTitle)}^FS`,
+    `^FO${pad},${y}^FB${textColW},2,0,L,0${font(24, 11)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
+  y += 28
   if (booking) {
-    y += 22
-    lines.push(`^FO${pad},${y}${font(18, 9)}^FD${zplEscape(booking)}^FS`)
+    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(18, 9)}^FD${zplEscape(booking)}^FS`)
+    y += 20
   }
 
-  y += booking ? 20 : 24
-  lines.push(`^FO${pad},${y}${font(20, 10)}^FD${zplEscape(matLine)}^FS`)
+  lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(20, 10)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
     y += 18
-    lines.push(`^FO${pad},${y}${font(16, 8)}^FD${zplEscape(subDesc)}^FS`)
+    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(16, 8)}^FD${zplEscape(subDesc)}^FS`)
   }
 
   y += 18
   lines.push(`^FO${pad},${y}${font(20, 10)}^FD${zplEscape(refLine)}^FS`)
 
-  const shapeX = Math.max(pad + sideCantoW, Math.round((PW - PIECE_BOX_W) / 2))
+  const shapeX = Math.max(pad + sideCantoW, Math.round((PW - pieceBoxW) / 2))
   const shapeY = y + (upLabel ? 28 : 14)
   drawPieceDiagram(lines, {
+    pieceBoxW,
+    pieceBoxH,
     leftX: pad,
     shapeX,
     shapeY,
@@ -298,7 +300,7 @@ function buildPortraitZpl(ctx) {
     centerFontW: 10,
   })
 
-  const qrY = shapeY + PIECE_BOX_H + (loLabel ? 26 : 16)
+  const qrY = shapeY + pieceBoxH + (loLabel ? 26 : 16)
   const qrX = PW - pad - mmToDots(20)
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${qrX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
@@ -329,6 +331,7 @@ function buildPortraitZpl(ctx) {
  * @param {Date} [opts.printedAt]
  * @param {'landscape'|'portrait'} [opts.orientation]
  * @param {ZebraLabelSizeId | string} [opts.labelSize]
+ * @param {number} [opts.dpi]
  */
 export function buildBiessePartStickerZpl({
   scanCode,
@@ -339,15 +342,19 @@ export function buildBiessePartStickerZpl({
   printedAt = new Date(),
   orientation = 'landscape',
   labelSize = 'label_80x50',
+  dpi = DEFAULT_ZPL_DPI,
 }) {
-  const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation)
+  const resolvedDpi = dpi === 300 ? 300 : DEFAULT_ZPL_DPI
+  const mmToDots = createMmToDots(resolvedDpi)
+  const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation, resolvedDpi)
+  const pieceBoxW = mmToDots(PIECE_FRAME_W_MM)
+  const pieceBoxH = mmToDots(PIECE_FRAME_H_MM)
   const partNumber = part?.partNumber ?? part?.partId ?? 0
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const isPortrait = orientation === 'portrait'
-  const headerTitle = zplTrunc(String(orderName ?? '').toUpperCase(), isPortrait ? 22 : 34)
+  const headerTitle = zplTrunc(String(orderName ?? '').toUpperCase(), isPortrait ? 28 : 48)
   const booking = bookingCode ? zplTrunc(String(bookingCode).trim(), isPortrait ? 24 : 36) : ''
-  // Material sin repetir descripcion (la descripción va en el rectángulo)
   const matLine = zplTrunc(
     String(part?.material ?? '').trim().toUpperCase() || '—',
     isPortrait ? 28 : 40,
@@ -365,6 +372,9 @@ export function buildBiessePartStickerZpl({
   const dateStr = formatStickerDate(printedAt)
 
   const ctx = {
+    mmToDots,
+    pieceBoxW,
+    pieceBoxH,
     PW,
     LL,
     scanCode,
@@ -389,4 +399,4 @@ export function buildBiessePartStickerZpl({
   return isPortrait ? buildPortraitZpl(ctx) : buildLandscapeZpl(ctx)
 }
 
-export { PIECE_FRAME_W_MM, PIECE_FRAME_H_MM, DPI as ZPL_DPI }
+export { PIECE_FRAME_W_MM, PIECE_FRAME_H_MM, DEFAULT_ZPL_DPI as ZPL_DPI }

@@ -5,6 +5,7 @@
 
 import { buildBiessePartStickerZpl, ZEBRA_LABEL_SIZES } from './buildBiessePartStickerZpl.js'
 import { getStickerPrintSize, isZebraZplSize } from './stickerPrintSize.js'
+import { getStickerPrintDpi } from './stickerPrintDpi.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
 function esc(s) {
@@ -32,7 +33,7 @@ function formatStickerDate(date = new Date()) {
   return `${mm}/${dd}/${yy}`
 }
 
-function buildScanCode(orderName, partNumber, numeroPieza) {
+export function buildScanCode(orderName, partNumber, numeroPieza) {
   const name = String(orderName ?? '').trim()
   const pnRaw = partNumber != null && partNumber !== '' ? String(partNumber).trim() : ''
   const pn =
@@ -711,6 +712,7 @@ export async function printBiessePartStickersBulk({
                                                     items,
                                                     printSize = getStickerPrintSize(),
                                                     printOrientation = 'landscape',
+                                                    printDpi = getStickerPrintDpi(),
                                                     printWindow = null,
                                                   }) {
   if (!items?.length) {
@@ -739,6 +741,7 @@ export async function printBiessePartStickersBulk({
           printedAt: resolved[i].printedAt,
           orientation: printOrientation,
           labelSize: printSize,
+          dpi: printDpi,
         })
         await sendZplToZebra(zpl)
       }
@@ -793,6 +796,7 @@ export async function printBiessePartSticker({
                                                printWindow = null,
                                                printSize = getStickerPrintSize(),
                                                printOrientation = 'landscape',
+                                               printDpi = getStickerPrintDpi(),
                                              }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
@@ -818,6 +822,7 @@ export async function printBiessePartSticker({
       printedAt,
       orientation: printOrientation,
       labelSize: printSize,
+      dpi: printDpi,
     })
     try {
       await sendZplToZebra(zpl)

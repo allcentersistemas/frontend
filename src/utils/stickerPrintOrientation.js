@@ -1,4 +1,6 @@
-/** Orientación de la etiqueta al imprimir (80×50 mm). */
+/** Orientación de la etiqueta al imprimir. */
+
+import { ZEBRA_LABEL_SIZES } from './buildBiessePartStickerZpl.js'
 
 export const STICKER_PRINT_ORIENTATION_KEY = 'biesse-sticker-print-orientation'
 
@@ -7,15 +9,24 @@ export const STICKER_PRINT_ORIENTATION_KEY = 'biesse-sticker-print-orientation'
 export const STICKER_PRINT_ORIENTATIONS = [
   {
     id: 'landscape',
-    label: 'Horizontal (80 × 50 mm)',
+    label: 'Horizontal',
     hint: 'Etiqueta ancha: diagrama a la izquierda y QR a la derecha.',
   },
   {
     id: 'portrait',
-    label: 'Vertical (50 × 80 mm)',
+    label: 'Vertical',
     hint: 'Etiqueta alta: contenido apilado en vertical.',
   },
 ]
+
+/** @param {'landscape'|'portrait'} orientation @param {string} [printSize] */
+export function orientationOptionLabel(orientation, printSize = 'label_80x50') {
+  const size = ZEBRA_LABEL_SIZES[printSize] ?? ZEBRA_LABEL_SIZES.label_80x50
+  if (orientation === 'portrait') {
+    return `Vertical (${size.hMm} × ${size.wMm} mm)`
+  }
+  return `Horizontal (${size.wMm} × ${size.hMm} mm)`
+}
 
 /** @returns {StickerPrintOrientationId} */
 export function getStickerPrintOrientation() {

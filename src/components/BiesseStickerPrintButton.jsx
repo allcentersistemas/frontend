@@ -3,12 +3,15 @@ import {
   openStickerPrintWindow,
   printBiessePartSticker,
   printBiessePartStickersBulk,
+  buildScanCode,
 } from '../utils/printBiessePartSticker'
-import { isZebraBrowserPrintAvailable, ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
+import { buildBiessePartStickerZpl } from '../utils/buildBiessePartStickerZpl'
+import { isZebraBrowserPrintAvailable, downloadZplFile, ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintOrientation,
   setStickerPrintOrientation,
   STICKER_PRINT_ORIENTATIONS,
+  orientationOptionLabel,
 } from '../utils/stickerPrintOrientation'
 import {
   getStickerPrintSize,
@@ -16,6 +19,11 @@ import {
   STICKER_PRINT_SIZES,
   isZebraZplSize,
 } from '../utils/stickerPrintSize'
+import {
+  getStickerPrintDpi,
+  setStickerPrintDpi,
+  STICKER_PRINT_DPIS,
+} from '../utils/stickerPrintDpi'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -92,6 +100,7 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printing, setPrinting] = useState(false)
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
+  const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
   const [bulkQueue, setBulkQueue] = useState([])
   /** @type {['checking'|'ready'|'missing'|null, Function]} */
   const [zplStatus, setZplStatus] = useState(null)
@@ -134,6 +143,7 @@ export function BiesseStickerPrintButton({ detail }) {
     if (open) {
       setPrintSize(getStickerPrintSize())
       setPrintOrientation(getStickerPrintOrientation())
+      setPrintDpi(getStickerPrintDpi())
     }
   }, [open])
 
@@ -223,6 +233,35 @@ export function BiesseStickerPrintButton({ detail }) {
     setBulkQueue((prev) => [...prev, ...toAdd])
   }
 
+  function buildCurrentZpl(part, piece) {
+    const partNumberRaw = part.partNumber ?? part.partId
+    const partNumber =
+      partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
+    const scanCode = buildScanCode(
+      detail.orderName,
+      partNumber ?? part.partCode?.replace(/^P/i, '') ?? null,
+      piece.numeroPieza ?? 1,
+    )
+    return buildBiessePartStickerZpl({
+      scanCode,
+      orderName: detail.orderName,
+      bookingCode: detail.bookingCode,
+      part,
+      piece,
+      orientation: printOrientation,
+      labelSize: printSize,
+      dpi: printDpi,
+    })
+  }
+
+  function handleDownloadZpl() {
+    if (!detail || !selectedPart || !useZpl) return
+    const part = partPayload(selectedPart)
+    const piece = buildPiecePayload(selectedPart, numeroPieza)
+    const zpl = buildCurrentZpl(part, piece)
+    downloadZplFile(zpl, `etiqueta-${detail.orderName ?? 'biesse'}.zpl`)
+  }
+
   async function handlePrintSingle() {
     if (!detail || !selectedPart) return
     const printWindow = useZpl ? null : openStickerPrintWindow()
@@ -234,6 +273,7 @@ export function BiesseStickerPrintButton({ detail }) {
         printWindow,
         printSize,
         printOrientation,
+        printDpi,
         order: buildOrderPayload(),
         part,
         piece,
@@ -288,6 +328,7 @@ export function BiesseStickerPrintButton({ detail }) {
         items,
         printSize,
         printOrientation,
+        printDpi,
         printWindow,
       })
 
@@ -403,7 +444,8 @@ export function BiesseStickerPrintButton({ detail }) {
                   ) : zplStatus === 'ready' ? (
                     <>
                       <strong className="font-semibold">ZPL listo.</strong> La etiqueta se imprimirá directo en la
-                      Zebra (ZD230 / ZD420) sin pasar por el driver HTML.
+                      Zebra. Si el contenido sale pequeño en una esquina con mucho espacio en blanco, cambia la
+                      resolución a <strong className="font-semibold">300 dpi</strong> (ZD420 alta resolución).
                     </>
                   ) : zplStatus === 'missing' ? (
                     <>
@@ -428,7 +470,7 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   {STICKER_PRINT_ORIENTATIONS.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.label}
+                      {orientationOptionLabel(o.id, printSize)}
                     </option>
                   ))}
                 </select>
@@ -458,6 +500,30 @@ export function BiesseStickerPrintButton({ detail }) {
                   {STICKER_PRINT_SIZES.find((s) => s.id === printSize)?.hint}
                 </p>
               </div>
+
+              {useZpl ? (
+                <div>
+                  <label className={labelClass}>Resolución Zebra (dpi)</label>
+                  <select
+                    className={`${inputClass} mt-2 cursor-pointer`}
+                    value={printDpi}
+                    onChange={(e) => {
+                      const next = Number(e.target.value) === 300 ? 300 : 203
+                      setPrintDpi(next)
+                      setStickerPrintDpi(next)
+                    }}
+                  >
+                    {STICKER_PRINT_DPIS.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                    {STICKER_PRINT_DPIS.find((d) => d.id === printDpi)?.hint}
+                  </p>
+                </div>
+              ) : null}
 
               <div>
                 <label className={labelClass}>Parte</label>
@@ -551,6 +617,16 @@ export function BiesseStickerPrintButton({ detail }) {
               <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
                 Cerrar
               </Button>
+              {useZpl && mode === 'single' ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  disabled={printing || !selectedPart}
+                  onClick={handleDownloadZpl}
+                >
+                  Descargar ZPL
+                </Button>
+              ) : null}
                 {mode === 'bulk' ? (
                   <Button
                     type="button"
