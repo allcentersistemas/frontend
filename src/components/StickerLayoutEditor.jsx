@@ -1,20 +1,45 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { DetailModal } from './DetailModal.jsx'
 import { Button } from '../ui/Button.jsx'
-import { inputClass } from '../ui/fields.js'
+import { inputClass, labelClass } from '../ui/fields.js'
+import {
+  STICKER_PRINT_ORIENTATIONS,
+  orientationOptionLabel,
+  setStickerPrintOrientation,
+} from '../utils/stickerPrintOrientation.js'
+import {
+  STICKER_PRINT_SIZES,
+  isZebraZplSize,
+  clampLabelMm,
+  resolveLabelDimensionsMm,
+  setStickerPrintSize,
+  setStickerPrintCustomSize,
+} from '../utils/stickerPrintSize.js'
+import {
+  clampStickerPrintDpi,
+  STICKER_PRINT_DPI_PRESETS,
+  setStickerPrintDpi,
+} from '../utils/stickerPrintDpi.js'
+import {
+  resetStickerDesignSettings,
+  setStickerDesignSettings,
+} from '../utils/stickerDesignSettings.js'
 import {
   STICKER_LAYOUT_PREVIEW_SAMPLE,
   clampLayoutElement,
   createLayoutElementForField,
   getActiveLayoutElements,
   getElementMeta,
+  getVisualLayoutForLabel,
   listAddableFields,
   normalizeLayoutElement,
   resetVisualLayoutForLabel,
-  getUseVisualLayout,
+  scaleVisualLayoutToSize,
   setUseVisualLayout,
   setVisualLayoutForLabel,
 } from '../utils/stickerVisualLayout.js'
+
+const ZEBRA_SIZE_OPTIONS = STICKER_PRINT_SIZES.filter((s) => isZebraZplSize(s.id))
 
 const ELEMENT_COLORS = {
   headerTitle: 'rgba(251, 191, 36, 0.35)',
@@ -67,43 +92,93 @@ function snapMm(value, step = 0.5) {
  * @param {object} props
  * @param {boolean} props.open
  * @param {() => void} props.onClose
- * @param {number} props.labelWidthMm
- * @param {number} props.labelHeightMm
- * @param {'landscape'|'portrait'} props.orientation
- * @param {import('../utils/stickerVisualLayout.js').StickerVisualLayout} props.initialLayout
+ * @param {object} props.initialSettings
  * @param {object} [props.previewData]
- * @param {(layout: import('../utils/stickerVisualLayout.js').StickerVisualLayout, useVisual: boolean) => void} [props.onSaved]
+ * @param {(settings: object) => void} [props.onSaved]
  */
-export function StickerLayoutEditor({
-  open,
-  onClose,
-  labelWidthMm,
-  labelHeightMm,
-  orientation,
-  initialLayout,
-  previewData,
-  onSaved,
-}) {
-  const [layout, setLayout] = useState(initialLayout)
+export function StickerLayoutEditor({ open, onClose, initialSettings, previewData, onSaved }) {
+  const [printSize, setPrintSize] = useState(initialSettings.printSize)
+  const [printOrientation, setPrintOrientation] = useState(initialSettings.printOrientation)
+  const [customWidthMm, setCustomWidthMm] = useState(initialSettings.customWidthMm)
+  const [customHeightMm, setCustomHeightMm] = useState(initialSettings.customHeightMm)
+  const [printDpi, setPrintDpi] = useState(initialSettings.printDpi)
+  const [stickerDesign, setStickerDesign] = useState(initialSettings.stickerDesign)
+  const [layout, setLayout] = useState(initialSettings.visualLayout)
   const [selectedId, setSelectedId] = useState(() => {
-    const first = getActiveLayoutElements(initialLayout.elements)[0]
+    const first = getActiveLayoutElements(initialSettings.visualLayout.elements)[0]
     return first?.[0] ?? 'headerTitle'
   })
-  const [useVisual, setUseVisual] = useState(() => getUseVisualLayout() || true)
   const [snapGrid, setSnapGrid] = useState(true)
   const canvasRef = useRef(null)
   const dragRef = useRef(null)
 
   const sample = previewData ?? STICKER_LAYOUT_PREVIEW_SAMPLE
 
+  const customLabelMm = useMemo(() => {
+    if (printSize !== 'label_custom') return null
+    return {
+      widthMm: clampLabelMm(customWidthMm),
+      heightMm: clampLabelMm(customHeightMm),
+    }
+  }, [printSize, customWidthMm, customHeightMm])
+
+  const effectiveLabelMm = useMemo(
+    () => resolveLabelDimensionsMm(printSize, printOrientation, customLabelMm),
+    [printSize, printOrientation, customLabelMm],
+  )
+
   const scale = useMemo(() => {
-    const maxW = 720
-    const maxH = 420
-    return Math.min(maxW / labelWidthMm, maxH / labelHeightMm, 12)
-  }, [labelWidthMm, labelHeightMm])
+    const maxW = 680
+    const maxH = 400
+    return Math.min(maxW / effectiveLabelMm.widthMm, maxH / effectiveLabelMm.heightMm, 12)
+  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm])
 
   const activeElements = useMemo(() => getActiveLayoutElements(layout.elements), [layout.elements])
   const addableFields = useMemo(() => listAddableFields(layout), [layout])
+
+  const applyDimsToLayout = useCallback((dims, orientation) => {
+    setLayout((prev) =>
+      scaleVisualLayoutToSize(prev, dims.widthMm, dims.heightMm, orientation),
+    )
+  }, [])
+
+  function patchDesign(patch) {
+    setStickerDesign((prev) => ({ ...prev, ...patch }))
+  }
+
+  function handleOrientationChange(next) {
+    const dims = resolveLabelDimensionsMm(printSize, next, customLabelMm)
+    applyDimsToLayout(dims, next)
+    setPrintOrientation(next)
+  }
+
+  function handlePrintSizeChange(next) {
+    const custom =
+      next === 'label_custom'
+        ? { widthMm: clampLabelMm(customWidthMm), heightMm: clampLabelMm(customHeightMm) }
+        : null
+    const dims = resolveLabelDimensionsMm(next, printOrientation, custom)
+    applyDimsToLayout(dims, printOrientation)
+    setPrintSize(next)
+  }
+
+  function handleCustomMmChange(width, height) {
+    const w = clampLabelMm(width)
+    const h = clampLabelMm(height)
+    setCustomWidthMm(w)
+    setCustomHeightMm(h)
+    const dims = resolveLabelDimensionsMm('label_custom', printOrientation, { widthMm: w, heightMm: h })
+    applyDimsToLayout(dims, printOrientation)
+  }
+
+  function loadLayoutForCurrentSize() {
+    const loaded = getVisualLayoutForLabel(
+      effectiveLabelMm.widthMm,
+      effectiveLabelMm.heightMm,
+      printOrientation,
+    )
+    setLayout(loaded)
+  }
 
   const patchElement = useCallback(
     (id, patch) => {
@@ -113,18 +188,21 @@ export function StickerLayoutEditor({
         const fieldKey = current.fieldKey ?? id
         const merged = clampLayoutElement(
           { ...current, ...patch },
-          labelWidthMm,
-          labelHeightMm,
+          effectiveLabelMm.widthMm,
+          effectiveLabelMm.heightMm,
           id,
           fieldKey,
         )
         return {
           ...prev,
+          labelWidthMm: effectiveLabelMm.widthMm,
+          labelHeightMm: effectiveLabelMm.heightMm,
+          orientation: printOrientation,
           elements: { ...prev.elements, [id]: merged },
         }
       })
     },
-    [labelWidthMm, labelHeightMm],
+    [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation],
   )
 
   const handlePointerDown = useCallback(
@@ -150,10 +228,8 @@ export function StickerLayoutEditor({
     (e) => {
       const drag = dragRef.current
       if (!drag) return
-      const dxPx = e.clientX - drag.startX
-      const dyPx = e.clientY - drag.startY
-      const dxMm = dxPx / scale
-      const dyMm = dyPx / scale
+      const dxMm = (e.clientX - drag.startX) / scale
+      const dyMm = (e.clientY - drag.startY) / scale
       const grid = snapGrid ? 0.5 : 0.1
 
       if (drag.mode === 'move') {
@@ -185,43 +261,63 @@ export function StickerLayoutEditor({
     const normalizedElements = Object.fromEntries(
       Object.entries(layout.elements).map(([id, el]) => [
         id,
-        normalizeLayoutElement(id, el, labelWidthMm, labelHeightMm),
+        normalizeLayoutElement(id, el, effectiveLabelMm.widthMm, effectiveLabelMm.heightMm),
       ]),
     )
-    const normalized = {
-      labelWidthMm,
-      labelHeightMm,
-      orientation,
+    const visualLayout = {
+      labelWidthMm: effectiveLabelMm.widthMm,
+      labelHeightMm: effectiveLabelMm.heightMm,
+      orientation: printOrientation,
       elements: normalizedElements,
     }
-    setVisualLayoutForLabel(normalized, true)
+    const design = setStickerDesignSettings(stickerDesign)
+
+    setStickerPrintSize(printSize)
+    setStickerPrintOrientation(printOrientation)
+    if (printSize === 'label_custom') {
+      setStickerPrintCustomSize(customWidthMm, customHeightMm)
+    }
+    setStickerPrintDpi(printDpi)
+    setVisualLayoutForLabel(visualLayout, true)
     setUseVisualLayout(true)
-    onSaved?.(normalized, true)
+
+    onSaved?.({
+      printSize,
+      printOrientation,
+      customWidthMm,
+      customHeightMm,
+      printDpi,
+      stickerDesign: design,
+      visualLayout,
+      useVisualLayout: true,
+    })
     onClose()
   }
 
   function handleReset() {
-    const fresh = resetVisualLayoutForLabel(labelWidthMm, labelHeightMm, orientation)
+    const fresh = resetVisualLayoutForLabel(
+      effectiveLabelMm.widthMm,
+      effectiveLabelMm.heightMm,
+      printOrientation,
+    )
     setLayout(fresh)
     setSelectedId('headerTitle')
   }
 
   function handleAddField(fieldKey) {
     const id = fieldKey === 'customText' ? `custom_${Date.now()}` : fieldKey
-    const el = createLayoutElementForField(fieldKey, labelWidthMm, labelHeightMm, id)
+    const el = createLayoutElementForField(
+      fieldKey,
+      effectiveLabelMm.widthMm,
+      effectiveLabelMm.heightMm,
+      id,
+    )
     if (!el) return
     setLayout((prev) => ({
       ...prev,
-      elements: {
-        ...prev.elements,
-        [id]: el,
-      },
+      elements: { ...prev.elements, [id]: el },
     }))
     setSelectedId(id)
-  }
-
-  function handleAddCustomText() {
-    handleAddField('customText')
   }
 
   function handleRemoveElement(id) {
@@ -239,9 +335,7 @@ export function StickerLayoutEditor({
 
   function previewTextForElement(id, el) {
     const fieldKey = el.fieldKey ?? id
-    if (fieldKey === 'customText') {
-      return el.customText || 'Texto libre'
-    }
+    if (fieldKey === 'customText') return el.customText || 'Texto libre'
     const prefix = el.prefix ?? ''
     switch (fieldKey) {
       case 'headerTitle':
@@ -282,47 +376,39 @@ export function StickerLayoutEditor({
     <DetailModal
       open={open}
       wide
-      title="Editor visual de etiqueta"
-      subtitle={`Etiqueta ${labelWidthMm} × ${labelHeightMm} mm · ${orientation === 'landscape' ? 'horizontal' : 'vertical'} — ZPL usará exactamente este tamaño (^PW/^LL)`}
+      title="Diseño y tamaño de etiqueta"
+      subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
       onClose={onClose}
     >
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 xl:flex-row">
         <div className="min-w-0 flex-1">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                className="accent-amber-500"
-                checked={useVisual}
-                onChange={(e) => setUseVisual(e.target.checked)}
-              />
-              Usar diseño visual al imprimir (activo al guardar)
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
-              <input
-                type="checkbox"
-                className="accent-amber-500"
-                checked={snapGrid}
-                onChange={(e) => setSnapGrid(e.target.checked)}
-              />
-              Cuadrícula 0,5 mm
-            </label>
+          <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-sm text-amber-100">
+            Etiqueta real:{' '}
+            <strong>
+              {effectiveLabelMm.widthMm} × {effectiveLabelMm.heightMm} mm
+            </strong>
+            {' · '}
+            {printOrientation === 'landscape' ? 'horizontal' : 'vertical'}
+            {' · '}
+            {printDpi} dpi
+            {' · '}
+            ZPL ^PW/^LL según estas medidas
           </div>
 
           <div
             ref={canvasRef}
             className="relative mx-auto overflow-hidden rounded-xl border border-white/15 bg-slate-800/50 p-4"
-            style={{ maxWidth: labelWidthMm * scale + 32 }}
+            style={{ maxWidth: effectiveLabelMm.widthMm * scale + 32 }}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onClick={() => setSelectedId(null)}
           >
             <div
-              className="relative mx-auto border border-dashed border-slate-400/40 bg-white shadow-inner"
+              className="relative mx-auto border-2 border-amber-400/50 bg-white shadow-inner"
               style={{
-                width: labelWidthMm * scale,
-                height: labelHeightMm * scale,
+                width: effectiveLabelMm.widthMm * scale,
+                height: effectiveLabelMm.heightMm * scale,
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -330,7 +416,6 @@ export function StickerLayoutEditor({
                 const meta = getElementMeta(id, el)
                 const isSelected = selectedId === id
                 const preview = previewTextForElement(id, el)
-                const fieldKey = el.fieldKey ?? id
                 return (
                   <div
                     key={id}
@@ -408,25 +493,167 @@ export function StickerLayoutEditor({
               })}
             </div>
             <p className="mt-2 text-center text-xs text-slate-500">
-              Lienzo {labelWidthMm}×{labelHeightMm} mm · escala {scale.toFixed(1)} px/mm
+              Lienzo a escala real · {scale.toFixed(1)} px/mm · al cambiar tamaño los campos se reescalan
             </p>
           </div>
         </div>
 
-        <aside className="w-full shrink-0 space-y-4 lg:w-80">
+        <aside className="w-full shrink-0 space-y-3 xl:w-[22rem]">
+          <details className="rounded-xl border border-white/10 bg-black/25" open>
+            <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
+              Tamaño de etiqueta (rollo real)
+            </summary>
+            <div className="space-y-3 border-t border-white/10 px-3 py-3">
+              <div>
+                <label className={labelClass}>Orientación</label>
+                <select
+                  className={`${inputClass} mt-1.5 cursor-pointer`}
+                  value={printOrientation}
+                  onChange={(e) => handleOrientationChange(e.target.value)}
+                >
+                  {STICKER_PRINT_ORIENTATIONS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {orientationOptionLabel(o.id, printSize, customLabelMm)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Tamaño Zebra</label>
+                <select
+                  className={`${inputClass} mt-1.5 cursor-pointer`}
+                  value={printSize}
+                  onChange={(e) => handlePrintSizeChange(e.target.value)}
+                >
+                  {ZEBRA_SIZE_OPTIONS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {printSize === 'label_custom' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-xs text-slate-400">
+                    Ancho (mm)
+                    <input
+                      type="number"
+                      min={25}
+                      max={220}
+                      step={0.5}
+                      className={`${inputClass} mt-1`}
+                      value={customWidthMm}
+                      onChange={(e) => handleCustomMmChange(Number(e.target.value), customHeightMm)}
+                    />
+                  </label>
+                  <label className="block text-xs text-slate-400">
+                    Alto (mm)
+                    <input
+                      type="number"
+                      min={25}
+                      max={220}
+                      step={0.5}
+                      className={`${inputClass} mt-1`}
+                      value={customHeightMm}
+                      onChange={(e) => handleCustomMmChange(customWidthMm, Number(e.target.value))}
+                    />
+                  </label>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="btn btn--sm btn--ghost w-full"
+                onClick={loadLayoutForCurrentSize}
+              >
+                Cargar diseño guardado para este tamaño
+              </button>
+            </div>
+          </details>
+
+          <details className="rounded-xl border border-white/10 bg-black/25" open>
+            <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
+              Impresora y tipografía ZPL
+            </summary>
+            <div className="space-y-3 border-t border-white/10 px-3 py-3">
+              <div>
+                <label className={labelClass}>Resolución (dpi)</label>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={100}
+                    max={600}
+                    className={`${inputClass} w-24`}
+                    value={printDpi}
+                    onChange={(e) => setPrintDpi(clampStickerPrintDpi(e.target.value))}
+                  />
+                  {STICKER_PRINT_DPI_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className={`btn btn--sm ${printDpi === preset.id ? 'btn--primary' : 'btn--ghost'}`}
+                      onClick={() => setPrintDpi(preset.id)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="block text-xs text-slate-400">
+                Tamaño texto global ({Math.round(stickerDesign.fontScale * 100)}%)
+                <input
+                  type="range"
+                  min={85}
+                  max={120}
+                  className="mt-1 w-full accent-amber-500"
+                  value={Math.round(stickerDesign.fontScale * 100)}
+                  onChange={(e) => patchDesign({ fontScale: Number(e.target.value) / 100 })}
+                />
+              </label>
+              <label className="block text-xs text-slate-400">
+                Finura global ({stickerDesign.charWidthRatio.toFixed(2)})
+                <input
+                  type="range"
+                  min={36}
+                  max={55}
+                  className="mt-1 w-full accent-amber-500"
+                  value={Math.round(stickerDesign.charWidthRatio * 100)}
+                  onChange={(e) => patchDesign({ charWidthRatio: Number(e.target.value) / 100 })}
+                />
+              </label>
+              <label className="block text-xs text-slate-400">
+                Banda cantos diagrama ({stickerDesign.edgeBandMm} mm)
+                <input
+                  type="range"
+                  min={25}
+                  max={60}
+                  className="mt-1 w-full accent-amber-500"
+                  value={Math.round(stickerDesign.edgeBandMm * 10)}
+                  onChange={(e) => patchDesign({ edgeBandMm: Number(e.target.value) / 10 })}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn--sm btn--ghost"
+                onClick={() => setStickerDesign(resetStickerDesignSettings())}
+              >
+                Restaurar tipografía global
+              </button>
+            </div>
+          </details>
+
           <div className="rounded-xl border border-white/10 bg-black/25 p-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-slate-200">Campos activos</h3>
+              <h3 className="text-sm font-medium text-slate-200">Campos en la etiqueta</h3>
               <span className="text-xs text-slate-500">{activeElements.length}</span>
             </div>
-            <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto">
+            <ul className="mt-2 max-h-28 space-y-1 overflow-y-auto">
               {activeElements.map(([id, el]) => {
                 const meta = getElementMeta(id, el)
                 return (
                   <li key={id} className="flex items-center gap-1">
                     <button
                       type="button"
-                      className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left text-xs transition ${
+                      className={`min-w-0 flex-1 rounded-lg px-2 py-1 text-left text-xs transition ${
                         selectedId === id
                           ? 'bg-amber-500/20 text-amber-200'
                           : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -438,7 +665,7 @@ export function StickerLayoutEditor({
                     <button
                       type="button"
                       className="shrink-0 rounded px-1.5 py-1 text-xs text-red-400 hover:bg-red-500/10"
-                      title="Quitar campo"
+                      title="Quitar"
                       onClick={() => handleRemoveElement(id)}
                     >
                       ✕
@@ -447,16 +674,12 @@ export function StickerLayoutEditor({
                 )
               })}
             </ul>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-            <h3 className="text-sm font-medium text-slate-200">Agregar campo</h3>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {addableFields.map((field) => (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {addableFields.slice(0, 6).map((field) => (
                 <button
                   key={field.key}
                   type="button"
-                  className="rounded-lg border border-white/10 px-2 py-1 text-xs text-slate-300 hover:border-amber-400/30 hover:bg-amber-400/5"
+                  className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-amber-400/30"
                   onClick={() => handleAddField(field.key)}
                 >
                   + {field.label}
@@ -464,24 +687,21 @@ export function StickerLayoutEditor({
               ))}
               <button
                 type="button"
-                className="rounded-lg border border-violet-400/30 px-2 py-1 text-xs text-violet-200 hover:bg-violet-400/10"
-                onClick={handleAddCustomText}
+                className="rounded border border-violet-400/30 px-1.5 py-0.5 text-[10px] text-violet-200"
+                onClick={() => handleAddField('customText')}
               >
                 + Texto libre
               </button>
-              {!addableFields.length ? (
-                <p className="text-xs text-slate-500">Todos los campos predefinidos están en la etiqueta.</p>
-              ) : null}
             </div>
           </div>
 
           {selected && selectedMeta ? (
             <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-              <h3 className="text-sm font-medium text-slate-200">{selectedMeta.label}</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <h3 className="text-sm font-medium text-slate-200">Campo: {selectedMeta.label}</h3>
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 {['xMm', 'yMm', 'wMm', 'hMm'].map((field) => (
                   <label key={field} className="block text-xs text-slate-400">
-                    {field === 'xMm' ? 'X (mm)' : field === 'yMm' ? 'Y (mm)' : field === 'wMm' ? 'Ancho' : 'Alto'}
+                    {field === 'xMm' ? 'X' : field === 'yMm' ? 'Y' : field === 'wMm' ? 'Ancho' : 'Alto'} (mm)
                     <input
                       type="number"
                       step={0.5}
@@ -492,7 +712,6 @@ export function StickerLayoutEditor({
                   </label>
                 ))}
               </div>
-
               {isCustomText ? (
                 <label className="mt-2 block text-xs text-slate-400">
                   Texto fijo
@@ -504,7 +723,6 @@ export function StickerLayoutEditor({
                   />
                 </label>
               ) : null}
-
               {isTextField ? (
                 <>
                   <label className="mt-2 block text-xs text-slate-400">
@@ -520,26 +738,13 @@ export function StickerLayoutEditor({
                     />
                   </label>
                   <label className="mt-2 block text-xs text-slate-400">
-                    Escala extra ({Math.round((selected.fontScale ?? 1) * 100)}%)
-                    <input
-                      type="range"
-                      min={75}
-                      max={140}
-                      step={5}
-                      className="mt-1 w-full accent-amber-500"
-                      value={Math.round((selected.fontScale ?? 1) * 100)}
-                      onChange={(e) => patchElement(selectedId, { fontScale: Number(e.target.value) / 100 })}
-                    />
-                  </label>
-                  <label className="mt-2 block text-xs text-slate-400">
-                    Finura letra ({(selected.charWidthRatio ?? 0.44).toFixed(2)} — menor = más fina)
+                    Finura ({(selected.charWidthRatio ?? stickerDesign.charWidthRatio).toFixed(2)})
                     <input
                       type="range"
                       min={36}
                       max={55}
-                      step={1}
                       className="mt-1 w-full accent-amber-500"
-                      value={Math.round((selected.charWidthRatio ?? 0.44) * 100)}
+                      value={Math.round((selected.charWidthRatio ?? stickerDesign.charWidthRatio) * 100)}
                       onChange={(e) =>
                         patchElement(selectedId, { charWidthRatio: Number(e.target.value) / 100 })
                       }
@@ -547,7 +752,7 @@ export function StickerLayoutEditor({
                   </label>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <label className="block text-xs text-slate-400">
-                      Líneas máx.
+                      Líneas
                       <input
                         type="number"
                         min={1}
@@ -564,44 +769,28 @@ export function StickerLayoutEditor({
                         value={selected.justify ?? 'L'}
                         onChange={(e) => patchElement(selectedId, { justify: e.target.value })}
                       >
-                        <option value="L">Izquierda</option>
+                        <option value="L">Izq.</option>
                         <option value="C">Centro</option>
-                        <option value="R">Derecha</option>
+                        <option value="R">Der.</option>
                       </select>
                     </label>
                   </div>
-                  {!isCustomText ? (
-                    <label className="mt-2 block text-xs text-slate-400">
-                      Prefijo (opcional)
-                      <input
-                        type="text"
-                        className={`${inputClass} mt-1`}
-                        value={selected.prefix ?? ''}
-                        placeholder="Ej. L: "
-                        onChange={(e) => patchElement(selectedId, { prefix: e.target.value })}
-                      />
-                    </label>
-                  ) : null}
                 </>
               ) : null}
-
               {(selected.fieldKey ?? selectedId) === 'qr' ? (
                 <p className="mt-2 text-xs text-slate-500">
-                  Tamaño QR en impresión: <strong>{Math.min(selected.wMm, selected.hMm).toFixed(1)} mm</strong>
-                  {' '}(usa el menor entre ancho y alto; redimensionar mantiene proporción cuadrada).
+                  QR impreso: <strong>{Math.min(selected.wMm, selected.hMm).toFixed(1)} mm</strong>
                 </p>
               ) : null}
             </div>
-          ) : (
-            <p className="text-xs text-slate-500">Selecciona un bloque en la etiqueta o en la lista.</p>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <Button type="button" onClick={handleSave}>
-              Guardar diseño
+              Guardar diseño y tamaño
             </Button>
             <Button type="button" variant="ghost" onClick={handleReset}>
-              Restaurar plantilla por defecto
+              Restaurar plantilla
             </Button>
             <Button type="button" variant="neutral" onClick={onClose}>
               Cancelar

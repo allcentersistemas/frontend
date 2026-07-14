@@ -363,6 +363,24 @@ export function resetVisualLayoutForLabel(labelWidthMm, labelHeightMm, orientati
   return createDefaultVisualLayout(labelWidthMm, labelHeightMm, orientation)
 }
 
+/** Escala el layout en edición al cambiar tamaño/orientación de etiqueta (mantiene proporciones). */
+export function scaleVisualLayoutToSize(layout, targetW, targetH, orientation) {
+  const srcW = layout.labelWidthMm || targetW
+  const srcH = layout.labelHeightMm || targetH
+  const scaled = scaleLayoutElements(layout.elements, srcW, srcH, targetW, targetH)
+  /** @type {Record<string, LayoutElement>} */
+  const elements = {}
+  for (const [id, el] of Object.entries(scaled)) {
+    elements[id] = normalizeLayoutElement(id, el, targetW, targetH)
+  }
+  return {
+    labelWidthMm: targetW,
+    labelHeightMm: targetH,
+    orientation,
+    elements,
+  }
+}
+
 /**
  * @param {LayoutElement} el
  * @param {number} labelW

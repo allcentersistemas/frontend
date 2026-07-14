@@ -25,14 +25,9 @@ import {
 } from '../utils/stickerPrintSize'
 import {
   getStickerPrintDpi,
-  setStickerPrintDpi,
-  clampStickerPrintDpi,
-  STICKER_PRINT_DPI_PRESETS,
 } from '../utils/stickerPrintDpi'
 import {
   getStickerDesignSettings,
-  setStickerDesignSettings,
-  resetStickerDesignSettings,
 } from '../utils/stickerDesignSettings'
 import {
   getVisualLayoutForLabel,
@@ -118,7 +113,6 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
   const [stickerDesign, setStickerDesign] = useState(getStickerDesignSettings)
-  const [designOpen, setDesignOpen] = useState(false)
   const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
   const [useVisualLayout, setUseVisualLayoutState] = useState(getUseVisualLayout)
   const [visualLayout, setVisualLayout] = useState(() =>
@@ -272,9 +266,15 @@ export function BiesseStickerPrintButton({ detail }) {
     }
   }, [open, useZpl, printSize])
 
-  function patchDesign(patch) {
-    const next = setStickerDesignSettings(patch)
-    setStickerDesign(next)
+  function applyDesignSettings(settings) {
+    setPrintSize(settings.printSize)
+    setPrintOrientation(settings.printOrientation)
+    setCustomWidthMm(settings.customWidthMm)
+    setCustomHeightMm(settings.customHeightMm)
+    setPrintDpi(settings.printDpi)
+    setStickerDesign(settings.stickerDesign)
+    setVisualLayout(settings.visualLayout)
+    setUseVisualLayoutState(settings.useVisualLayout)
   }
 
   function buildOrderPayload() {
@@ -589,245 +589,75 @@ export function BiesseStickerPrintButton({ detail }) {
                 </div>
               ) : null}
 
-              <div>
-                <label className={labelClass}>Orientación</label>
-                <select
-                  className={`${inputClass} mt-2 cursor-pointer`}
-                  value={printOrientation}
-                  onChange={(e) => {
-                    const next = e.target.value
-                    setPrintOrientation(next)
-                    setStickerPrintOrientation(next)
-                  }}
-                >
-                  {STICKER_PRINT_ORIENTATIONS.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {orientationOptionLabel(o.id, printSize, customLabelMm)}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                  {STICKER_PRINT_ORIENTATIONS.find((o) => o.id === printOrientation)?.hint}
-                </p>
-              </div>
-
-              <div>
-                <label className={labelClass}>Tamaño de impresión</label>
-                <select
-                  className={`${inputClass} mt-2 cursor-pointer`}
-                  value={printSize}
-                  onChange={(e) => {
-                    const next = e.target.value
-                    setPrintSize(next)
-                    setStickerPrintSize(next)
-                  }}
-                >
-                  {STICKER_PRINT_SIZES.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                  {STICKER_PRINT_SIZES.find((s) => s.id === printSize)?.hint}
-                </p>
-              </div>
-
-              {printSize === 'label_custom' ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Ancho (mm)</label>
-                    <input
-                      type="number"
-                      min={25}
-                      max={220}
-                      step={0.5}
-                      className={`${inputClass} mt-2`}
-                      value={customWidthMm}
-                      onChange={(e) => {
-                        const next = clampLabelMm(e.target.value)
-                        setCustomWidthMm(next)
-                        setStickerPrintCustomSize(next, customHeightMm)
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Alto (mm)</label>
-                    <input
-                      type="number"
-                      min={25}
-                      max={220}
-                      step={0.5}
-                      className={`${inputClass} mt-2`}
-                      value={customHeightMm}
-                      onChange={(e) => {
-                        const next = clampLabelMm(e.target.value)
-                        setCustomHeightMm(next)
-                        setStickerPrintCustomSize(customWidthMm, next)
-                      }}
-                    />
-                  </div>
-                  <p className="col-span-2 text-xs leading-relaxed text-slate-500">
-                    Etiqueta efectiva con orientación actual:{' '}
-                    <strong className="font-medium text-slate-400">
+              {useZpl ? (
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="text-sm font-medium text-slate-200">Diseño y tamaño de etiqueta</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                    <strong className="font-medium text-slate-300">
                       {effectiveLabelMm.widthMm} × {effectiveLabelMm.heightMm} mm
                     </strong>
                     {' · '}
-                    ZPL: ^PW/^LL según {printDpi} dpi.
+                    {printOrientation === 'landscape' ? 'horizontal' : 'vertical'}
+                    {' · '}
+                    {printDpi} dpi
+                    {useVisualLayout ? (
+                      <span className="text-amber-200/90"> · diseño visual activo</span>
+                    ) : (
+                      <span> · layout automático v{STICKER_ZPL_LAYOUT_VERSION}</span>
+                    )}
                   </p>
-                </div>
-              ) : null}
-
-              {useZpl ? (
-                <div className="space-y-2">
                   <button
                     type="button"
-                    className="btn btn--sm btn--primary w-full"
+                    className="btn btn--sm btn--primary mt-3 w-full"
                     onClick={() => setLayoutEditorOpen(true)}
                   >
-                    Editor visual — mover y redimensionar
+                    Abrir diseño, tamaño y campos…
                   </button>
-                  {useVisualLayout ? (
-                    <p className="text-xs text-amber-200/90">
-                      Diseño visual activo para {effectiveLabelMm.widthMm}×{effectiveLabelMm.heightMm} mm.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      Usa el editor para colocar bloques libremente; el layout automático (v{STICKER_ZPL_LAYOUT_VERSION}) sigue activo.
-                    </p>
-                  )}
-                <details
-                  className="rounded-xl border border-white/10 bg-black/20"
-                  open={designOpen}
-                  onToggle={(e) => setDesignOpen(e.currentTarget.open)}
-                >
-                  <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
-                    Diseño del sticker (ZPL)
-                  </summary>
-                  <div className="space-y-3 border-t border-white/10 px-3 py-3">
-                    <p className="text-xs leading-relaxed text-slate-500">
-                      Ajustes guardados en este navegador. El rectángulo y los cantos mantienen la misma posición
-                      aunque falte canto superior o inferior. La fuente es vectorial Zebra (similar a sans fina;
-                      Calibri real requiere cargar la fuente en la impresora).
-                    </p>
-
-                    <label className="block text-xs text-slate-400">
-                      Tamaño texto ({Math.round(stickerDesign.fontScale * 100)}%)
-                      <input
-                        type="range"
-                        min={85}
-                        max={120}
-                        step={1}
-                        className="mt-1 w-full accent-amber-500"
-                        value={Math.round(stickerDesign.fontScale * 100)}
-                        onChange={(e) => patchDesign({ fontScale: Number(e.target.value) / 100 })}
-                      />
-                    </label>
-
-                    <label className="block text-xs text-slate-400">
-                      Finura letra ({stickerDesign.charWidthRatio.toFixed(2)} — menor = más fina)
-                      <input
-                        type="range"
-                        min={36}
-                        max={52}
-                        step={1}
-                        className="mt-1 w-full accent-amber-500"
-                        value={Math.round(stickerDesign.charWidthRatio * 100)}
-                        onChange={(e) => patchDesign({ charWidthRatio: Number(e.target.value) / 100 })}
-                      />
-                    </label>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block text-xs text-slate-400">
-                        QR (mm)
-                        <input
-                          type="number"
-                          min={14}
-                          max={28}
-                          step={0.5}
-                          className={`${inputClass} mt-1`}
-                          value={stickerDesign.qrSizeMm}
-                          onChange={(e) => patchDesign({ qrSizeMm: Number(e.target.value) })}
-                        />
-                      </label>
-                      <label className="block text-xs text-slate-400">
-                        Hueco QR → L/A (mm)
-                        <input
-                          type="number"
-                          min={0.5}
-                          max={3}
-                          step={0.1}
-                          className={`${inputClass} mt-1`}
-                          value={stickerDesign.qrTextGapMm}
-                          onChange={(e) => patchDesign({ qrTextGapMm: Number(e.target.value) })}
-                        />
-                      </label>
-                    </div>
-
-                    <label className="block text-xs text-slate-400">
-                      Banda cantos arriba/abajo ({stickerDesign.edgeBandMm} mm)
-                      <input
-                        type="range"
-                        min={25}
-                        max={60}
-                        step={1}
-                        className="mt-1 w-full accent-amber-500"
-                        value={Math.round(stickerDesign.edgeBandMm * 10)}
-                        onChange={(e) => patchDesign({ edgeBandMm: Number(e.target.value) / 10 })}
-                      />
-                    </label>
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--ghost"
-                        onClick={() => setStickerDesign(resetStickerDesignSettings())}
-                      >
-                        Restaurar valores
-                      </button>
-                    </div>
-                  </div>
-                </details>
-                </div>
-              ) : null}
-
-              {useZpl ? (
-                <div>
-                  <label className={labelClass}>Resolución Zebra (dpi)</label>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <input
-                      type="number"
-                      min={100}
-                      max={600}
-                      step={1}
-                      className={`${inputClass} w-28`}
-                      value={printDpi}
-                      onChange={(e) => {
-                        const next = clampStickerPrintDpi(e.target.value)
-                        setPrintDpi(next)
-                        setStickerPrintDpi(next)
-                      }}
-                    />
-                    {STICKER_PRINT_DPI_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        className={`btn btn--sm ${printDpi === preset.id ? 'btn--primary' : 'btn--ghost'}`}
-                        onClick={() => {
-                          setPrintDpi(preset.id)
-                          setStickerPrintDpi(preset.id)
-                        }}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Debe coincidir con la impresora (203 ZD230, 300 ZD420 alta res., etc.). Si el contenido
-                    queda pequeño en una esquina, prueba otro valor.
+                  <p className="mt-2 text-xs text-slate-500">
+                    Tamaño del rollo, dpi, tipografía ZPL y posición de campos — todo en un solo lugar. Al cambiar
+                    el tamaño, el lienzo se ajusta al formato real.
                   </p>
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  <div>
+                    <label className={labelClass}>Orientación</label>
+                    <select
+                      className={`${inputClass} mt-2 cursor-pointer`}
+                      value={printOrientation}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setPrintOrientation(next)
+                        setStickerPrintOrientation(next)
+                      }}
+                    >
+                      {STICKER_PRINT_ORIENTATIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {orientationOptionLabel(o.id, printSize, customLabelMm)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Tamaño de impresión</label>
+                    <select
+                      className={`${inputClass} mt-2 cursor-pointer`}
+                      value={printSize}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setPrintSize(next)
+                        setStickerPrintSize(next)
+                      }}
+                    >
+                      {STICKER_PRINT_SIZES.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className={labelClass}>Parte</label>
@@ -953,22 +783,20 @@ export function BiesseStickerPrintButton({ detail }) {
         </div>
       ) : null}
       <StickerLayoutEditor
-        key={
-          layoutEditorOpen
-            ? `editor-${effectiveLabelMm.widthMm}x${effectiveLabelMm.heightMm}-${printOrientation}`
-            : 'editor-closed'
-        }
+        key={layoutEditorOpen ? 'sticker-design-open' : 'sticker-design-closed'}
         open={layoutEditorOpen}
         onClose={() => setLayoutEditorOpen(false)}
-        labelWidthMm={effectiveLabelMm.widthMm}
-        labelHeightMm={effectiveLabelMm.heightMm}
-        orientation={printOrientation}
-        initialLayout={visualLayout}
-        previewData={layoutPreviewData}
-        onSaved={(layout, visual) => {
-          setVisualLayout(layout)
-          setUseVisualLayoutState(visual)
+        initialSettings={{
+          printSize,
+          printOrientation,
+          customWidthMm,
+          customHeightMm,
+          printDpi,
+          stickerDesign,
+          visualLayout,
         }}
+        previewData={layoutPreviewData}
+        onSaved={applyDesignSettings}
       />
     </>
   )
