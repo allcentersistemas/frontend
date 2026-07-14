@@ -5,7 +5,7 @@ import {
   printBiessePartStickersBulk,
   buildScanCode,
 } from '../utils/printBiessePartSticker'
-import { buildBiessePartStickerZpl } from '../utils/buildBiessePartStickerZpl'
+import { buildBiessePartStickerZpl, STICKER_ZPL_LAYOUT_VERSION } from '../utils/buildBiessePartStickerZpl'
 import { isZebraBrowserPrintAvailable, downloadZplFile, ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintOrientation,
@@ -467,9 +467,10 @@ export function BiesseStickerPrintButton({ detail }) {
                     'Comprobando Zebra Browser Print…'
                   ) : zplStatus === 'ready' ? (
                     <>
-                      <strong className="font-semibold">ZPL listo.</strong> La etiqueta se imprimirá directo en la
-                      Zebra. Si el contenido sale pequeño en una esquina con mucho espacio en blanco, cambia la
-                      resolución a <strong className="font-semibold">300 dpi</strong> (ZD420 alta resolución).
+                      <strong className="font-semibold">ZPL listo.</strong> Layout v{STICKER_ZPL_LAYOUT_VERSION} ·{' '}
+                      {printDpi} dpi. Tras actualizar la app, recarga con Ctrl+Shift+R y usa «Descargar ZPL» para
+                      comprobar que el archivo contiene{' '}
+                      <InlineCode>layout v{STICKER_ZPL_LAYOUT_VERSION}</InlineCode>.
                     </>
                   ) : zplStatus === 'missing' ? (
                     <>

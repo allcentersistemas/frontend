@@ -1,6 +1,6 @@
 /**
  * Etiqueta Biesse en ZPL (Zebra ZD230 / ZD420).
- * Estilo taller: diagrama grande con cantos, tipografía más delgada, sin línea sobre el QR.
+ * Tipografía y QR en mm → se escalan al dpi elegido (203, 300, etc.).
  */
 
 import { resolveLabelDimensionsMm } from './stickerPrintSize.js'
@@ -8,28 +8,39 @@ import { clampStickerPrintDpi } from './stickerPrintDpi.js'
 
 const DEFAULT_ZPL_DPI = 203
 
+/** Incrementar al cambiar layout; sirve para verificar que el navegador usa código nuevo. */
+export const STICKER_ZPL_LAYOUT_VERSION = 4
+
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
 export { ZEBRA_LABEL_SIZES } from './stickerPrintSize.js'
 
-/**
- * Marco fijo del diagrama (mm). Mismo tamaño en todas las piezas;
- * lo bastante grande para leer los cantos alrededor.
- */
 const PIECE_FRAME_W_MM = 40
 const PIECE_FRAME_H_MM = 22
+const QR_SIZE_MM = 22
 
 /** @param {number} dpi */
 function createMmToDots(dpi) {
   return (mm) => Math.round((mm / 25.4) * dpi)
 }
 
-/**
- * Tipografía grande y fina: alto mayor, ancho más estrecho
- * (p. ej. 28,12 → letra alta y delgada en térmica).
- */
-function font(h, w) {
-  return `^A0N,${h},${w}`
+/** @param {number} dpi */
+function createZplUnits(dpi) {
+  const resolvedDpi = clampStickerPrintDpi(dpi)
+  const mmToDots = createMmToDots(resolvedDpi)
+  return {
+    dpi: resolvedDpi,
+    mmToDots,
+    /** @param {number} heightMm @param {number} widthMm */
+    f(heightMm, widthMm) {
+      return `^A0N,${mmToDots(heightMm)},${mmToDots(widthMm)}`
+    },
+    /** Magnificación QR según tamaño físico deseado en mm. */
+    qrMag(sizeMm = QR_SIZE_MM) {
+      const mag = Math.round((sizeMm / 25.4) * resolvedDpi / 33)
+      return Math.max(4, Math.min(10, mag))
+    },
+  }
 }
 
 /** @param {string|null|undefined} text */
@@ -88,7 +99,7 @@ export function labelDotsForSize(
   }
 }
 
-function drawPieceDiagram(lines, {
+function drawPieceDiagram(lines, u, {
   pieceBoxW,
   pieceBoxH,
   leftX,
@@ -99,45 +110,48 @@ function drawPieceDiagram(lines, {
   loLabel,
   leftLabel,
   rightLabel,
-  edgeFontH = 20,
-  edgeFontW = 10,
-  centerFontH = 22,
-  centerFontW = 11,
+  edgeHm = 3,
+  edgeWm = 1.5,
+  centerHm = 3.2,
+  centerWm = 1.6,
 }) {
+  const edgeH = u.mmToDots(edgeHm)
+  const edgeW = u.mmToDots(edgeWm)
+  const centerH = u.mmToDots(centerHm)
+  const centerW = u.mmToDots(centerWm)
+
   if (upLabel) {
-    const upX = shapeX + Math.max(0, Math.round((pieceBoxW - upLabel.length * edgeFontW * 0.55) / 2))
-    lines.push(
-      `^FO${upX},${shapeY - edgeFontH - 4}${font(edgeFontH, edgeFontW)}^FD${zplEscape(upLabel)}^FS`,
-    )
+    const upX = shapeX + Math.max(0, Math.round((pieceBoxW - upLabel.length * edgeW * 0.55) / 2))
+    lines.push(`^FO${upX},${shapeY - edgeH - u.mmToDots(0.5)}${u.f(edgeHm, edgeWm)}^FD${zplEscape(upLabel)}^FS`)
   }
 
   lines.push(`^FO${shapeX},${shapeY}^GB${pieceBoxW},${pieceBoxH},2,B^FS`)
-  const textY = shapeY + Math.max(4, Math.round((pieceBoxH - centerFontH) / 2))
+  const textY = shapeY + Math.max(u.mmToDots(0.4), Math.round((pieceBoxH - centerH) / 2))
   lines.push(
-    `^FO${shapeX + 4},${textY}^FB${pieceBoxW - 8},2,0,C,0${font(centerFontH, centerFontW)}^FD${zplEscape(centerLabel)}^FS`,
+    `^FO${shapeX + u.mmToDots(0.5)},${textY}^FB${pieceBoxW - u.mmToDots(1)},2,0,C,0${u.f(centerHm, centerWm)}^FD${zplEscape(centerLabel)}^FS`,
   )
 
-  const midY = shapeY + Math.round(pieceBoxH / 2) - Math.round(edgeFontH / 2)
+  const midY = shapeY + Math.round(pieceBoxH / 2) - Math.round(edgeH / 2)
   if (leftLabel) {
-    lines.push(`^FO${leftX},${midY}${font(edgeFontH, edgeFontW)}^FD${zplEscape(leftLabel)}^FS`)
+    lines.push(`^FO${leftX},${midY}${u.f(edgeHm, edgeWm)}^FD${zplEscape(leftLabel)}^FS`)
   }
   if (rightLabel) {
     lines.push(
-      `^FO${shapeX + pieceBoxW + 6},${midY}${font(edgeFontH, edgeFontW)}^FD${zplEscape(rightLabel)}^FS`,
+      `^FO${shapeX + pieceBoxW + u.mmToDots(0.6)},${midY}${u.f(edgeHm, edgeWm)}^FD${zplEscape(rightLabel)}^FS`,
     )
   }
 
   if (loLabel) {
-    const loX = shapeX + Math.max(0, Math.round((pieceBoxW - loLabel.length * edgeFontW * 0.55) / 2))
+    const loX = shapeX + Math.max(0, Math.round((pieceBoxW - loLabel.length * edgeW * 0.55) / 2))
     lines.push(
-      `^FO${loX},${shapeY + pieceBoxH + 4}${font(edgeFontH, edgeFontW)}^FD${zplEscape(loLabel)}^FS`,
+      `^FO${loX},${shapeY + pieceBoxH + u.mmToDots(0.5)}${u.f(edgeHm, edgeWm)}^FD${zplEscape(loLabel)}^FS`,
     )
   }
 }
 
 function buildLandscapeZpl(ctx) {
   const {
-    mmToDots,
+    u,
     pieceBoxW,
     pieceBoxH,
     PW,
@@ -161,17 +175,17 @@ function buildLandscapeZpl(ctx) {
     dateStr,
   } = ctx
 
-  const pad = 8
-  const rightColW = mmToDots(24)
+  const pad = u.mmToDots(1)
+  const rightColW = u.mmToDots(28)
   const leftX = pad
   const rightX = PW - pad - rightColW
-  const textColW = Math.max(80, rightX - leftX - mmToDots(2))
-  const sideCantoW = mmToDots(14)
-  const shapeX = leftX + sideCantoW
+  const textColW = Math.max(u.mmToDots(30), rightX - leftX - u.mmToDots(1))
+  const shapeX = leftX + u.mmToDots(14)
 
-  let y = 8
+  let y = pad
   const lines = [
     '^XA',
+    `^FX Biesse layout v${STICKER_ZPL_LAYOUT_VERSION} ${u.dpi}dpi`,
     '^MMT',
     '^PON',
     '^PW' + PW,
@@ -179,27 +193,27 @@ function buildLandscapeZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${leftX},${y}^FB${textColW},2,0,L,0${font(28, 12)}^FD${zplEscape(headerTitle)}^FS`,
+    `^FO${leftX},${y}^FB${textColW},2,0,L,0${u.f(4.2, 2)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
-  y += 30
+  y += u.mmToDots(4.2)
   if (booking) {
-    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(20, 10)}^FD${zplEscape(booking)}^FS`)
-    y += 22
+    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.f(3, 1.5)}^FD${zplEscape(booking)}^FS`)
+    y += u.mmToDots(3.2)
   }
 
-  lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(24, 11)}^FD${zplEscape(matLine)}^FS`)
+  lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.f(3.6, 1.7)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
-    y += 22
-    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${font(18, 9)}^FD${zplEscape(subDesc)}^FS`)
+    y += u.mmToDots(3.4)
+    lines.push(`^FO${leftX},${y}^FB${textColW},1,0,L,0${u.f(2.8, 1.3)}^FD${zplEscape(subDesc)}^FS`)
   }
 
-  y += 22
-  lines.push(`^FO${leftX},${y}${font(24, 11)}^FD${zplEscape(refLine)}^FS`)
+  y += u.mmToDots(3.4)
+  lines.push(`^FO${leftX},${y}${u.f(3.6, 1.7)}^FD${zplEscape(refLine)}^FS`)
 
-  const shapeY = y + (upLabel ? 32 : 16)
-  drawPieceDiagram(lines, {
+  const shapeY = y + (upLabel ? u.mmToDots(4) : u.mmToDots(2))
+  drawPieceDiagram(lines, u, {
     pieceBoxW,
     pieceBoxH,
     leftX,
@@ -212,20 +226,21 @@ function buildLandscapeZpl(ctx) {
     rightLabel,
   })
 
-  const qrY = 6
+  const qrY = pad
+  const qrMag = u.qrMag(QR_SIZE_MM)
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
-  lines.push(`^FO${rightX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
+  lines.push(`^FO${rightX},${qrY}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`)
 
-  let infoY = qrY + mmToDots(20)
-  lines.push(`^FO${rightX},${infoY}${font(24, 11)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += 26
-  lines.push(`^FO${rightX},${infoY}${font(24, 11)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += 28
-  lines.push(`^FO${rightX},${infoY}${font(22, 10)}^FD${numeroPieza} / ${cantidad}^FS`)
+  let infoY = qrY + u.mmToDots(QR_SIZE_MM + 0.5)
+  lines.push(`^FO${rightX},${infoY}${u.f(3.6, 1.7)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += u.mmToDots(3.6)
+  lines.push(`^FO${rightX},${infoY}${u.f(3.6, 1.7)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += u.mmToDots(3.8)
+  lines.push(`^FO${rightX},${infoY}${u.f(3.4, 1.6)}^FD${numeroPieza} / ${cantidad}^FS`)
 
-  const footY = LL - 26
-  lines.push(`^FO${leftX},${footY}${font(18, 9)}^FD${zplEscape(pCode)}^FS`)
-  lines.push(`^FO${rightX},${footY}${font(18, 9)}^FD${zplEscape(dateStr)}^FS`)
+  const footY = LL - u.mmToDots(3.2)
+  lines.push(`^FO${leftX},${footY}${u.f(2.8, 1.3)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${rightX},${footY}${u.f(2.8, 1.3)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
@@ -233,7 +248,7 @@ function buildLandscapeZpl(ctx) {
 
 function buildPortraitZpl(ctx) {
   const {
-    mmToDots,
+    u,
     pieceBoxW,
     pieceBoxH,
     PW,
@@ -257,12 +272,12 @@ function buildPortraitZpl(ctx) {
     dateStr,
   } = ctx
 
-  const pad = 8
-  const sideCantoW = mmToDots(12)
-  const textColW = Math.max(60, PW - pad * 2)
-  let y = 8
+  const pad = u.mmToDots(1)
+  const textColW = Math.max(u.mmToDots(24), PW - pad * 2)
+  let y = pad
   const lines = [
     '^XA',
+    `^FX Biesse layout v${STICKER_ZPL_LAYOUT_VERSION} ${u.dpi}dpi`,
     '^MMT',
     '^PON',
     '^PW' + PW,
@@ -270,28 +285,28 @@ function buildPortraitZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${pad},${y}^FB${textColW},2,0,L,0${font(24, 11)}^FD${zplEscape(headerTitle)}^FS`,
+    `^FO${pad},${y}^FB${textColW},2,0,L,0${u.f(3.6, 1.7)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
-  y += 28
+  y += u.mmToDots(3.8)
   if (booking) {
-    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(18, 9)}^FD${zplEscape(booking)}^FS`)
-    y += 20
+    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.f(2.8, 1.3)}^FD${zplEscape(booking)}^FS`)
+    y += u.mmToDots(3)
   }
 
-  lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(20, 10)}^FD${zplEscape(matLine)}^FS`)
+  lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.f(3.2, 1.5)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
-    y += 18
-    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${font(16, 8)}^FD${zplEscape(subDesc)}^FS`)
+    y += u.mmToDots(3)
+    lines.push(`^FO${pad},${y}^FB${textColW},1,0,L,0${u.f(2.6, 1.2)}^FD${zplEscape(subDesc)}^FS`)
   }
 
-  y += 18
-  lines.push(`^FO${pad},${y}${font(20, 10)}^FD${zplEscape(refLine)}^FS`)
+  y += u.mmToDots(3)
+  lines.push(`^FO${pad},${y}${u.f(3.2, 1.5)}^FD${zplEscape(refLine)}^FS`)
 
-  const shapeX = Math.max(pad + sideCantoW, Math.round((PW - pieceBoxW) / 2))
-  const shapeY = y + (upLabel ? 28 : 14)
-  drawPieceDiagram(lines, {
+  const shapeX = Math.max(pad + u.mmToDots(12), Math.round((PW - pieceBoxW) / 2))
+  const shapeY = y + (upLabel ? u.mmToDots(3.5) : u.mmToDots(1.8))
+  drawPieceDiagram(lines, u, {
     pieceBoxW,
     pieceBoxH,
     leftX: pad,
@@ -302,28 +317,29 @@ function buildPortraitZpl(ctx) {
     loLabel,
     leftLabel,
     rightLabel,
-    edgeFontH: 18,
-    edgeFontW: 9,
-    centerFontH: 20,
-    centerFontW: 10,
+    edgeHm: 2.6,
+    edgeWm: 1.3,
+    centerHm: 2.8,
+    centerWm: 1.4,
   })
 
-  const qrY = shapeY + pieceBoxH + (loLabel ? 26 : 16)
-  const qrX = PW - pad - mmToDots(20)
+  const qrY = shapeY + pieceBoxH + (loLabel ? u.mmToDots(3.2) : u.mmToDots(2))
+  const qrX = PW - pad - u.mmToDots(QR_SIZE_MM)
+  const qrMag = u.qrMag(QR_SIZE_MM)
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
-  lines.push(`^FO${qrX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
+  lines.push(`^FO${qrX},${qrY}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`)
 
   let infoY = qrY
-  lines.push(`^FO${pad},${infoY}${font(22, 10)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += 24
-  lines.push(`^FO${pad},${infoY}${font(22, 10)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += 24
-  lines.push(`^FO${pad},${infoY}${font(20, 10)}^FD${numeroPieza} / ${cantidad}^FS`)
-  infoY += 22
-  lines.push(`^FO${pad},${infoY}${font(16, 8)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${pad},${infoY}${u.f(3.4, 1.6)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += u.mmToDots(3.4)
+  lines.push(`^FO${pad},${infoY}${u.f(3.4, 1.6)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += u.mmToDots(3.4)
+  lines.push(`^FO${pad},${infoY}${u.f(3.2, 1.5)}^FD${numeroPieza} / ${cantidad}^FS`)
+  infoY += u.mmToDots(3)
+  lines.push(`^FO${pad},${infoY}${u.f(2.6, 1.2)}^FD${zplEscape(pCode)}^FS`)
 
-  const footY = LL - 22
-  lines.push(`^FO${pad},${footY}${font(16, 8)}^FD${zplEscape(dateStr)}^FS`)
+  const footY = LL - u.mmToDots(3)
+  lines.push(`^FO${pad},${footY}${u.f(2.6, 1.2)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
@@ -355,10 +371,10 @@ export function buildBiessePartStickerZpl({
   customLabelMm = null,
 }) {
   const resolvedDpi = clampStickerPrintDpi(dpi)
-  const mmToDots = createMmToDots(resolvedDpi)
+  const u = createZplUnits(resolvedDpi)
   const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation, resolvedDpi, customLabelMm)
-  const pieceBoxW = mmToDots(PIECE_FRAME_W_MM)
-  const pieceBoxH = mmToDots(PIECE_FRAME_H_MM)
+  const pieceBoxW = u.mmToDots(PIECE_FRAME_W_MM)
+  const pieceBoxH = u.mmToDots(PIECE_FRAME_H_MM)
   const partNumber = part?.partNumber ?? part?.partId ?? 0
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
@@ -382,7 +398,7 @@ export function buildBiessePartStickerZpl({
   const dateStr = formatStickerDate(printedAt)
 
   const ctx = {
-    mmToDots,
+    u,
     pieceBoxW,
     pieceBoxH,
     PW,
@@ -409,4 +425,4 @@ export function buildBiessePartStickerZpl({
   return isPortrait ? buildPortraitZpl(ctx) : buildLandscapeZpl(ctx)
 }
 
-export { PIECE_FRAME_W_MM, PIECE_FRAME_H_MM, DEFAULT_ZPL_DPI as ZPL_DPI }
+export { PIECE_FRAME_W_MM, PIECE_FRAME_H_MM, DEFAULT_ZPL_DPI as ZPL_DPI, QR_SIZE_MM }
