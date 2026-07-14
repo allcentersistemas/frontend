@@ -18,8 +18,8 @@ export const ZEBRA_LABEL_SIZES = {
  * Marco fijo del diagrama (mm). Mismo tamaño en todas las piezas;
  * lo bastante grande para leer los cantos alrededor.
  */
-const PIECE_FRAME_W_MM = 36
-const PIECE_FRAME_H_MM = 18
+const PIECE_FRAME_W_MM = 40
+const PIECE_FRAME_H_MM = 22
 
 function mmToDots(mm) {
   return Math.round((mm / 25.4) * DPI)
@@ -28,7 +28,10 @@ function mmToDots(mm) {
 const PIECE_BOX_W = mmToDots(PIECE_FRAME_W_MM)
 const PIECE_BOX_H = mmToDots(PIECE_FRAME_H_MM)
 
-/** Tipografía delgada: alto > ancho (p. ej. 22,14). */
+/**
+ * Tipografía grande y fina: alto mayor, ancho más estrecho
+ * (p. ej. 28,12 → letra alta y delgada en térmica).
+ */
 function font(h, w) {
   return `^A0N,${h},${w}`
 }
@@ -86,10 +89,10 @@ function drawPieceDiagram(lines, {
   loLabel,
   leftLabel,
   rightLabel,
-  edgeFontH = 16,
-  edgeFontW = 11,
-  centerFontH = 18,
-  centerFontW = 12,
+  edgeFontH = 20,
+  edgeFontW = 10,
+  centerFontH = 22,
+  centerFontW = 11,
 }) {
   // Canto superior (centrado sobre la caja)
   if (upLabel) {
@@ -170,28 +173,28 @@ function buildLandscapeZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    // Tipografía delgada (alto > ancho)
-    `^FO${leftX},${y}${font(22, 14)}^FD${zplEscape(headerTitle)}^FS`,
+    // Tipografía grande y fina (alto ↑, ancho ↓)
+    `^FO${leftX},${y}${font(28, 12)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
   if (booking) {
-    y += 22
-    lines.push(`^FO${leftX},${y}${font(16, 11)}^FD${zplEscape(booking)}^FS`)
+    y += 26
+    lines.push(`^FO${leftX},${y}${font(20, 10)}^FD${zplEscape(booking)}^FS`)
   }
 
-  y += booking ? 18 : 24
-  lines.push(`^FO${leftX},${y}${font(18, 12)}^FD${zplEscape(matLine)}^FS`)
+  y += booking ? 20 : 28
+  lines.push(`^FO${leftX},${y}${font(24, 11)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
-    y += 18
-    lines.push(`^FO${leftX},${y}${font(15, 10)}^FD${zplEscape(subDesc)}^FS`)
+    y += 22
+    lines.push(`^FO${leftX},${y}${font(18, 9)}^FD${zplEscape(subDesc)}^FS`)
   }
 
-  y += 18
-  lines.push(`^FO${leftX},${y}${font(18, 12)}^FD${zplEscape(refLine)}^FS`)
+  y += 22
+  lines.push(`^FO${leftX},${y}${font(24, 11)}^FD${zplEscape(refLine)}^FS`)
 
   // Diagrama: reserva espacio para canto superior
-  const shapeY = y + (upLabel ? 28 : 14)
+  const shapeY = y + (upLabel ? 32 : 16)
   drawPieceDiagram(lines, {
     leftX,
     shapeX,
@@ -209,15 +212,15 @@ function buildLandscapeZpl(ctx) {
   lines.push(`^FO${rightX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
 
   let infoY = qrY + mmToDots(20)
-  lines.push(`^FO${rightX},${infoY}${font(20, 13)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += 22
-  lines.push(`^FO${rightX},${infoY}${font(20, 13)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += 24
-  lines.push(`^FO${rightX},${infoY}${font(18, 12)}^FD${numeroPieza} / ${cantidad}^FS`)
+  lines.push(`^FO${rightX},${infoY}${font(24, 11)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += 26
+  lines.push(`^FO${rightX},${infoY}${font(24, 11)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += 28
+  lines.push(`^FO${rightX},${infoY}${font(22, 10)}^FD${numeroPieza} / ${cantidad}^FS`)
 
   const footY = LL - 26
-  lines.push(`^FO${leftX},${footY}${font(15, 10)}^FD${zplEscape(pCode)}^FS`)
-  lines.push(`^FO${rightX},${footY}${font(15, 10)}^FD${zplEscape(dateStr)}^FS`)
+  lines.push(`^FO${leftX},${footY}${font(18, 9)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${rightX},${footY}${font(18, 9)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
@@ -257,27 +260,27 @@ function buildPortraitZpl(ctx) {
     '^LH0,0',
     '^CI28',
     '^PR2,2',
-    `^FO${pad},${y}${font(20, 13)}^FD${zplEscape(headerTitle)}^FS`,
+    `^FO${pad},${y}${font(24, 11)}^FD${zplEscape(headerTitle)}^FS`,
   ]
 
   if (booking) {
-    y += 20
-    lines.push(`^FO${pad},${y}${font(14, 10)}^FD${zplEscape(booking)}^FS`)
+    y += 22
+    lines.push(`^FO${pad},${y}${font(18, 9)}^FD${zplEscape(booking)}^FS`)
   }
 
-  y += booking ? 18 : 22
-  lines.push(`^FO${pad},${y}${font(16, 11)}^FD${zplEscape(matLine)}^FS`)
+  y += booking ? 20 : 24
+  lines.push(`^FO${pad},${y}${font(20, 10)}^FD${zplEscape(matLine)}^FS`)
 
   if (subDesc) {
-    y += 16
-    lines.push(`^FO${pad},${y}${font(14, 10)}^FD${zplEscape(subDesc)}^FS`)
+    y += 18
+    lines.push(`^FO${pad},${y}${font(16, 8)}^FD${zplEscape(subDesc)}^FS`)
   }
 
-  y += 16
-  lines.push(`^FO${pad},${y}${font(16, 11)}^FD${zplEscape(refLine)}^FS`)
+  y += 18
+  lines.push(`^FO${pad},${y}${font(20, 10)}^FD${zplEscape(refLine)}^FS`)
 
   const shapeX = Math.max(pad + sideCantoW, Math.round((PW - PIECE_BOX_W) / 2))
-  const shapeY = y + (upLabel ? 26 : 12)
+  const shapeY = y + (upLabel ? 28 : 14)
   drawPieceDiagram(lines, {
     leftX: pad,
     shapeX,
@@ -287,28 +290,28 @@ function buildPortraitZpl(ctx) {
     loLabel,
     leftLabel,
     rightLabel,
-    edgeFontH: 14,
-    edgeFontW: 10,
-    centerFontH: 16,
-    centerFontW: 11,
+    edgeFontH: 18,
+    edgeFontW: 9,
+    centerFontH: 20,
+    centerFontW: 10,
   })
 
-  const qrY = shapeY + PIECE_BOX_H + (loLabel ? 24 : 14)
+  const qrY = shapeY + PIECE_BOX_H + (loLabel ? 26 : 16)
   const qrX = PW - pad - mmToDots(20)
   const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
   lines.push(`^FO${qrX},${qrY}^BQN,2,4^FDQA,${qrPayload}^FS`)
 
   let infoY = qrY
-  lines.push(`^FO${pad},${infoY}${font(18, 12)}^FDL: ${L != null ? L : '—'}^FS`)
-  infoY += 20
-  lines.push(`^FO${pad},${infoY}${font(18, 12)}^FDA: ${A != null ? A : '—'}^FS`)
-  infoY += 20
-  lines.push(`^FO${pad},${infoY}${font(16, 11)}^FD${numeroPieza} / ${cantidad}^FS`)
-  infoY += 20
-  lines.push(`^FO${pad},${infoY}${font(14, 10)}^FD${zplEscape(pCode)}^FS`)
+  lines.push(`^FO${pad},${infoY}${font(22, 10)}^FDL: ${L != null ? L : '—'}^FS`)
+  infoY += 24
+  lines.push(`^FO${pad},${infoY}${font(22, 10)}^FDA: ${A != null ? A : '—'}^FS`)
+  infoY += 24
+  lines.push(`^FO${pad},${infoY}${font(20, 10)}^FD${numeroPieza} / ${cantidad}^FS`)
+  infoY += 22
+  lines.push(`^FO${pad},${infoY}${font(16, 8)}^FD${zplEscape(pCode)}^FS`)
 
   const footY = LL - 22
-  lines.push(`^FO${pad},${footY}${font(14, 10)}^FD${zplEscape(dateStr)}^FS`)
+  lines.push(`^FO${pad},${footY}${font(16, 8)}^FD${zplEscape(dateStr)}^FS`)
 
   lines.push('^XZ')
   return lines.join('\n')
