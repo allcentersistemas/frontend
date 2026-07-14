@@ -10,10 +10,12 @@ import {
   getStickerDesignSettings,
   normalizeStickerDesignSettings,
 } from './stickerDesignSettings.js'
+import { LAYOUT_ELEMENT_META } from './stickerVisualLayout.js'
 
 const DEFAULT_ZPL_DPI = 203
 
 export const STICKER_ZPL_LAYOUT_VERSION = 9
+export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 10
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -412,8 +414,184 @@ function buildPortraitZpl(ctx) {
 }
 
 /**
+ * @param {import('./stickerVisualLayout.js').StickerVisualLayout} visualLayout
+ */
+function buildVisualLayoutZpl(ctx, visualLayout) {
+  const {
+    u,
+    PW,
+    LL,
+    scanCode,
+    headerTitle,
+    booking,
+    matLine,
+    subDesc,
+    refLine,
+    centerLabel,
+    upLabel,
+    loLabel,
+    leftLabel,
+    rightLabel,
+    L,
+    A,
+    numeroPieza,
+    cantidad,
+    pCode,
+    dateStr,
+  } = ctx
+
+  const elements = visualLayout?.elements ?? {}
+  const pad = u.mmToDots(0.5)
+
+  const lines = [
+    '^XA',
+    `^FX Biesse layout visual v${STICKER_ZPL_VISUAL_LAYOUT_VERSION} ${u.dpi}dpi`,
+    '^MMT',
+    '^PON',
+    '^PW' + PW,
+    '^LL' + LL,
+    '^LH0,0',
+    '^CI28',
+    '^PR2,2',
+  ]
+
+  function el(id) {
+    return elements[id]
+  }
+
+  function fontHm(id) {
+    const meta = LAYOUT_ELEMENT_META[id]
+    return el(id)?.fontHm ?? meta?.defaultFontHm ?? 4
+  }
+
+  const headerEl = el('header')
+  if (headerEl) {
+    textBlock(
+      lines,
+      u,
+      u.mmToDots(headerEl.xMm),
+      u.mmToDots(headerEl.yMm),
+      u.mmToDots(headerEl.wMm),
+      2,
+      fontHm('header'),
+      headerTitle,
+    )
+  }
+
+  const bookingEl = el('booking')
+  if (bookingEl && booking) {
+    textBlock(
+      lines,
+      u,
+      u.mmToDots(bookingEl.xMm),
+      u.mmToDots(bookingEl.yMm),
+      u.mmToDots(bookingEl.wMm),
+      1,
+      fontHm('booking'),
+      booking,
+    )
+  }
+
+  const materialEl = el('material')
+  if (materialEl) {
+    textBlock(
+      lines,
+      u,
+      u.mmToDots(materialEl.xMm),
+      u.mmToDots(materialEl.yMm),
+      u.mmToDots(materialEl.wMm),
+      1,
+      fontHm('material'),
+      matLine,
+    )
+  }
+
+  const subdescEl = el('subdesc')
+  if (subdescEl && subDesc) {
+    textBlock(
+      lines,
+      u,
+      u.mmToDots(subdescEl.xMm),
+      u.mmToDots(subdescEl.yMm),
+      u.mmToDots(subdescEl.wMm),
+      1,
+      fontHm('subdesc'),
+      subDesc,
+    )
+  }
+
+  const refEl = el('ref')
+  if (refEl) {
+    lines.push(
+      `^FO${u.mmToDots(refEl.xMm)},${u.mmToDots(refEl.yMm)}${u.text(fontHm('ref'))}^FD${zplEscape(refLine)}^FS`,
+    )
+  }
+
+  const diagramEl = el('diagram')
+  if (diagramEl) {
+    const pieceBoxW = u.mmToDots(Math.max(12, diagramEl.wMm))
+    const pieceBoxH = u.mmToDots(Math.max(10, diagramEl.hMm))
+    const shapeX = u.mmToDots(diagramEl.xMm)
+    const shapeY = u.mmToDots(diagramEl.yMm)
+    drawPieceDiagram(lines, u, {
+      pieceBoxW,
+      pieceBoxH,
+      leftX: pad,
+      shapeX,
+      shapeY,
+      centerLabel,
+      upLabel,
+      loLabel,
+      leftLabel,
+      rightLabel,
+    })
+  }
+
+  const qrEl = el('qr')
+  if (qrEl) {
+    const qrSize = Math.min(qrEl.wMm, qrEl.hMm)
+    const qrMag = u.qrMag(qrSize)
+    const qrPayload = String(scanCode).replace(/\\/g, '\\\\').replace(/\^/g, '\\^')
+    lines.push(
+      `^FO${u.mmToDots(qrEl.xMm)},${u.mmToDots(qrEl.yMm)}^BQN,2,${qrMag}^FDQA,${qrPayload}^FS`,
+    )
+  }
+
+  const dimsEl = el('dims')
+  if (dimsEl) {
+    const lineHm = fontHm('dims')
+    let infoY = u.mmToDots(dimsEl.yMm)
+    const infoX = u.mmToDots(dimsEl.xMm)
+    lines.push(`^FO${infoX},${infoY}${u.text(lineHm)}^FDL: ${L != null ? L : '—'}^FS`)
+    infoY = reserveRow(u, infoY, lineHm, 0.55)
+    lines.push(`^FO${infoX},${infoY}${u.text(lineHm)}^FDA: ${A != null ? A : '—'}^FS`)
+    infoY = reserveRow(u, infoY, lineHm, 0.55)
+    lines.push(`^FO${infoX},${infoY}${u.text(lineHm * 0.95)}^FD${numeroPieza} / ${cantidad}^FS`)
+  }
+
+  const footLeftEl = el('footerLeft')
+  if (footLeftEl) {
+    lines.push(
+      `^FO${u.mmToDots(footLeftEl.xMm)},${u.mmToDots(footLeftEl.yMm)}${u.text(fontHm('footerLeft'))}^FD${zplEscape(pCode)}^FS`,
+    )
+  }
+
+  const footRightEl = el('footerRight')
+  if (footRightEl) {
+    lines.push(
+      `^FO${u.mmToDots(footRightEl.xMm)},${u.mmToDots(footRightEl.yMm)}${u.text(fontHm('footerRight'))}^FD${zplEscape(dateStr)}^FS`,
+    )
+  }
+
+  lines.push('^XZ')
+  return lines.join('\n')
+}
+
+/**
  * @param {object} opts
  * @param {import('./stickerDesignSettings.js').StickerDesignSettings} [opts.design]
+ * @param {import('./stickerVisualLayout.js').StickerVisualLayout|null} [opts.visualLayout]
+ * @param {boolean} [opts.useVisualLayout]
  */
 export function buildBiessePartStickerZpl({
   scanCode,
@@ -427,6 +605,8 @@ export function buildBiessePartStickerZpl({
   dpi = DEFAULT_ZPL_DPI,
   customLabelMm = null,
   design = getStickerDesignSettings(),
+  visualLayout = null,
+  useVisualLayout = false,
 }) {
   const resolvedDesign = normalizeStickerDesignSettings(design)
   const resolvedDpi = clampStickerPrintDpi(dpi)
@@ -479,6 +659,10 @@ export function buildBiessePartStickerZpl({
     cantidad,
     pCode,
     dateStr,
+  }
+
+  if (useVisualLayout && visualLayout?.elements) {
+    return buildVisualLayoutZpl(ctx, visualLayout)
   }
 
   return isPortrait ? buildPortraitZpl(ctx) : buildLandscapeZpl(ctx)

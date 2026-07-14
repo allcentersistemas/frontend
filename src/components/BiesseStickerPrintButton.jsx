@@ -5,7 +5,7 @@ import {
   printBiessePartStickersBulk,
   buildScanCode,
 } from '../utils/printBiessePartSticker'
-import { buildBiessePartStickerZpl, STICKER_ZPL_LAYOUT_VERSION } from '../utils/buildBiessePartStickerZpl'
+import { buildBiessePartStickerZpl, STICKER_ZPL_LAYOUT_VERSION, STICKER_ZPL_VISUAL_LAYOUT_VERSION } from '../utils/buildBiessePartStickerZpl'
 import { isZebraBrowserPrintAvailable, downloadZplFile, ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintOrientation,
@@ -34,6 +34,11 @@ import {
   setStickerDesignSettings,
   resetStickerDesignSettings,
 } from '../utils/stickerDesignSettings'
+import {
+  getVisualLayoutForLabel,
+  getUseVisualLayout,
+} from '../utils/stickerVisualLayout'
+import { StickerLayoutEditor } from './StickerLayoutEditor.jsx'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -113,6 +118,15 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
   const [stickerDesign, setStickerDesign] = useState(getStickerDesignSettings)
   const [designOpen, setDesignOpen] = useState(false)
+  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
+  const [useVisualLayout, setUseVisualLayoutState] = useState(getUseVisualLayout)
+  const [visualLayout, setVisualLayout] = useState(() =>
+    getVisualLayoutForLabel(
+      resolveLabelDimensionsMm(getStickerPrintSize(), getStickerPrintOrientation()).widthMm,
+      resolveLabelDimensionsMm(getStickerPrintSize(), getStickerPrintOrientation()).heightMm,
+      getStickerPrintOrientation(),
+    ),
+  )
   const [customWidthMm, setCustomWidthMm] = useState(() => getStickerPrintCustomSize().widthMm)
   const [customHeightMm, setCustomHeightMm] = useState(() => getStickerPrintCustomSize().heightMm)
   const [bulkQueue, setBulkQueue] = useState([])
@@ -132,6 +146,61 @@ export function BiesseStickerPrintButton({ detail }) {
     () => resolveLabelDimensionsMm(printSize, printOrientation, customLabelMm),
     [printSize, printOrientation, customLabelMm],
   )
+
+  useEffect(() => {
+    setVisualLayout(
+      getVisualLayoutForLabel(effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation),
+    )
+    setUseVisualLayoutState(getUseVisualLayout())
+  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation, layoutEditorOpen])
+
+  const layoutPreviewData = useMemo(() => {
+    if (!detail) return undefined
+    const part = selectedPart
+    const partNumber = part?.partNumber ?? part?.partId ?? '0'
+    const now = new Date()
+    const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`
+    if (!part) {
+      return {
+        headerTitle: String(detail.orderName ?? 'PROYECTO').toUpperCase(),
+        booking: detail.bookingCode ?? '',
+        material: '—',
+        subdesc: '',
+        refLine: '0',
+        centerLabel: '—',
+        upLabel: '',
+        loLabel: '',
+        leftLabel: '',
+        rightLabel: '',
+        L: null,
+        A: null,
+        numeroPieza: 1,
+        cantidad: 1,
+        pCode: 'P0',
+        dateStr,
+      }
+    }
+    return {
+      headerTitle: String(detail.orderName ?? '').toUpperCase(),
+      booking: detail.bookingCode ? String(detail.bookingCode).trim() : '',
+      material: String(part.material ?? '').trim().toUpperCase() || '—',
+      subdesc: part.descripcion1 ?? '',
+      refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
+      centerLabel: String(part.descripcion ?? '—').trim(),
+      upLabel: part.matedgeup ?? '',
+      loLabel: part.matedgelo ?? '',
+      leftLabel: part.matedgel ?? '',
+      rightLabel: part.matedger ?? '',
+      L: part.longitud,
+      A: part.ancho,
+      numeroPieza,
+      cantidad: Math.max(1, Number(part.cantidad ?? 1)),
+      pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
+      dateStr,
+    }
+  }, [detail, selectedPart, numeroPieza])
+
+  const activeLayoutVersion = useVisualLayout ? STICKER_ZPL_VISUAL_LAYOUT_VERSION : STICKER_ZPL_LAYOUT_VERSION
 
   useEffect(() => {
     setPartId(null)
@@ -287,6 +356,8 @@ export function BiesseStickerPrintButton({ detail }) {
       dpi: printDpi,
       customLabelMm,
       design: stickerDesign,
+      useVisualLayout,
+      visualLayout,
     })
   }
 
@@ -483,10 +554,11 @@ export function BiesseStickerPrintButton({ detail }) {
                     'Comprobando Zebra Browser Print…'
                   ) : zplStatus === 'ready' ? (
                     <>
-                      <strong className="font-semibold">ZPL listo.</strong> Layout v{STICKER_ZPL_LAYOUT_VERSION} ·{' '}
-                      {printDpi} dpi. Tras actualizar la app, recarga con Ctrl+Shift+R y usa «Descargar ZPL» para
-                      comprobar que el archivo contiene{' '}
-                      <InlineCode>layout v{STICKER_ZPL_LAYOUT_VERSION}</InlineCode>.
+                      <strong className="font-semibold">ZPL listo.</strong>{' '}
+                      {useVisualLayout ? 'Diseño visual' : 'Layout'} v{activeLayoutVersion} · {printDpi} dpi.
+                      Tras actualizar la app, recarga con Ctrl+Shift+R y usa «Descargar ZPL» para comprobar que el
+                      archivo contiene <InlineCode>layout v{activeLayoutVersion}</InlineCode>
+                      {useVisualLayout ? ' visual' : ''}.
                     </>
                   ) : zplStatus === 'missing' ? (
                     <>
@@ -588,6 +660,23 @@ export function BiesseStickerPrintButton({ detail }) {
               ) : null}
 
               {useZpl ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--primary w-full"
+                    onClick={() => setLayoutEditorOpen(true)}
+                  >
+                    Editor visual — mover y redimensionar
+                  </button>
+                  {useVisualLayout ? (
+                    <p className="text-xs text-amber-200/90">
+                      Diseño visual activo para {effectiveLabelMm.widthMm}×{effectiveLabelMm.heightMm} mm.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Usa el editor para colocar bloques libremente; el layout automático (v{STICKER_ZPL_LAYOUT_VERSION}) sigue activo.
+                    </p>
+                  )}
                 <details
                   className="rounded-xl border border-white/10 bg-black/20"
                   open={designOpen}
@@ -680,6 +769,7 @@ export function BiesseStickerPrintButton({ detail }) {
                     </div>
                   </div>
                 </details>
+                </div>
               ) : null}
 
               {useZpl ? (
@@ -843,6 +933,24 @@ export function BiesseStickerPrintButton({ detail }) {
           </div>
         </div>
       ) : null}
+      <StickerLayoutEditor
+        key={
+          layoutEditorOpen
+            ? `editor-${effectiveLabelMm.widthMm}x${effectiveLabelMm.heightMm}-${printOrientation}`
+            : 'editor-closed'
+        }
+        open={layoutEditorOpen}
+        onClose={() => setLayoutEditorOpen(false)}
+        labelWidthMm={effectiveLabelMm.widthMm}
+        labelHeightMm={effectiveLabelMm.heightMm}
+        orientation={printOrientation}
+        initialLayout={visualLayout}
+        previewData={layoutPreviewData}
+        onSaved={(layout, visual) => {
+          setVisualLayout(layout)
+          setUseVisualLayoutState(visual)
+        }}
+      />
     </>
   )
 }

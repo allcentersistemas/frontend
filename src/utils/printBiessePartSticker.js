@@ -7,6 +7,7 @@ import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
 import { getStickerPrintSize, isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
 import { getStickerPrintDpi } from './stickerPrintDpi.js'
 import { getStickerDesignSettings } from './stickerDesignSettings.js'
+import { resolveVisualLayoutForPrint } from './stickerVisualLayout.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
 function esc(s) {
@@ -739,6 +740,11 @@ export async function printBiessePartStickersBulk({
 
   if (isZebraZplSize(printSize)) {
     try {
+      const { useVisualLayout, visualLayout } = resolveVisualLayoutForPrint(
+        printSize,
+        printOrientation,
+        customLabelMm,
+      )
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i]
         const zpl = buildBiessePartStickerZpl({
@@ -753,6 +759,8 @@ export async function printBiessePartStickersBulk({
           dpi: printDpi,
           customLabelMm,
           design: stickerDesign,
+          useVisualLayout,
+          visualLayout,
         })
         await sendZplToZebra(zpl)
       }
@@ -826,6 +834,11 @@ export async function printBiessePartSticker({
   const printedAt = new Date()
 
   if (isZebraZplSize(printSize)) {
+    const { useVisualLayout, visualLayout } = resolveVisualLayoutForPrint(
+      printSize,
+      printOrientation,
+      customLabelMm,
+    )
     const zpl = buildBiessePartStickerZpl({
       scanCode,
       orderName,
@@ -838,6 +851,8 @@ export async function printBiessePartSticker({
       dpi: printDpi,
       customLabelMm,
       design: stickerDesign,
+      useVisualLayout,
+      visualLayout,
     })
     try {
       await sendZplToZebra(zpl)
