@@ -157,9 +157,9 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       margin-bottom: 0.8mm;
     }
     .head__title {
-      font-weight: 500;
+      font-weight: 400;
       line-height: 1.12;
-      font-size: 13.5pt;
+      font-size: 14pt;
       letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
@@ -168,9 +168,9 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       word-break: break-word;
     }
     .head__sub {
-      font-weight: 500;
+      font-weight: 400;
       margin-top: 0.15em;
-      font-size: 11pt;
+      font-size: 11.5pt;
       letter-spacing: 0.015em;
       overflow: hidden;
       white-space: nowrap;
@@ -191,14 +191,14 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
     .col-left { width: auto; padding-right: 1.5mm; }
     .col-right {
-      width: 31mm;
+      width: 28mm;
       text-align: center;
       vertical-align: top;
     }
 
     .mat {
-      font-weight: 500;
-      font-size: 12pt;
+      font-weight: 400;
+      font-size: 12.5pt;
       line-height: 1.12;
       letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
@@ -209,8 +209,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       word-break: break-word;
     }
     .desc1 {
-      font-size: 11pt;
-      font-weight: 500;
+      font-size: 11.5pt;
+      font-weight: 400;
       letter-spacing: 0.015em;
       margin-bottom: 0.4mm;
       overflow: hidden;
@@ -218,8 +218,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       text-overflow: ellipsis;
     }
     .ref {
-      font-size: 13pt;
-      font-weight: 500;
+      font-size: 13.5pt;
+      font-weight: 400;
       letter-spacing: 0.02em;
       margin-bottom: 1mm;
     }
@@ -237,7 +237,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
 
     .edge {
-      font-weight: 500;
+      font-weight: 400;
       font-size: 9.5pt;
       letter-spacing: 0.02em;
       line-height: 1.05;
@@ -278,10 +278,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
 
     .piece-shape__txt {
-      font-weight: 500;
+      font-weight: 400;
       text-align: center;
       line-height: 1.12;
-      font-size: 11pt;
+      font-size: 11.5pt;
       letter-spacing: 0.02em;
       overflow: hidden;
       display: -webkit-box;
@@ -292,8 +292,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
 
     .qr { line-height: 0; margin-bottom: 0.8mm; width: 100%; text-align: center; }
     .qr img {
-      width: 26mm;
-      height: 26mm;
+      width: 23mm;
+      height: 23mm;
       display: inline-block;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
@@ -307,8 +307,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
 
     .dims {
       font-family: Arial, Helvetica, sans-serif;
-      font-weight: 500;
-      font-size: 12pt;
+      font-weight: 400;
+      font-size: 12.5pt;
       letter-spacing: 0.02em;
       line-height: 1.15;
       text-align: left;
@@ -316,8 +316,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
     }
     .frac {
       margin-top: 0.6mm;
-      font-size: 12pt;
-      font-weight: 500;
+      font-size: 12.5pt;
+      font-weight: 400;
       letter-spacing: 0.02em;
       text-align: left;
       padding-left: 0.5mm;
@@ -328,8 +328,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50', custo
       display: flex;
       justify-content: space-between;
       gap: 0.5em;
-      font-weight: 500;
-      font-size: 11pt;
+      font-weight: 400;
+      font-size: 11.5pt;
       letter-spacing: 0.015em;
     }
     .col-left .foot {
