@@ -10,10 +10,10 @@ import { sendZplToZebra } from './zebraBrowserPrint.js'
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -36,11 +36,11 @@ function buildScanCode(orderName, partNumber, numeroPieza) {
   const name = String(orderName ?? '').trim()
   const pnRaw = partNumber != null && partNumber !== '' ? String(partNumber).trim() : ''
   const pn =
-    pnRaw !== '' && Number.parseInt(pnRaw, 10) > 0
-      ? String(Number.parseInt(pnRaw, 10))
-      : pnRaw !== ''
-        ? pnRaw
-        : '0'
+      pnRaw !== '' && Number.parseInt(pnRaw, 10) > 0
+          ? String(Number.parseInt(pnRaw, 10))
+          : pnRaw !== ''
+              ? pnRaw
+              : '0'
   const nz = numeroPieza != null ? String(numeroPieza).trim() : '1'
   if (!name || pn === '0') return `${name || 'orden'}-P0-${nz}`
   return `${name}-P${pn}-${nz}`
@@ -55,12 +55,12 @@ function materialLine(material) {
 }
 
 /** Marco del diagrama de pieza: tamaño fijo grande (estilo imagen 2 / taller). */
-const PIECE_FRAME_W_MM = 36
-const PIECE_FRAME_H_MM = 18
-const DIAGRAM_COL_SIDE_MM = 12
-const DIAGRAM_COL_CENTER_MM = 38
-const DIAGRAM_ROW_EDGE_MM = 6
-const DIAGRAM_ROW_CENTER_MM = 20
+const PIECE_FRAME_W_MM = 40
+const PIECE_FRAME_H_MM = 22
+const DIAGRAM_COL_SIDE_MM = 10
+const DIAGRAM_COL_CENTER_MM = 42
+const DIAGRAM_ROW_EDGE_MM = 5
+const DIAGRAM_ROW_CENTER_MM = 24
 
 function labelSizeMm(printSize, orientation) {
   const zebra = ZEBRA_LABEL_SIZES[printSize]
@@ -76,7 +76,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
   const { w: LABEL_W_MM, h: LABEL_H_MM } = labelSizeMm(printSize, orientation)
   const pageOrient = orientation === 'portrait' ? 'portrait' : 'landscape'
   const zebraClass = isZebraZplSize(printSize)
-    ? `
+      ? `
     html.print-size--${printSize},
     body.print-size--${printSize} {
       width: ${LABEL_W_MM}mm;
@@ -85,7 +85,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       max-height: ${LABEL_H_MM}mm;
       overflow: hidden;
     }`
-    : ''
+      : ''
 
   return `
     @page { size: ${pageOrient}; margin: 0; }
@@ -117,6 +117,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
     }
     .sticker {
       display: flex;
@@ -256,7 +258,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       min-height: ${PIECE_FRAME_H_MM}mm;
       max-width: ${PIECE_FRAME_W_MM}mm;
       max-height: ${PIECE_FRAME_H_MM}mm;
-      border: 0.35mm solid #000;
+      border: 0.45mm solid #000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -266,10 +268,10 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
 
     .piece-shape__txt {
-      font-weight: 600;
+      font-weight: 700;
       text-align: center;
       line-height: 1.1;
-      font-size: 7pt;
+      font-size: 7.5pt;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -382,7 +384,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
         display: block !important;
         width: 100% !important;
       }
-      .qr img { filter: contrast(1.35); }
+      .qr img { filter: contrast(1.5); }
     }
   `
 }
@@ -429,16 +431,16 @@ function triggerPrint(win) {
     }
     const doc = win.document
     const fontsReady =
-      doc.fonts && typeof doc.fonts.ready?.then === 'function'
-        ? doc.fonts.ready
-        : Promise.resolve()
+        doc.fonts && typeof doc.fonts.ready?.then === 'function'
+            ? doc.fonts.ready
+            : Promise.resolve()
     fontsReady
-      .catch(() => undefined)
-      .finally(() => {
-        requestAnimationFrame(() => {
-          setTimeout(printJob, 800)
+        .catch(() => undefined)
+        .finally(() => {
+          requestAnimationFrame(() => {
+            setTimeout(printJob, 800)
+          })
         })
-      })
   }
 
   const imgs = [...win.document.querySelectorAll('.qr img')]
@@ -470,7 +472,7 @@ function printViaIframe(html) {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('title', 'Impresión etiqueta')
   iframe.style.cssText =
-    'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+      'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
   document.body.appendChild(iframe)
   const win = iframe.contentWindow
   if (!win) {
@@ -589,13 +591,13 @@ export async function resolveStickerItemData({ order, part, piece, printSize, pr
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
-    partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
+      partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(
-    orderName,
-    partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
-    numeroPieza,
+      orderName,
+      partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
+      numeroPieza,
   )
   const printedAt = new Date()
   const qrPixels = isZebraZplSize(printSize) ? 512 : 180
@@ -648,11 +650,11 @@ export async function resolveStickerItemData({ order, part, piece, printSize, pr
  * @param {Window|null} [opts.printWindow]
  */
 export async function printBiessePartStickersBulk({
-  items,
-  printSize = getStickerPrintSize(),
-  printOrientation = 'landscape',
-  printWindow = null,
-}) {
+                                                    items,
+                                                    printSize = getStickerPrintSize(),
+                                                    printOrientation = 'landscape',
+                                                    printWindow = null,
+                                                  }) {
   if (!items?.length) {
     throw new Error('No hay etiquetas para imprimir.')
   }
@@ -661,9 +663,9 @@ export async function printBiessePartStickersBulk({
   }
 
   const resolved = await Promise.all(
-    items.map(({ order, part, piece }) =>
-      resolveStickerItemData({ order, part, piece, printSize, printOrientation }),
-    ),
+      items.map(({ order, part, piece }) =>
+          resolveStickerItemData({ order, part, piece, printSize, printOrientation }),
+      ),
   )
 
   if (isZebraZplSize(printSize)) {
@@ -727,24 +729,24 @@ export async function printBiessePartStickersBulk({
  * @returns {Promise<{ qrCode: string, printedAt: string, printMethod?: 'zpl' | 'html' }>}
  */
 export async function printBiessePartSticker({
-  order,
-  part,
-  piece,
-  printWindow = null,
-  printSize = getStickerPrintSize(),
-  printOrientation = 'landscape',
-}) {
+                                               order,
+                                               part,
+                                               piece,
+                                               printWindow = null,
+                                               printSize = getStickerPrintSize(),
+                                               printOrientation = 'landscape',
+                                             }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
-    partNumberRaw != null && Number(partNumberRaw) > 0
-      ? Number(partNumberRaw)
-      : null
+      partNumberRaw != null && Number(partNumberRaw) > 0
+          ? Number(partNumberRaw)
+          : null
   const numeroPieza = piece?.numeroPieza ?? 1
   const scanCode = buildScanCode(
-    orderName,
-    partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
-    numeroPieza,
+      orderName,
+      partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
+      numeroPieza,
   )
   const printedAt = new Date()
 
@@ -789,7 +791,7 @@ export async function printBiessePartSticker({
       printViaIframe(html)
     } catch {
       window.alert(
-        'No se pudo abrir la impresión.\n\n' +
+          'No se pudo abrir la impresión.\n\n' +
           'Permite ventanas emergentes para este sitio o pulsa Imprimir de nuevo.'
       )
       throw new Error('impresión no disponible')
