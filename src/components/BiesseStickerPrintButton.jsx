@@ -4,7 +4,7 @@ import {
   printBiessePartSticker,
   printBiessePartStickersBulk,
 } from '../utils/printBiessePartSticker'
-import { ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
+import { isZebraBrowserPrintAvailable, ZEBRA_BROWSER_PRINT_URL } from '../utils/zebraBrowserPrint'
 import {
   getStickerPrintOrientation,
   setStickerPrintOrientation,
@@ -93,8 +93,11 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [bulkQueue, setBulkQueue] = useState([])
+  /** @type {['checking'|'ready'|'missing'|null, Function]} */
+  const [zplStatus, setZplStatus] = useState(null)
 
   const partes = useMemo(() => (Array.isArray(detail?.partes) ? detail.partes : []), [detail])
+  const useZpl = isZebraZplSize(printSize)
 
   useEffect(() => {
     setPartId(null)
@@ -133,6 +136,25 @@ export function BiesseStickerPrintButton({ detail }) {
       setPrintOrientation(getStickerPrintOrientation())
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open || !useZpl) {
+      setZplStatus(null)
+      return
+    }
+    let cancelled = false
+    setZplStatus('checking')
+    isZebraBrowserPrintAvailable()
+      .then((ok) => {
+        if (!cancelled) setZplStatus(ok ? 'ready' : 'missing')
+      })
+      .catch(() => {
+        if (!cancelled) setZplStatus('missing')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, useZpl, printSize])
 
   function buildOrderPayload() {
     return {
@@ -203,7 +225,6 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrintSingle() {
     if (!detail || !selectedPart) return
-    const useZpl = isZebraZplSize(printSize)
     const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
@@ -250,7 +271,6 @@ export function BiesseStickerPrintButton({ detail }) {
 
   async function handlePrintBulk() {
     if (!detail || !bulkQueue.length) return
-    const useZpl = isZebraZplSize(printSize)
     const printWindow = useZpl ? null : openStickerPrintWindow()
     setPrinting(true)
     try {
@@ -355,9 +375,8 @@ export function BiesseStickerPrintButton({ detail }) {
               </div>
 
               <p className="text-sm leading-relaxed text-slate-400">
-                QR Biesse (<InlineCode>pieces/resolve</InlineCode>). Compatible con{' '}
-                <strong className="font-medium text-slate-300">ZD230 y ZD420</strong> (y otras
-                Zebra) vía{' '}
+                QR Biesse (<InlineCode>pieces/resolve</InlineCode>). Con tamaños Zebra (80×50, 100×50, 60×40)
+                la app envía <strong className="font-medium text-slate-300">ZPL nativo</strong> vía{' '}
                 <a
                   href={ZEBRA_BROWSER_PRINT_URL}
                   target="_blank"
@@ -366,9 +385,35 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   Zebra Browser Print
                 </a>
-                . Elija orientación y tamaño de etiqueta. Si la vista previa se ve bien pero
-                imprime deformado, use Browser Print o configure papel y escala 100% en el driver.
+                . Sin Browser Print se usa HTML del navegador (puede salir deformado).
               </p>
+
+              {useZpl ? (
+                <div
+                  className={`rounded-xl border px-3 py-2.5 text-xs leading-relaxed ${
+                    zplStatus === 'ready'
+                      ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-200'
+                      : zplStatus === 'missing'
+                        ? 'border-amber-500/40 bg-amber-950/40 text-amber-100'
+                        : 'border-white/10 bg-white/5 text-slate-400'
+                  }`}
+                >
+                  {zplStatus === 'checking' ? (
+                    'Comprobando Zebra Browser Print…'
+                  ) : zplStatus === 'ready' ? (
+                    <>
+                      <strong className="font-semibold">ZPL listo.</strong> La etiqueta se imprimirá directo en la
+                      Zebra (ZD230 / ZD420) sin pasar por el driver HTML.
+                    </>
+                  ) : zplStatus === 'missing' ? (
+                    <>
+                      <strong className="font-semibold">ZPL no disponible.</strong> Instala y abre Browser Print,
+                      configura la impresora por defecto y permite acceso a red local en el navegador. Si imprimes
+                      ahora, se usará HTML.
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div>
                 <label className={labelClass}>Orientación</label>
@@ -506,19 +551,23 @@ export function BiesseStickerPrintButton({ detail }) {
               <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
                 Cerrar
               </Button>
-              {mode === 'bulk' ? (
-                <Button
-                  type="button"
-                  disabled={printing || !bulkQueue.length}
-                  onClick={() => void handlePrintBulk()}
-                >
-                  {printing ? 'Generando…' : `Imprimir ${bulkQueue.length || ''} etiqueta(s)`}
-                </Button>
-              ) : (
-                <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrintSingle()}>
-                  {printing ? 'Generando…' : 'Imprimir'}
-                </Button>
-              )}
+                {mode === 'bulk' ? (
+                  <Button
+                    type="button"
+                    disabled={printing || !bulkQueue.length}
+                    onClick={() => void handlePrintBulk()}
+                  >
+                    {printing
+                      ? 'Enviando…'
+                      : useZpl
+                        ? `Imprimir ZPL (${bulkQueue.length || ''})`
+                        : `Imprimir ${bulkQueue.length || ''} etiqueta(s)`}
+                  </Button>
+                ) : (
+                  <Button type="button" disabled={printing || !selectedPart} onClick={() => void handlePrintSingle()}>
+                    {printing ? 'Enviando…' : useZpl ? 'Imprimir ZPL' : 'Imprimir'}
+                  </Button>
+                )}
             </div>
           </div>
         </div>
