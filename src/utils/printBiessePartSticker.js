@@ -210,7 +210,7 @@ function buildStyles(orientation = 'landscape') {
       word-break: break-word;
     }
     .print-size--label_80x50 .head__title {
-      font-size: 7pt;
+      font-size: 9pt;
       font-weight: 900;
       -webkit-line-clamp: 1;
     }
@@ -224,7 +224,7 @@ function buildStyles(orientation = 'landscape') {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .print-size--label_80x50 .head__sub { font-size: 5.5pt; font-weight: 800; }
+    .print-size--label_80x50 .head__sub { font-size: 7pt; font-weight: 800; }
     .print-size--auto .head__sub,
     .print-size--fill .head__sub { font-size: clamp(5pt, 1.8vmin, 9pt); }
 
@@ -261,7 +261,7 @@ function buildStyles(orientation = 'landscape') {
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
-    .print-size--label_80x50 .mat { font-size: 6pt; font-weight: 900; }
+    .print-size--label_80x50 .mat { font-size: 7.5pt; font-weight: 900; }
     .print-size--auto .mat,
     .print-size--fill .mat { font-size: clamp(5.5pt, 2vmin, 10pt); }
 
@@ -271,7 +271,7 @@ function buildStyles(orientation = 'landscape') {
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .print-size--label_80x50 .desc1 { font-size: 5.5pt; font-weight: 800; }
+    .print-size--label_80x50 .desc1 { font-size: 7pt; font-weight: 800; }
     .print-size--auto .desc1,
     .print-size--fill .desc1 { font-size: clamp(5pt, 1.7vmin, 9pt); }
 
@@ -279,7 +279,7 @@ function buildStyles(orientation = 'landscape') {
       font-weight: 700;
       margin-bottom: 0.4em;
     }
-    .print-size--label_80x50 .ref { font-size: 7pt; font-weight: 900; }
+    .print-size--label_80x50 .ref { font-size: 9pt; font-weight: 900; }
     .print-size--auto .ref,
     .print-size--fill .ref { font-size: clamp(6pt, 2.2vmin, 11pt); }
 
@@ -301,7 +301,7 @@ function buildStyles(orientation = 'landscape') {
       word-break: break-word;
       text-align: center;
     }
-    .print-size--label_80x50 .edge { font-size: 5pt; font-weight: 900; }
+    .print-size--label_80x50 .edge { font-size: 6.5pt; font-weight: 900; }
     .print-size--auto .edge,
     .print-size--fill .edge { font-size: clamp(4pt, 1.5vmin, 8pt); }
 
@@ -356,7 +356,7 @@ function buildStyles(orientation = 'landscape') {
       font-weight: 700;
       text-align: center;
       line-height: 1.05;
-      font-size: 5pt;
+      font-size: 6.5pt;
       max-width: ${PIECE_INNER_MAX_W_MM}mm;
       max-height: ${PIECE_INNER_MAX_H_MM}mm;
       overflow: hidden;
@@ -365,7 +365,7 @@ function buildStyles(orientation = 'landscape') {
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
-    .print-size--label_80x50 .piece-shape__txt { font-size: 5pt; font-weight: 900; }
+    .print-size--label_80x50 .piece-shape__txt { font-size: 6.5pt; font-weight: 900; }
 
     .col-right {
       display: flex;
@@ -385,7 +385,7 @@ function buildStyles(orientation = 'landscape') {
     .print-size--auto .col-right,
     .print-size--fill .col-right {
       width: 24mm;
-      font-size: 6pt;
+      font-size: 7.5pt;
       font-weight: 900;
     }
 
@@ -420,12 +420,12 @@ function buildStyles(orientation = 'landscape') {
       align-self: stretch;
       padding-left: 0.3em;
     }
-    .print-size--label_80x50 .dims { font-size: 7pt; font-weight: 900; }
+    .print-size--label_80x50 .dims { font-size: 9pt; font-weight: 900; }
     .print-size--auto .dims,
     .print-size--fill .dims { font-size: clamp(6.5pt, 2.4vmin, 12pt); }
 
     .frac { margin-top: 0.25em; font-weight: 700; }
-    .print-size--label_80x50 .frac { font-size: 7pt; font-weight: 900; }
+    .print-size--label_80x50 .frac { font-size: 9pt; font-weight: 900; }
     .print-size--auto .frac,
     .print-size--fill .frac { font-size: clamp(6pt, 2.2vmin, 11pt); }
 
@@ -438,7 +438,7 @@ function buildStyles(orientation = 'landscape') {
       font-weight: 700;
       padding-top: 0.25em;
     }
-    .print-size--label_80x50 .foot { font-size: 5.5pt; font-weight: 900; }
+    .print-size--label_80x50 .foot { font-size: 7pt; font-weight: 900; }
     .print-size--auto .foot,
     .print-size--fill .foot { font-size: clamp(5pt, 1.8vmin, 9pt); }
 

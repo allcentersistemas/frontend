@@ -17,9 +17,9 @@ export const STICKER_PRINT_SIZES = [
   },
   {
     id: 'label_80x50',
-    label: 'Etiqueta 80 × 50 mm (Zebra ZD230)',
+    label: 'Etiqueta 80 × 50 mm (Zebra)',
     hint:
-      'Zebra ZD230: envía ZPL nativo con Browser Print instalado. Sin él, usa HTML (suele salir borroso por el driver).',
+      'Zebra ZD230/ZD420: envía ZPL nativo con Browser Print instalado. Sin él, usa HTML (suele salir borroso por el driver).',
   },
 ]
 

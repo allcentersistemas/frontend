@@ -222,8 +222,8 @@ export function BiesseStickerPrintButton({ detail }) {
       if (useZpl && printResult?.printMethod === 'html') {
         window.alert(
           'No se detectó Zebra Browser Print.\n\n' +
-            'Para etiquetas nítidas en la ZD230 instala el servicio "Zebra Browser Print" en este equipo, ' +
-            'configura la ZD230 como impresora por defecto y vuelve a imprimir.\n\n' +
+            'Para etiquetas nítidas en la ZD230/ZD420 instala el servicio "Zebra Browser Print" en este equipo, ' +
+            'configura la Zebra como impresora por defecto y vuelve a imprimir.\n\n' +
             'Se ha abierto la impresión HTML (menor calidad). Si el driver rasteriza mal, usa Browser Print.'
         )
       }
@@ -353,7 +353,7 @@ export function BiesseStickerPrintButton({ detail }) {
 
               <p className="text-sm leading-relaxed text-slate-400">
                 El código QR coincide con el formato Biesse (<InlineCode>pieces/resolve</InlineCode>).
-                Elija orientación y tamaño. Con Zebra ZD230 usa{' '}
+                Elija orientación y tamaño. Con Zebra ZD230/ZD420 usa{' '}
                 <a
                   href={ZEBRA_BROWSER_PRINT_URL}
                   target="_blank"
