@@ -67,7 +67,7 @@ export function StickerLayoutEditor({
 }) {
   const [layout, setLayout] = useState(initialLayout)
   const [selectedId, setSelectedId] = useState('header')
-  const [useVisual, setUseVisual] = useState(() => getUseVisualLayout())
+  const [useVisual, setUseVisual] = useState(() => getUseVisualLayout() || true)
   const [snapGrid, setSnapGrid] = useState(true)
   const canvasRef = useRef(null)
   const dragRef = useRef(null)
@@ -144,9 +144,17 @@ export function StickerLayoutEditor({
   }, [])
 
   function handleSave() {
-    setVisualLayoutForLabel(layout, useVisual)
-    setUseVisualLayout(useVisual)
-    onSaved?.(layout, useVisual)
+    const normalized = {
+      labelWidthMm,
+      labelHeightMm,
+      orientation,
+      elements: Object.fromEntries(
+        Object.entries(layout.elements).map(([id, el]) => [id, { ...el }]),
+      ),
+    }
+    setVisualLayoutForLabel(normalized, true)
+    setUseVisualLayout(true)
+    onSaved?.(normalized, true)
     onClose()
   }
 
@@ -203,7 +211,7 @@ export function StickerLayoutEditor({
                 checked={useVisual}
                 onChange={(e) => setUseVisual(e.target.checked)}
               />
-              Usar este diseño al imprimir ZPL
+              Usar este diseño al imprimir ZPL (se activa al guardar)
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
               <input

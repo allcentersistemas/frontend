@@ -37,6 +37,7 @@ import {
 import {
   getVisualLayoutForLabel,
   getUseVisualLayout,
+  resolveVisualLayoutForPrint,
 } from '../utils/stickerVisualLayout'
 import { StickerLayoutEditor } from './StickerLayoutEditor.jsx'
 import * as systemApi from '../api/systemApi'
@@ -152,7 +153,7 @@ export function BiesseStickerPrintButton({ detail }) {
       getVisualLayoutForLabel(effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation),
     )
     setUseVisualLayoutState(getUseVisualLayout())
-  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation, layoutEditorOpen])
+  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, printOrientation])
 
   const activeLayoutVersion = useVisualLayout ? STICKER_ZPL_VISUAL_LAYOUT_VERSION : STICKER_ZPL_LAYOUT_VERSION
 
@@ -242,6 +243,13 @@ export function BiesseStickerPrintButton({ detail }) {
       const custom = getStickerPrintCustomSize()
       setCustomWidthMm(custom.widthMm)
       setCustomHeightMm(custom.heightMm)
+      const dims = resolveLabelDimensionsMm(
+        getStickerPrintSize(),
+        getStickerPrintOrientation(),
+        getStickerPrintSize() === 'label_custom' ? custom : null,
+      )
+      setVisualLayout(getVisualLayoutForLabel(dims.widthMm, dims.heightMm, getStickerPrintOrientation()))
+      setUseVisualLayoutState(getUseVisualLayout())
     }
   }, [open])
 
@@ -336,6 +344,10 @@ export function BiesseStickerPrintButton({ detail }) {
     setBulkQueue((prev) => [...prev, ...toAdd])
   }
 
+  function resolveCurrentVisualLayout() {
+    return resolveVisualLayoutForPrint(printSize, printOrientation, customLabelMm)
+  }
+
   function buildCurrentZpl(part, piece) {
     const partNumberRaw = part.partNumber ?? part.partId
     const partNumber =
@@ -345,6 +357,7 @@ export function BiesseStickerPrintButton({ detail }) {
       partNumber ?? part.partCode?.replace(/^P/i, '') ?? null,
       piece.numeroPieza ?? 1,
     )
+    const { useVisualLayout: visualOn, visualLayout: layoutForPrint } = resolveCurrentVisualLayout()
     return buildBiessePartStickerZpl({
       scanCode,
       orderName: detail.orderName,
@@ -356,8 +369,8 @@ export function BiesseStickerPrintButton({ detail }) {
       dpi: printDpi,
       customLabelMm,
       design: stickerDesign,
-      useVisualLayout,
-      visualLayout,
+      useVisualLayout: visualOn,
+      visualLayout: layoutForPrint,
     })
   }
 
@@ -376,6 +389,7 @@ export function BiesseStickerPrintButton({ detail }) {
     try {
       const part = partPayload(selectedPart)
       const piece = buildPiecePayload(selectedPart, numeroPieza)
+      const { useVisualLayout: visualOn, visualLayout: layoutForPrint } = resolveCurrentVisualLayout()
       const printResult = await printBiessePartSticker({
         printWindow,
         printSize,
@@ -383,6 +397,8 @@ export function BiesseStickerPrintButton({ detail }) {
         printDpi,
         customLabelMm,
         stickerDesign,
+        useVisualLayout: visualOn,
+        visualLayout: layoutForPrint,
         order: buildOrderPayload(),
         part,
         piece,
@@ -433,6 +449,7 @@ export function BiesseStickerPrintButton({ detail }) {
         }
       })
 
+      const { useVisualLayout: visualOn, visualLayout: layoutForPrint } = resolveCurrentVisualLayout()
       const results = await printBiessePartStickersBulk({
         items,
         printSize,
@@ -440,6 +457,8 @@ export function BiesseStickerPrintButton({ detail }) {
         printDpi,
         customLabelMm,
         stickerDesign,
+        useVisualLayout: visualOn,
+        visualLayout: layoutForPrint,
         printWindow,
       })
 

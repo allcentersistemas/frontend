@@ -533,10 +533,11 @@ function buildVisualLayoutZpl(ctx, visualLayout) {
     const pieceBoxH = u.mmToDots(Math.max(10, diagramEl.hMm))
     const shapeX = u.mmToDots(diagramEl.xMm)
     const shapeY = u.mmToDots(diagramEl.yMm)
+    const leftX = Math.max(pad, shapeX - u.mmToDots(7))
     drawPieceDiagram(lines, u, {
       pieceBoxW,
       pieceBoxH,
-      leftX: pad,
+      leftX,
       shapeX,
       shapeY,
       centerLabel,

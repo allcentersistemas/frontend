@@ -164,12 +164,13 @@ export function getVisualLayoutForLabel(labelWidthMm, labelHeightMm, orientation
  */
 export function setVisualLayoutForLabel(layout, useVisualLayout) {
   const store = getVisualLayoutStore()
-  const key = visualLayoutKey(layout.labelWidthMm, layout.labelHeightMm, layout.orientation)
+  const orientation = layout.orientation ?? 'landscape'
+  const key = visualLayoutKey(layout.labelWidthMm, layout.labelHeightMm, orientation)
   store.layouts[key] = {
     labelWidthMm: layout.labelWidthMm,
     labelHeightMm: layout.labelHeightMm,
-    orientation: layout.orientation,
-    elements: { ...layout.elements },
+    orientation,
+    elements: JSON.parse(JSON.stringify(layout.elements)),
   }
   if (useVisualLayout !== undefined) {
     store.useVisualLayout = useVisualLayout
