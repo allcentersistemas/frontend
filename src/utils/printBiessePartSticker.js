@@ -50,17 +50,17 @@ function joinNonEmpty(parts, sep = ' ') {
   return parts.map((p) => (p == null ? '' : String(p).trim())).filter((p) => p !== '').join(sep)
 }
 
-function materialLine(material, descripcion) {
-  return joinNonEmpty([material, descripcion]).toUpperCase() || '—'
+function materialLine(material) {
+  return String(material ?? '').trim().toUpperCase() || '—'
 }
 
-/** Marco del diagrama de pieza: tamaño fijo en todas las etiquetas (no depende de L/A). */
-const PIECE_FRAME_W_MM = 22
-const PIECE_FRAME_H_MM = 12
-const DIAGRAM_COL_SIDE_MM = 7
-const DIAGRAM_COL_CENTER_MM = 24
+/** Marco del diagrama de pieza: tamaño fijo (estilo imagen 2). */
+const PIECE_FRAME_W_MM = 28
+const PIECE_FRAME_H_MM = 14
+const DIAGRAM_COL_SIDE_MM = 8
+const DIAGRAM_COL_CENTER_MM = 30
 const DIAGRAM_ROW_EDGE_MM = 5
-const DIAGRAM_ROW_CENTER_MM = 14
+const DIAGRAM_ROW_CENTER_MM = 16
 
 function labelSizeMm(printSize, orientation) {
   const zebra = ZEBRA_LABEL_SIZES[printSize]
@@ -180,21 +180,29 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       display: table-cell;
       vertical-align: top;
     }
-    .col-left { width: auto; padding-right: 1.5mm; }
+    .col-left { width: auto; padding-right: 1.5mm; vertical-align: top; }
     .col-right {
-      width: 24mm;
+      width: 20mm;
       text-align: center;
-      vertical-align: top;
+      vertical-align: bottom;
+      padding-bottom: 1mm;
     }
 
+    .head .mat {
+      font-weight: 900;
+      font-size: 8.5pt;
+      margin-top: 0.5mm;
+      margin-bottom: 0;
+      -webkit-line-clamp: 1;
+    }
     .mat {
       font-weight: 900;
-      font-size: 8pt;
+      font-size: 8.5pt;
       line-height: 1.05;
       margin-bottom: 0.4mm;
       overflow: hidden;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
@@ -221,18 +229,19 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       justify-items: center;
       width: ${DIAGRAM_COL_SIDE_MM * 2 + DIAGRAM_COL_CENTER_MM}mm;
       flex-shrink: 0;
+      margin-top: 0.5mm;
     }
 
     .edge {
       font-weight: 900;
-      font-size: 6.5pt;
+      font-size: 7pt;
       line-height: 1;
       overflow: hidden;
       word-break: break-word;
       text-align: center;
     }
     .edge--up { grid-column: 1 / -1; }
-    .edge--lo { grid-column: 1 / -1; }
+    .edge--lo { grid-column: 1 / -1; text-align: left; justify-self: start; padding-left: 1mm; }
     .edge--left { text-align: right; }
     .edge--right { text-align: left; }
 
@@ -254,11 +263,12 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       min-height: ${PIECE_FRAME_H_MM}mm;
       max-width: ${PIECE_FRAME_W_MM}mm;
       max-height: ${PIECE_FRAME_H_MM}mm;
-      border: 0.5mm solid #000;
+      border: 0.7mm solid #000;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 0.5mm;
+      padding: 0.8mm;
       overflow: hidden;
       box-sizing: border-box;
     }
@@ -267,15 +277,24 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       font-weight: 900;
       text-align: center;
       line-height: 1.05;
-      font-size: 6.5pt;
+      font-size: 7pt;
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       word-break: break-word;
     }
+    .piece-shape__txt--2 {
+      font-size: 6pt;
+      margin-top: 0.3mm;
+      -webkit-line-clamp: 1;
+    }
 
-    .qr { line-height: 0; margin-bottom: 0.8mm; width: 100%; text-align: center; }
+    .meta-block {
+      margin-top: 1.5mm;
+    }
+
+    .qr { line-height: 0; width: 100%; text-align: center; }
     .qr img {
       width: 18mm;
       height: 18mm;
@@ -293,29 +312,24 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     .dims {
       font-family: Arial, Helvetica, sans-serif;
       font-weight: 900;
-      font-size: 9pt;
+      font-size: 10pt;
       line-height: 1.15;
       text-align: left;
-      padding-left: 0.5mm;
     }
     .frac {
       margin-top: 0.6mm;
-      font-size: 8.5pt;
+      font-size: 9pt;
       font-weight: 900;
       text-align: left;
-      padding-left: 0.5mm;
     }
     .foot {
-      margin-top: 1.5mm;
+      margin-top: 1mm;
       width: 100%;
       display: flex;
       justify-content: space-between;
       gap: 0.5em;
       font-weight: 900;
-      font-size: 7pt;
-    }
-    .col-left .foot {
-      margin-top: 2mm;
+      font-size: 7.5pt;
     }
 
     .print-orient--portrait .body {
@@ -328,24 +342,7 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     }
     .print-orient--portrait .col-right {
       margin-top: 1.5mm;
-      display: flex !important;
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1mm;
-    }
-    .print-orient--portrait .col-right .qr {
-      flex: 0 0 auto;
-      margin-bottom: 0;
-    }
-    .print-orient--portrait .col-right .dims,
-    .print-orient--portrait .col-right .frac {
-      flex: 1 1 auto;
-    }
-    .print-orient--portrait .col-right .foot {
-      flex: 1 1 100%;
-      margin-top: 0.5mm;
+      vertical-align: top;
     }
 
     @media print {
@@ -491,8 +488,8 @@ function buildStickerInnerHtml(data) {
     bookingCode,
     matLine,
     subDesc,
-    refLine,
     centerLabel,
+    centerLabel2,
     upLabel,
     loLabel,
     leftLabel,
@@ -506,6 +503,7 @@ function buildStickerInnerHtml(data) {
     printedAt,
   } = data
   const booking = bookingCode ? String(bookingCode).trim() : ''
+  const sub = booking || (subDesc ? String(subDesc).trim() : '')
 
   return `
   <div class="sticker">
@@ -513,36 +511,35 @@ function buildStickerInnerHtml(data) {
       <div class="col-left">
         <header class="head">
           <h1 class="head__title">${esc(headerTitle)}</h1>
-          ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
+          <div class="mat">${esc(matLine)}</div>
+          ${sub ? `<p class="head__sub">${esc(sub)}</p>` : ''}
         </header>
-        <div class="mat">${esc(matLine)}</div>
-        ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
-        <div class="ref">${esc(refLine)}</div>
         <div class="diagram-grid">
           ${upLabel ? `<div class="edge edge--up">${esc(upLabel)}</div>` : '<div class="edge edge--up"></div>'}
           <div class="edge edge--left">${leftLabel ? esc(leftLabel) : ''}</div>
           <div class="piece-wrap">
             <div class="piece-shape">
               <div class="piece-shape__txt">${esc(centerLabel)}</div>
+              ${centerLabel2 ? `<div class="piece-shape__txt piece-shape__txt--2">${esc(centerLabel2)}</div>` : ''}
             </div>
           </div>
           <div class="edge edge--right">${rightLabel ? esc(rightLabel) : ''}</div>
           ${loLabel ? `<div class="edge edge--lo">${esc(loLabel)}</div>` : '<div class="edge edge--lo"></div>'}
         </div>
-        <div class="foot">
-          <span>${esc(pCode)}</span>
+        <div class="meta-block">
+          <div class="dims">
+            <div>L: ${L != null ? esc(String(L)) : '—'}</div>
+            <div>A: ${A != null ? esc(String(A)) : '—'}</div>
+          </div>
+          <div class="frac">${esc(String(numeroPieza))} / ${esc(String(cantidad))}</div>
+          <div class="foot">
+            <span>${esc(pCode)}</span>
+            <span>${esc(formatStickerDate(printedAt))}</span>
+          </div>
         </div>
       </div>
       <div class="col-right">
         ${qrBlock}
-        <div class="dims">
-          <div>L: ${L != null ? esc(String(L)) : '—'}</div>
-          <div>A: ${A != null ? esc(String(A)) : '—'}</div>
-        </div>
-        <div class="frac">${esc(String(numeroPieza))} / ${esc(String(cantidad))}</div>
-        <div class="foot">
-          <span>${esc(formatStickerDate(printedAt))}</span>
-        </div>
       </div>
     </div>
   </div>`
@@ -615,10 +612,16 @@ export async function resolveStickerItemData({ order, part, piece, printSize, pr
     scanCode,
     headerTitle: String(orderName).toUpperCase(),
     bookingCode: order?.bookingCode,
-    matLine: materialLine(part?.material, part?.descripcion),
+    matLine: materialLine(part?.material),
     subDesc: joinNonEmpty([part?.descripcion1]),
-    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
     centerLabel: String(part?.descripcion ?? '—').trim(),
+    centerLabel2: (() => {
+      const d1 = String(part?.descripcion1 ?? '').trim()
+      const d = String(part?.descripcion ?? '').trim()
+      const mat = String(part?.material ?? '').trim().toUpperCase()
+      if (!d1 || d1 === d || d1.toUpperCase() === mat) return ''
+      return d1
+    })(),
     upLabel: String(part?.matedgeup ?? '').trim(),
     loLabel: String(part?.matedgelo ?? '').trim(),
     leftLabel: String(part?.matedgel ?? '').trim(),

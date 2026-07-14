@@ -364,7 +364,8 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   Zebra Browser Print
                 </a>
-                . Elija orientación y tamaño de etiqueta.
+                . Elija <strong className="font-medium text-slate-300">Horizontal (80 × 50 mm)</strong> para el
+                layout de taller (como la etiqueta de referencia). Vertical solo si el rollo es 50 × 80.
               </p>
 
               <div>
