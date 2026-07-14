@@ -3,16 +3,14 @@
  * Estilo taller: diagrama grande con cantos, tipografía más delgada, sin línea sobre el QR.
  */
 
+import { resolveLabelDimensionsMm } from './stickerPrintSize.js'
+import { clampStickerPrintDpi } from './stickerPrintDpi.js'
+
 const DEFAULT_ZPL_DPI = 203
 
-/** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40'} ZebraLabelSizeId */
+/** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
-/** @type {Record<ZebraLabelSizeId, { wMm: number, hMm: number }>} */
-export const ZEBRA_LABEL_SIZES = {
-  label_80x50: { wMm: 80, hMm: 50 },
-  label_100x50: { wMm: 100, hMm: 50 },
-  label_60x40: { wMm: 60, hMm: 40 },
-}
+export { ZEBRA_LABEL_SIZES } from './stickerPrintSize.js'
 
 /**
  * Marco fijo del diagrama (mm). Mismo tamaño en todas las piezas;
@@ -70,14 +68,24 @@ function formatStickerDate(date = new Date()) {
  * @param {ZebraLabelSizeId | string} [labelSize]
  * @param {'landscape'|'portrait'} [orientation]
  * @param {number} [dpi]
+ * @param {{ widthMm?: number, heightMm?: number }|null} [customMm]
  */
-export function labelDotsForSize(labelSize = 'label_80x50', orientation = 'landscape', dpi = DEFAULT_ZPL_DPI) {
-  const mmToDots = createMmToDots(dpi)
-  const size = ZEBRA_LABEL_SIZES[labelSize] ?? ZEBRA_LABEL_SIZES.label_80x50
-  if (orientation === 'portrait') {
-    return { pw: mmToDots(size.hMm), ll: mmToDots(size.wMm), wMm: size.hMm, hMm: size.wMm, dpi }
+export function labelDotsForSize(
+  labelSize = 'label_80x50',
+  orientation = 'landscape',
+  dpi = DEFAULT_ZPL_DPI,
+  customMm = null,
+) {
+  const resolvedDpi = clampStickerPrintDpi(dpi)
+  const mmToDots = createMmToDots(resolvedDpi)
+  const { widthMm, heightMm } = resolveLabelDimensionsMm(labelSize, orientation, customMm)
+  return {
+    pw: mmToDots(widthMm),
+    ll: mmToDots(heightMm),
+    wMm: widthMm,
+    hMm: heightMm,
+    dpi: resolvedDpi,
   }
-  return { pw: mmToDots(size.wMm), ll: mmToDots(size.hMm), wMm: size.wMm, hMm: size.hMm, dpi }
 }
 
 function drawPieceDiagram(lines, {
@@ -332,6 +340,7 @@ function buildPortraitZpl(ctx) {
  * @param {'landscape'|'portrait'} [opts.orientation]
  * @param {ZebraLabelSizeId | string} [opts.labelSize]
  * @param {number} [opts.dpi]
+ * @param {{ widthMm?: number, heightMm?: number }|null} [opts.customLabelMm]
  */
 export function buildBiessePartStickerZpl({
   scanCode,
@@ -343,10 +352,11 @@ export function buildBiessePartStickerZpl({
   orientation = 'landscape',
   labelSize = 'label_80x50',
   dpi = DEFAULT_ZPL_DPI,
+  customLabelMm = null,
 }) {
-  const resolvedDpi = dpi === 300 ? 300 : DEFAULT_ZPL_DPI
+  const resolvedDpi = clampStickerPrintDpi(dpi)
   const mmToDots = createMmToDots(resolvedDpi)
-  const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation, resolvedDpi)
+  const { pw: PW, ll: LL } = labelDotsForSize(labelSize, orientation, resolvedDpi, customLabelMm)
   const pieceBoxW = mmToDots(PIECE_FRAME_W_MM)
   const pieceBoxH = mmToDots(PIECE_FRAME_H_MM)
   const partNumber = part?.partNumber ?? part?.partId ?? 0

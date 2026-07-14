@@ -2,37 +2,45 @@
 
 export const STICKER_PRINT_DPI_KEY = 'biesse-sticker-print-dpi'
 
-/** @typedef {203 | 300} StickerPrintDpi */
+const MIN_DPI = 100
+const MAX_DPI = 600
 
-export const STICKER_PRINT_DPIS = [
-  {
-    id: 203,
-    label: '203 dpi',
-    hint: 'ZD230 y la mayoría de ZD420. Si la etiqueta sale pequeña en una esquina, prueba 300 dpi.',
-  },
-  {
-    id: 300,
-    label: '300 dpi',
-    hint: 'ZD420 de alta resolución. Usa esto si con 203 dpi el contenido queda encogido arriba a la izquierda.',
-  },
+/** @typedef {number} StickerPrintDpi */
+
+export const STICKER_PRINT_DPI_PRESETS = [
+  { id: 203, label: '203', hint: 'ZD230 y ZD420 estándar.' },
+  { id: 300, label: '300', hint: 'ZD420 alta resolución.' },
+  { id: 600, label: '600', hint: 'Algunas Zebra industriales.' },
 ]
+
+/** @param {number|string|null|undefined} value */
+export function clampStickerPrintDpi(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 203
+  return Math.min(MAX_DPI, Math.max(MIN_DPI, Math.round(n)))
+}
 
 /** @returns {StickerPrintDpi} */
 export function getStickerPrintDpi() {
   try {
-    const v = Number(localStorage.getItem(STICKER_PRINT_DPI_KEY))
-    if (v === 203 || v === 300) return /** @type {StickerPrintDpi} */ (v)
+    return clampStickerPrintDpi(localStorage.getItem(STICKER_PRINT_DPI_KEY))
   } catch {
-    /* ignore */
+    return 203
   }
-  return 203
 }
 
-/** @param {StickerPrintDpi} dpi */
+/** @param {number|string} dpi */
 export function setStickerPrintDpi(dpi) {
   try {
-    localStorage.setItem(STICKER_PRINT_DPI_KEY, String(dpi))
+    localStorage.setItem(STICKER_PRINT_DPI_KEY, String(clampStickerPrintDpi(dpi)))
   } catch {
     /* ignore */
   }
 }
+
+/** @deprecated Use STICKER_PRINT_DPI_PRESETS */
+export const STICKER_PRINT_DPIS = STICKER_PRINT_DPI_PRESETS.map((p) => ({
+  id: p.id,
+  label: `${p.label} dpi`,
+  hint: p.hint,
+}))

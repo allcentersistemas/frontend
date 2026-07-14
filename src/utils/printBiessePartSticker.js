@@ -3,8 +3,8 @@
  * El QR usa el mismo formato que {@code GET /api/biesse/scan/pieces/resolve?code=}.
  */
 
-import { buildBiessePartStickerZpl, ZEBRA_LABEL_SIZES } from './buildBiessePartStickerZpl.js'
-import { getStickerPrintSize, isZebraZplSize } from './stickerPrintSize.js'
+import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
+import { getStickerPrintSize, isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
 import { getStickerPrintDpi } from './stickerPrintDpi.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
@@ -63,18 +63,13 @@ const DIAGRAM_COL_CENTER_MM = 42
 const DIAGRAM_ROW_EDGE_MM = 5
 const DIAGRAM_ROW_CENTER_MM = 24
 
-function labelSizeMm(printSize, orientation) {
-  const zebra = ZEBRA_LABEL_SIZES[printSize]
-  const w = zebra?.wMm ?? 80
-  const h = zebra?.hMm ?? 50
-  if (orientation === 'portrait') {
-    return { w: h, h: w }
-  }
+function labelSizeMm(printSize, orientation, customLabelMm = null) {
+  const { w, h } = resolveLabelDimensionsMm(printSize, orientation, customLabelMm)
   return { w, h }
 }
 
-function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
-  const { w: LABEL_W_MM, h: LABEL_H_MM } = labelSizeMm(printSize, orientation)
+function buildStyles(orientation = 'landscape', printSize = 'label_80x50', customLabelMm = null) {
+  const { w: LABEL_W_MM, h: LABEL_H_MM } = labelSizeMm(printSize, orientation, customLabelMm)
   const zebraClass = isZebraZplSize(printSize)
       ? `
     html.print-size--${printSize},
@@ -140,7 +135,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
     .print-size--fill .sticker,
     .print-size--label_80x50 .sticker,
     .print-size--label_100x50 .sticker,
-    .print-size--label_60x40 .sticker {
+    .print-size--label_60x40 .sticker,
+    .print-size--label_custom .sticker {
       page: fixed-label;
       width: ${LABEL_W_MM}mm;
       height: ${LABEL_H_MM}mm;
@@ -404,7 +400,8 @@ function buildStyles(orientation = 'landscape', printSize = 'label_80x50') {
       .print-size--fill .sticker,
       .print-size--label_80x50 .sticker,
       .print-size--label_100x50 .sticker,
-      .print-size--label_60x40 .sticker {
+      .print-size--label_60x40 .sticker,
+      .print-size--label_custom .sticker {
         width: ${LABEL_W_MM}mm !important;
         height: ${LABEL_H_MM}mm !important;
         min-height: 0 !important;
@@ -600,8 +597,8 @@ function buildStickerInnerHtml(data) {
   </div>`
 }
 
-function buildPrintHintHtml(printSize, printOrientation) {
-  const { w, h } = labelSizeMm(printSize, printOrientation)
+function buildPrintHintHtml(printSize, printOrientation, customLabelMm = null) {
+  const { w, h } = labelSizeMm(printSize, printOrientation, customLabelMm)
   return `<div class="print-hint" role="note">
     <strong>Antes de imprimir:</strong> en el diálogo elige papel <strong>${w} × ${h} mm</strong>,
     escala <strong>100%</strong> (sin «ajustar a página») y márgenes <strong>ninguno</strong>.
@@ -610,7 +607,7 @@ function buildPrintHintHtml(printSize, printOrientation) {
 }
 
 function buildStickerHtml(data) {
-  const { scanCode, printSize, printOrientation = 'landscape' } = data
+  const { scanCode, printSize, printOrientation = 'landscape', customLabelMm = null } = data
   const sizeClass = `print-size--${printSize}`
   const orientClass = `print-orient--${printOrientation}`
 
@@ -619,16 +616,16 @@ function buildStickerHtml(data) {
 <head>
   <meta charset="utf-8" />
   <title>Etiqueta ${esc(scanCode)}</title>
-  <style>${buildStyles(printOrientation, printSize)}</style>
+  <style>${buildStyles(printOrientation, printSize, customLabelMm)}</style>
 </head>
 <body class="print-size ${sizeClass} ${orientClass}">
-  ${buildPrintHintHtml(printSize, printOrientation)}
+  ${buildPrintHintHtml(printSize, printOrientation, customLabelMm)}
   ${buildStickerInnerHtml(data)}
 </body>
 </html>`
 }
 
-function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape') {
+function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape', customLabelMm = null) {
   const sizeClass = `print-size--${printSize}`
   const orientClass = `print-orient--${printOrientation}`
   const bodies = items.map((item) => buildStickerInnerHtml(item)).join('\n')
@@ -637,16 +634,23 @@ function buildBulkStickerHtml(items, printSize, printOrientation = 'landscape') 
 <head>
   <meta charset="utf-8" />
   <title>Etiquetas (${items.length})</title>
-  <style>${buildStyles(printOrientation, printSize)}</style>
+  <style>${buildStyles(printOrientation, printSize, customLabelMm)}</style>
 </head>
 <body class="print-size ${sizeClass} ${orientClass} print-bulk">
-  ${buildPrintHintHtml(printSize, printOrientation)}
+  ${buildPrintHintHtml(printSize, printOrientation, customLabelMm)}
   ${bodies}
 </body>
 </html>`
 }
 
-export async function resolveStickerItemData({ order, part, piece, printSize, printOrientation = 'landscape' }) {
+export async function resolveStickerItemData({
+  order,
+  part,
+  piece,
+  printSize,
+  printOrientation = 'landscape',
+  customLabelMm = null,
+}) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
@@ -697,6 +701,7 @@ export async function resolveStickerItemData({ order, part, piece, printSize, pr
     printedAt,
     printSize,
     printOrientation,
+    customLabelMm,
     partId: part?.partId ?? null,
     piezaId: piece?.piezaId ?? null,
   }
@@ -713,6 +718,7 @@ export async function printBiessePartStickersBulk({
                                                     printSize = getStickerPrintSize(),
                                                     printOrientation = 'landscape',
                                                     printDpi = getStickerPrintDpi(),
+                                                    customLabelMm = null,
                                                     printWindow = null,
                                                   }) {
   if (!items?.length) {
@@ -724,7 +730,7 @@ export async function printBiessePartStickersBulk({
 
   const resolved = await Promise.all(
       items.map(({ order, part, piece }) =>
-          resolveStickerItemData({ order, part, piece, printSize, printOrientation }),
+          resolveStickerItemData({ order, part, piece, printSize, printOrientation, customLabelMm }),
       ),
   )
 
@@ -742,6 +748,7 @@ export async function printBiessePartStickersBulk({
           orientation: printOrientation,
           labelSize: printSize,
           dpi: printDpi,
+          customLabelMm,
         })
         await sendZplToZebra(zpl)
       }
@@ -762,7 +769,7 @@ export async function printBiessePartStickersBulk({
     }
   }
 
-  const html = buildBulkStickerHtml(resolved, printSize, printOrientation)
+  const html = buildBulkStickerHtml(resolved, printSize, printOrientation, customLabelMm)
   let w = printWindow && !printWindow.closed ? printWindow : null
   if (!w) {
     w = window.open('about:blank', '_blank')
@@ -797,6 +804,7 @@ export async function printBiessePartSticker({
                                                printSize = getStickerPrintSize(),
                                                printOrientation = 'landscape',
                                                printDpi = getStickerPrintDpi(),
+                                               customLabelMm = null,
                                              }) {
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
@@ -823,6 +831,7 @@ export async function printBiessePartSticker({
       orientation: printOrientation,
       labelSize: printSize,
       dpi: printDpi,
+      customLabelMm,
     })
     try {
       await sendZplToZebra(zpl)
@@ -839,7 +848,14 @@ export async function printBiessePartSticker({
     }
   }
 
-  const stickerData = await resolveStickerItemData({ order, part, piece, printSize, printOrientation })
+  const stickerData = await resolveStickerItemData({
+    order,
+    part,
+    piece,
+    printSize,
+    printOrientation,
+    customLabelMm,
+  })
   const html = buildStickerHtml(stickerData)
 
   let w = printWindow && !printWindow.closed ? printWindow : null

@@ -18,11 +18,16 @@ import {
   setStickerPrintSize,
   STICKER_PRINT_SIZES,
   isZebraZplSize,
+  getStickerPrintCustomSize,
+  setStickerPrintCustomSize,
+  clampLabelMm,
+  resolveLabelDimensionsMm,
 } from '../utils/stickerPrintSize'
 import {
   getStickerPrintDpi,
   setStickerPrintDpi,
-  STICKER_PRINT_DPIS,
+  clampStickerPrintDpi,
+  STICKER_PRINT_DPI_PRESETS,
 } from '../utils/stickerPrintDpi'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
@@ -101,12 +106,25 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printSize, setPrintSize] = useState(getStickerPrintSize)
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
+  const [customWidthMm, setCustomWidthMm] = useState(() => getStickerPrintCustomSize().widthMm)
+  const [customHeightMm, setCustomHeightMm] = useState(() => getStickerPrintCustomSize().heightMm)
   const [bulkQueue, setBulkQueue] = useState([])
   /** @type {['checking'|'ready'|'missing'|null, Function]} */
   const [zplStatus, setZplStatus] = useState(null)
 
   const partes = useMemo(() => (Array.isArray(detail?.partes) ? detail.partes : []), [detail])
   const useZpl = isZebraZplSize(printSize)
+  const customLabelMm = useMemo(() => {
+    if (printSize !== 'label_custom') return null
+    return {
+      widthMm: clampLabelMm(customWidthMm),
+      heightMm: clampLabelMm(customHeightMm),
+    }
+  }, [printSize, customWidthMm, customHeightMm])
+  const effectiveLabelMm = useMemo(
+    () => resolveLabelDimensionsMm(printSize, printOrientation, customLabelMm),
+    [printSize, printOrientation, customLabelMm],
+  )
 
   useEffect(() => {
     setPartId(null)
@@ -144,6 +162,9 @@ export function BiesseStickerPrintButton({ detail }) {
       setPrintSize(getStickerPrintSize())
       setPrintOrientation(getStickerPrintOrientation())
       setPrintDpi(getStickerPrintDpi())
+      const custom = getStickerPrintCustomSize()
+      setCustomWidthMm(custom.widthMm)
+      setCustomHeightMm(custom.heightMm)
     }
   }, [open])
 
@@ -251,6 +272,7 @@ export function BiesseStickerPrintButton({ detail }) {
       orientation: printOrientation,
       labelSize: printSize,
       dpi: printDpi,
+      customLabelMm,
     })
   }
 
@@ -274,6 +296,7 @@ export function BiesseStickerPrintButton({ detail }) {
         printSize,
         printOrientation,
         printDpi,
+        customLabelMm,
         order: buildOrderPayload(),
         part,
         piece,
@@ -329,6 +352,7 @@ export function BiesseStickerPrintButton({ detail }) {
         printSize,
         printOrientation,
         printDpi,
+        customLabelMm,
         printWindow,
       })
 
@@ -470,7 +494,7 @@ export function BiesseStickerPrintButton({ detail }) {
                 >
                   {STICKER_PRINT_ORIENTATIONS.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {orientationOptionLabel(o.id, printSize)}
+                      {orientationOptionLabel(o.id, printSize, customLabelMm)}
                     </option>
                   ))}
                 </select>
@@ -501,26 +525,85 @@ export function BiesseStickerPrintButton({ detail }) {
                 </p>
               </div>
 
+              {printSize === 'label_custom' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Ancho (mm)</label>
+                    <input
+                      type="number"
+                      min={25}
+                      max={220}
+                      step={0.5}
+                      className={`${inputClass} mt-2`}
+                      value={customWidthMm}
+                      onChange={(e) => {
+                        const next = clampLabelMm(e.target.value)
+                        setCustomWidthMm(next)
+                        setStickerPrintCustomSize(next, customHeightMm)
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Alto (mm)</label>
+                    <input
+                      type="number"
+                      min={25}
+                      max={220}
+                      step={0.5}
+                      className={`${inputClass} mt-2`}
+                      value={customHeightMm}
+                      onChange={(e) => {
+                        const next = clampLabelMm(e.target.value)
+                        setCustomHeightMm(next)
+                        setStickerPrintCustomSize(customWidthMm, next)
+                      }}
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs leading-relaxed text-slate-500">
+                    Etiqueta efectiva con orientación actual:{' '}
+                    <strong className="font-medium text-slate-400">
+                      {effectiveLabelMm.widthMm} × {effectiveLabelMm.heightMm} mm
+                    </strong>
+                    {' · '}
+                    ZPL: ^PW/^LL según {printDpi} dpi.
+                  </p>
+                </div>
+              ) : null}
+
               {useZpl ? (
                 <div>
                   <label className={labelClass}>Resolución Zebra (dpi)</label>
-                  <select
-                    className={`${inputClass} mt-2 cursor-pointer`}
-                    value={printDpi}
-                    onChange={(e) => {
-                      const next = Number(e.target.value) === 300 ? 300 : 203
-                      setPrintDpi(next)
-                      setStickerPrintDpi(next)
-                    }}
-                  >
-                    {STICKER_PRINT_DPIS.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      min={100}
+                      max={600}
+                      step={1}
+                      className={`${inputClass} w-28`}
+                      value={printDpi}
+                      onChange={(e) => {
+                        const next = clampStickerPrintDpi(e.target.value)
+                        setPrintDpi(next)
+                        setStickerPrintDpi(next)
+                      }}
+                    />
+                    {STICKER_PRINT_DPI_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`btn btn--sm ${printDpi === preset.id ? 'btn--primary' : 'btn--ghost'}`}
+                        onClick={() => {
+                          setPrintDpi(preset.id)
+                          setStickerPrintDpi(preset.id)
+                        }}
+                      >
+                        {preset.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                   <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    {STICKER_PRINT_DPIS.find((d) => d.id === printDpi)?.hint}
+                    Debe coincidir con la impresora (203 ZD230, 300 ZD420 alta res., etc.). Si el contenido
+                    queda pequeño en una esquina, prueba otro valor.
                   </p>
                 </div>
               ) : null}

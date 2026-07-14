@@ -1,6 +1,6 @@
 /** Orientación de la etiqueta al imprimir. */
 
-import { ZEBRA_LABEL_SIZES } from './buildBiessePartStickerZpl.js'
+import { resolveLabelDimensionsMm } from './stickerPrintSize.js'
 
 export const STICKER_PRINT_ORIENTATION_KEY = 'biesse-sticker-print-orientation'
 
@@ -19,13 +19,17 @@ export const STICKER_PRINT_ORIENTATIONS = [
   },
 ]
 
-/** @param {'landscape'|'portrait'} orientation @param {string} [printSize] */
-export function orientationOptionLabel(orientation, printSize = 'label_80x50') {
-  const size = ZEBRA_LABEL_SIZES[printSize] ?? ZEBRA_LABEL_SIZES.label_80x50
+/**
+ * @param {'landscape'|'portrait'} orientation
+ * @param {string} [printSize]
+ * @param {{ widthMm?: number, heightMm?: number }|null} [customMm]
+ */
+export function orientationOptionLabel(orientation, printSize = 'label_80x50', customMm = null) {
+  const { widthMm, heightMm } = resolveLabelDimensionsMm(printSize, orientation, customMm)
   if (orientation === 'portrait') {
-    return `Vertical (${size.hMm} × ${size.wMm} mm)`
+    return `Vertical (${widthMm} × ${heightMm} mm)`
   }
-  return `Horizontal (${size.wMm} × ${size.hMm} mm)`
+  return `Horizontal (${widthMm} × ${heightMm} mm)`
 }
 
 /** @returns {StickerPrintOrientationId} */
