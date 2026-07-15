@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FEATURE } from '../access/permissionCatalog'
 import { canAccessGestionHub, defaultDashboardPath } from '../access/permissions'
 import { useAppAbility } from '../access/useAppAbility'
@@ -15,22 +15,42 @@ import { GestionProyectosPanel } from './GestionProyectosPanel.jsx'
 import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 
 const ADMIN_PANELS = new Set(['employees', 'roles', 'ubicaciones'])
+const CLIENTE_PORTAL_TAB = 'cliente-portal'
+
+function normalizeGestionTab(raw) {
+  if (raw === 'audit') return 'auditoria'
+  if (raw === 'clientes') return CLIENTE_PORTAL_TAB
+  return raw
+}
 
 function resolveGestionTab(raw, allowedIds) {
-  if (raw === 'audit') raw = 'auditoria'
-  const valid = ['vehiculos', 'auditoria', 'employees', 'roles', 'ubicaciones', 'clientes', 'proyectos', 'backups', 'configuracion']
-  if (raw && valid.includes(raw) && allowedIds.includes(raw)) return raw
+  const tab = normalizeGestionTab(raw)
+  const valid = [
+    'vehiculos',
+    'auditoria',
+    'employees',
+    'roles',
+    'ubicaciones',
+    CLIENTE_PORTAL_TAB,
+    'proyectos',
+    'backups',
+    'configuracion',
+  ]
+  if (tab && valid.includes(tab) && allowedIds.includes(tab)) return tab
   return allowedIds[0] ?? 'auditoria'
 }
 
-export function GestionPage() {
+export function GestionPage({ initialSection } = {}) {
   const { allowedDashboard, employee } = useAuth()
   const ability = useAppAbility()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [vehiculoToEdit, setVehiculoToEdit] = useState(null)
 
   const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
   const roleNames = useMemo(() => roleNamesFromEmployee(employee), [employee])
+  const onClientePortalPath = location.pathname.endsWith('/cliente-portal')
 
   const tabs = useMemo(
     () =>
@@ -48,7 +68,7 @@ export function GestionPage() {
           ],
         },
         { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
-        { id: 'clientes', label: 'Clientes portal', feature: FEATURE.GESTION_CLIENTES_PORTAL },
+        { id: CLIENTE_PORTAL_TAB, label: 'Cliente portal', feature: FEATURE.GESTION_CLIENTES_PORTAL },
         { id: 'proyectos', label: 'Proyectos', feature: FEATURE.GESTION_PROYECTOS },
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
@@ -65,13 +85,31 @@ export function GestionPage() {
   )
 
   const allowedIds = useMemo(() => tabs.map((t) => t.id), [tabs])
-  const section = resolveGestionTab(searchParams.get('tab'), allowedIds)
+  const forcedSection =
+    initialSection === CLIENTE_PORTAL_TAB || onClientePortalPath ? CLIENTE_PORTAL_TAB : null
+  const section =
+    forcedSection && allowedIds.includes(forcedSection)
+      ? forcedSection
+      : resolveGestionTab(searchParams.get('tab'), allowedIds)
   const isAdminPanel = ADMIN_PANELS.has(section)
 
   const inventarioGuiasHref = `${base}/inventario?area=guias`
+  const clientePortalHref = `${base}/gestion/cliente-portal`
 
   const selectSection = useCallback(
     (next) => {
+      if (next === CLIENTE_PORTAL_TAB) {
+        const cliente = searchParams.get('cliente')
+        const q = cliente ? `?cliente=${cliente}` : ''
+        navigate(`${clientePortalHref}${q}`, { replace: true })
+        return
+      }
+      if (onClientePortalPath) {
+        const p = new URLSearchParams()
+        p.set('tab', next)
+        navigate(`${base}/gestion?${p}`)
+        return
+      }
       setSearchParams(
         (prev) => {
           const p = new URLSearchParams(prev)
@@ -79,25 +117,39 @@ export function GestionPage() {
           if (next !== 'vehiculos') {
             p.delete('vehiculo')
           }
+          if (next !== CLIENTE_PORTAL_TAB) {
+            p.delete('cliente')
+          }
           return p
         },
         { replace: true },
       )
     },
-    [setSearchParams],
+    [base, clientePortalHref, navigate, onClientePortalPath, searchParams, setSearchParams],
   )
 
   useEffect(() => {
-    const fromUrl = resolveGestionTab(searchParams.get('tab'), allowedIds)
-    if (fromUrl !== section) {
-      selectSection(fromUrl)
+    const tab = normalizeGestionTab(searchParams.get('tab'))
+    if ((tab === CLIENTE_PORTAL_TAB || searchParams.get('tab') === 'clientes') && !onClientePortalPath) {
+      const cliente = searchParams.get('cliente')
+      const q = cliente ? `?cliente=${cliente}` : ''
+      navigate(`${clientePortalHref}${q}`, { replace: true })
+      return
     }
+
+    if (!onClientePortalPath) {
+      const fromUrl = resolveGestionTab(searchParams.get('tab'), allowedIds)
+      if (fromUrl !== section) {
+        selectSection(fromUrl)
+      }
+    }
+
     const rawVeh = searchParams.get('vehiculo')
     if (rawVeh) {
       const id = Number(rawVeh)
       if (Number.isFinite(id) && id > 0) {
         setVehiculoToEdit(id)
-        if (fromUrl !== 'vehiculos' && allowedIds.includes('vehiculos')) {
+        if (section !== 'vehiculos' && allowedIds.includes('vehiculos')) {
           selectSection('vehiculos')
         }
         setSearchParams(
@@ -111,7 +163,16 @@ export function GestionPage() {
         )
       }
     }
-  }, [searchParams, selectSection, setSearchParams, allowedIds, section])
+  }, [
+    searchParams,
+    selectSection,
+    setSearchParams,
+    allowedIds,
+    section,
+    onClientePortalPath,
+    navigate,
+    clientePortalHref,
+  ])
 
   if (!canAccessGestionHub(employee)) {
     return <Navigate to={defaultDashboardPath(allowedDashboard, employee)} replace />
@@ -126,6 +187,10 @@ export function GestionPage() {
           <Link to={inventarioGuiasHref} className="linkish">
             Inventario → Guías de despacho
           </Link>
+          . Los usuarios del portal cliente se administran en{' '}
+          <Link to={clientePortalHref} className="linkish">
+            Cliente portal
+          </Link>
           .
         </p>
       </div>
@@ -139,7 +204,7 @@ export function GestionPage() {
 
       {section === 'auditoria' ? (
         <GestionAuditoriaPanel />
-      ) : section === 'clientes' ? (
+      ) : section === CLIENTE_PORTAL_TAB ? (
         <GestionClientesPanel />
       ) : section === 'proyectos' ? (
         <GestionProyectosPanel />

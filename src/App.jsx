@@ -12,11 +12,11 @@ import { LoginPage } from './pages/LoginPage'
 import { PaleEditPage } from './pages/PaleEditPage'
 import { PaleAuditPage } from './pages/PaleAuditPage'
 import { OrderAuditPage } from './pages/OrderAuditPage'
-import { GestionPage } from './pages/GestionPage'
 import { InventoryPage } from './pages/InventoryPage.jsx'
 import { ResumenPage } from './pages/ResumenPage.jsx'
 import { DashboardHomeRedirect } from './pages/DashboardHomeRedirect.jsx'
 import { proyectoOptimizacionRoutes } from './routes/proyectoOptimizacionRoutes.jsx'
+import { gestionRoutes } from './routes/gestionRoutes.jsx'
 
 export default function App() {
   return (
@@ -35,7 +35,7 @@ export default function App() {
               <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="gestion" element={<GestionPage />} />
+              {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               {proyectoOptimizacionRoutes()}
@@ -52,7 +52,7 @@ export default function App() {
               <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="gestion" element={<GestionPage />} />
+              {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="api" element={<ApiCatalogPage />} />
               <Route
@@ -76,7 +76,7 @@ export default function App() {
               <Route path="pales" element={<InventarioLegacyRedirect area="pales" />} />
               <Route path="pales/auditoria" element={<PaleAuditPage />} />
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
-              <Route path="gestion" element={<GestionPage />} />
+              {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
               <Route path="inventario" element={<InventoryPage />} />
               {proyectoOptimizacionRoutes()}

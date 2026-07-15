@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { DetailModal } from '../components/DetailModal.jsx'
 import {
@@ -12,8 +12,10 @@ import {
 import { useAppAbility } from '../access/useAppAbility'
 import { FEATURE } from '../access/permissionCatalog'
 import { useFeatureActions } from '../access/useFeatureActions'
+import { useAuth } from '../auth/AuthContext'
 import { ProyectoOrdenPiezasModal } from '../components/ProyectoOrdenPiezasModal.jsx'
 import { ClientDetailModal } from '../components/ClientDetailModal.jsx'
+import { gestionClientePortalHref } from '../utils/gestionPaths'
 import {
   ESTADOS_PROYECTO,
   canCapturarProyectoOptimizacion,
@@ -37,6 +39,10 @@ function resolveProyectoTab(raw) {
 }
 
 function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, onDownloadOrderCsv }) {
+  const { allowedDashboard } = useAuth()
+  const ability = useAppAbility()
+  const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
+  const canManagePortal = ability.can('view', FEATURE.GESTION_CLIENTES_PORTAL)
   const project = tree?.project
   const orders = tree?.orders ?? []
   const [ordenPiezas, setOrdenPiezas] = useState(null)
@@ -60,13 +66,22 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
           <dd style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
             <span>{project.cliente || '—'}</span>
             {project.clientUserId ? (
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => setClientModalOpen(true)}
-              >
-                Ver cliente
-              </button>
+              canManagePortal ? (
+                <Link
+                  to={gestionClientePortalHref(base, project.clientUserId)}
+                  className="btn btn--ghost btn--sm"
+                >
+                  Cliente portal
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setClientModalOpen(true)}
+                >
+                  Ver cliente
+                </button>
+              )
             ) : null}
           </dd>
         </div>

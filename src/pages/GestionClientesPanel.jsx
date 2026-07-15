@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { ClientAuditSummary, ClientLoginHistorySection } from '../components/ClientLoginHistorySection.jsx'
 import { isStrongPassword, validatePassword } from '../utils/passwordPolicy'
@@ -55,6 +56,7 @@ export function GestionClientesPanel() {
   const [editErr, setEditErr] = useState(null)
   const [editOk, setEditOk] = useState(null)
   const [auditClient, setAuditClient] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,6 +75,16 @@ export function GestionClientesPanel() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (loading || mode !== 'list') return
+    const raw = searchParams.get('cliente')
+    if (!raw) return
+    const id = Number(raw)
+    if (!Number.isFinite(id) || id <= 0) return
+    const row = clients.find((c) => c.id === id)
+    if (row) startEdit(row)
+  }, [loading, clients, mode, searchParams])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -112,6 +124,14 @@ export function GestionClientesPanel() {
     setEditOk(null)
     setCreateErr(null)
     setCreateOk(null)
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('cliente', String(row.id))
+        return p
+      },
+      { replace: true },
+    )
     void systemApi.getClient(row.id).then(setAuditClient).catch(() => setAuditClient(row))
   }
 
@@ -129,6 +149,14 @@ export function GestionClientesPanel() {
     setCreateOk(null)
     setEditErr(null)
     setEditOk(null)
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.delete('cliente')
+        return p
+      },
+      { replace: true },
+    )
   }
 
   async function submitCreate(e) {
@@ -239,9 +267,9 @@ export function GestionClientesPanel() {
     <div className="page-stack">
       <div className="card pad" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
         <div style={{ flex: '1 1 220px' }}>
-          <h2 className="card__title">Clientes del portal</h2>
+          <h2 className="card__title">Cliente portal</h2>
           <p className="muted small" style={{ marginTop: '0.35rem' }}>
-            Cuentas registradas en el portal de clientes (planilla de corte).
+            Cuentas del portal de clientes: datos, actividad de acceso e historial de seguridad.
           </p>
         </div>
         {mode === 'list' ? (

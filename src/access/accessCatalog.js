@@ -88,7 +88,7 @@ export const PORTAL_ACCESS_MODULES = [
   },
   {
     id: 'gestion_clientes_portal',
-    label: 'Gestión · Clientes portal',
+    label: 'Gestión · Cliente portal',
     description: 'Alta y edición de usuarios del portal cliente',
     features: [FEATURE.GESTION_CLIENTES_PORTAL],
     suggestedRoles: [ROLE_ADMIN_VENTAS],
