@@ -307,6 +307,72 @@ export function permissionRulesFromModules(moduleIds) {
   return rules
 }
 
+/**
+ * Permisos opcionales que no se incluyen automáticamente al marcar un módulo.
+ * Se configuran en el editor de roles (eliminar proyectos, imprimir, etc.).
+ */
+export const OPTIONAL_ROLE_CAPABILITIES = [
+  {
+    id: 'delete_gestion_proyectos',
+    label: 'Eliminar proyectos (Gestión)',
+    description: 'Permite eliminar proyectos de optimización en Gestión → Proyectos',
+    requiresModule: 'gestion_proyectos',
+    rules: [{ action: ACTION.DELETE, subject: FEATURE.GESTION_PROYECTOS }],
+  },
+  {
+    id: 'print_pales',
+    label: 'Imprimir palés / etiquetas',
+    description: 'Impresión de etiquetas de palés',
+    requiresModule: 'pales',
+    rules: [{ action: ACTION.PRINT, subject: FEATURE.PALES_PRINT }],
+  },
+  {
+    id: 'print_biesse_stickers',
+    label: 'Imprimir stickers Biesse',
+    description: 'Impresión de stickers desde órdenes Biesse',
+    requiresModule: 'ordenes',
+    rules: [{ action: ACTION.PRINT, subject: FEATURE.BIESSE_STICKERS }],
+  },
+  {
+    id: 'print_biesse_orders',
+    label: 'Imprimir órdenes Biesse',
+    description: 'Impresión general asociada a órdenes de producción',
+    requiresModule: 'ordenes',
+    rules: [{ action: ACTION.PRINT, subject: FEATURE.BIESSE_ORDERS }],
+  },
+]
+
+function dedupePermissionRules(rules) {
+  const seen = new Set()
+  const out = []
+  for (const rule of rules ?? []) {
+    if (!rule?.action || !rule?.subject) continue
+    const key = `${rule.action}:${rule.subject}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ action: rule.action, subject: rule.subject })
+  }
+  return out
+}
+
+/** Reglas CASL a partir de módulos + capacidades opcionales marcadas. */
+export function mergeModuleAndCapabilityPermissions(moduleIds, capabilityIds = []) {
+  const base = permissionRulesFromModules(moduleIds)
+  const extra = OPTIONAL_ROLE_CAPABILITIES.filter((cap) => capabilityIds.includes(cap.id)).flatMap(
+    (cap) => cap.rules,
+  )
+  return dedupePermissionRules([...base, ...extra])
+}
+
+/** Capacidades opcionales detectadas en reglas guardadas. */
+export function capabilityIdsFromPermissionRules(rules) {
+  if (!rules?.length) return []
+  const set = new Set(rules.map((r) => `${r.action}:${r.subject}`))
+  return OPTIONAL_ROLE_CAPABILITIES.filter((cap) =>
+    cap.rules.every((r) => set.has(`${r.action}:${r.subject}`)),
+  ).map((cap) => cap.id)
+}
+
 /** Aproxima qué módulos cubren las reglas guardadas (para editar rol). */
 export function moduleIdsFromPermissionRules(rules) {
   if (!rules?.length) return []

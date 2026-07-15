@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import {
   openStickerPrintWindow,
   printBiessePartSticker,
@@ -34,7 +36,8 @@ import {
   getUseVisualLayout,
   resolveVisualLayoutForPrint,
 } from '../utils/stickerVisualLayout'
-import { StickerLayoutEditor } from './StickerLayoutEditor.jsx'
+import { loadGlobalStickerSettings } from '../utils/stickerGlobalSettings'
+import { resolveStickerPieceCounts } from '../utils/stickerPieceInfo'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -57,6 +60,7 @@ function partPayload(selectedPart) {
     longitud: selectedPart.longitud,
     ancho: selectedPart.ancho,
     cantidad: selectedPart.cantidad,
+    piezas: selectedPart.piezas,
   }
 }
 
@@ -104,6 +108,14 @@ async function auditStickerPrint(detail, entries) {
  * @param {{ detail: object | null }} props
  */
 export function BiesseStickerPrintButton({ detail }) {
+  const { allowedDashboard } = useAuth()
+  const gestionStickerConfigHref = useMemo(
+    () =>
+      allowedDashboard
+        ? `/dashboard/${allowedDashboard}/gestion?tab=configuracion`
+        : '/gestion?tab=configuracion',
+    [allowedDashboard],
+  )
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('single')
   const [partId, setPartId] = useState(null)
@@ -113,7 +125,6 @@ export function BiesseStickerPrintButton({ detail }) {
   const [printOrientation, setPrintOrientation] = useState(getStickerPrintOrientation)
   const [printDpi, setPrintDpi] = useState(getStickerPrintDpi)
   const [stickerDesign, setStickerDesign] = useState(getStickerDesignSettings)
-  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false)
   const [useVisualLayout, setUseVisualLayoutState] = useState(getUseVisualLayout)
   const [visualLayout, setVisualLayout] = useState(() =>
     getVisualLayoutForLabel(
@@ -163,52 +174,6 @@ export function BiesseStickerPrintButton({ detail }) {
     [partes, partId],
   )
 
-  const layoutPreviewData = useMemo(() => {
-    if (!detail) return undefined
-    const part = selectedPart
-    const partNumber = part?.partNumber ?? part?.partId ?? '0'
-    const now = new Date()
-    const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`
-    if (!part) {
-      return {
-        headerTitle: String(detail.orderName ?? 'PROYECTO').toUpperCase(),
-        booking: detail.bookingCode ?? '',
-        material: '—',
-        subdesc: '',
-        refLine: '0',
-        centerLabel: '—',
-        upLabel: '',
-        loLabel: '',
-        leftLabel: '',
-        rightLabel: '',
-        L: null,
-        A: null,
-        numeroPieza: 1,
-        cantidad: 1,
-        pCode: 'P0',
-        dateStr,
-      }
-    }
-    return {
-      headerTitle: String(detail.orderName ?? '').toUpperCase(),
-      booking: detail.bookingCode ? String(detail.bookingCode).trim() : '',
-      material: String(part.material ?? '').trim().toUpperCase() || '—',
-      subdesc: part.descripcion1 ?? '',
-      refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
-      centerLabel: String(part.descripcion ?? '—').trim(),
-      upLabel: part.matedgeup ?? '',
-      loLabel: part.matedgelo ?? '',
-      leftLabel: part.matedgel ?? '',
-      rightLabel: part.matedger ?? '',
-      L: part.longitud,
-      A: part.ancho,
-      numeroPieza,
-      cantidad: Math.max(1, Number(part.cantidad ?? 1)),
-      pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
-      dateStr,
-    }
-  }, [detail, selectedPart, numeroPieza])
-
   useEffect(() => {
     if (!open || !partes.length) return
     if (partId == null || !partes.some((p) => p.partId === partId)) {
@@ -230,20 +195,15 @@ export function BiesseStickerPrintButton({ detail }) {
 
   useEffect(() => {
     if (open) {
-      setPrintSize(getStickerPrintSize())
-      setPrintOrientation(getStickerPrintOrientation())
-      setPrintDpi(getStickerPrintDpi())
-      setStickerDesign(getStickerDesignSettings())
-      const custom = getStickerPrintCustomSize()
-      setCustomWidthMm(custom.widthMm)
-      setCustomHeightMm(custom.heightMm)
-      const dims = resolveLabelDimensionsMm(
-        getStickerPrintSize(),
-        getStickerPrintOrientation(),
-        getStickerPrintSize() === 'label_custom' ? custom : null,
-      )
-      setVisualLayout(getVisualLayoutForLabel(dims.widthMm, dims.heightMm, getStickerPrintOrientation()))
-      setUseVisualLayoutState(getUseVisualLayout())
+      const global = loadGlobalStickerSettings()
+      setPrintSize(global.printSize)
+      setPrintOrientation(global.printOrientation)
+      setPrintDpi(global.printDpi)
+      setStickerDesign(global.stickerDesign)
+      setCustomWidthMm(global.customWidthMm)
+      setCustomHeightMm(global.customHeightMm)
+      setVisualLayout(global.visualLayout)
+      setUseVisualLayoutState(global.useVisualLayout)
     }
   }, [open])
 
@@ -266,17 +226,6 @@ export function BiesseStickerPrintButton({ detail }) {
     }
   }, [open, useZpl, printSize])
 
-  function applyDesignSettings(settings) {
-    setPrintSize(settings.printSize)
-    setPrintOrientation(settings.printOrientation)
-    setCustomWidthMm(settings.customWidthMm)
-    setCustomHeightMm(settings.customHeightMm)
-    setPrintDpi(settings.printDpi)
-    setStickerDesign(settings.stickerDesign)
-    setVisualLayout(settings.visualLayout)
-    setUseVisualLayoutState(settings.useVisualLayout)
-  }
-
   function buildOrderPayload() {
     return {
       orderName: detail.orderName,
@@ -286,7 +235,11 @@ export function BiesseStickerPrintButton({ detail }) {
 
   function buildPiecePayload(part, nPieza) {
     const piezaSeleccionada = (part.piezas ?? []).find((z) => z.numeroPieza === nPieza)
-    return { numeroPieza: nPieza, piezaId: piezaSeleccionada?.piezaId ?? null }
+    return {
+      numeroPieza: nPieza,
+      piezaId: piezaSeleccionada?.piezaId ?? null,
+      piezas: part.piezas,
+    }
   }
 
   function addToBulkQueue() {
@@ -591,7 +544,7 @@ export function BiesseStickerPrintButton({ detail }) {
 
               {useZpl ? (
                 <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                  <p className="text-sm font-medium text-slate-200">Diseño y tamaño de etiqueta</p>
+                  <p className="text-sm font-medium text-slate-200">Diseño de etiqueta</p>
                   <p className="mt-1 text-xs leading-relaxed text-slate-400">
                     <strong className="font-medium text-slate-300">
                       {effectiveLabelMm.widthMm} × {effectiveLabelMm.heightMm} mm
@@ -606,16 +559,20 @@ export function BiesseStickerPrintButton({ detail }) {
                       <span> · layout automático v{STICKER_ZPL_LAYOUT_VERSION}</span>
                     )}
                   </p>
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--primary mt-3 w-full"
-                    onClick={() => setLayoutEditorOpen(true)}
-                  >
-                    Abrir diseño, tamaño y campos…
-                  </button>
+                  {selectedPart ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Pieza a imprimir:{' '}
+                      <strong className="text-slate-300">
+                        {resolveStickerPieceCounts(selectedPart, { numeroPieza }).fractionText}
+                      </strong>
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-slate-500">
-                    Tamaño del rollo, dpi, tipografía ZPL y posición de campos — todo en un solo lugar. Al cambiar
-                    el tamaño, el lienzo se ajusta al formato real.
+                    El tamaño, dpi y posición de campos se configuran en{' '}
+                    <Link to={gestionStickerConfigHref} className="text-sky-400 underline-offset-2 hover:underline">
+                      Gestión → Configuración
+                    </Link>
+                    . Los cambios aplican a todas las impresiones.
                   </p>
                 </div>
               ) : (
@@ -782,22 +739,6 @@ export function BiesseStickerPrintButton({ detail }) {
           </div>
         </div>
       ) : null}
-      <StickerLayoutEditor
-        key={layoutEditorOpen ? 'sticker-design-open' : 'sticker-design-closed'}
-        open={layoutEditorOpen}
-        onClose={() => setLayoutEditorOpen(false)}
-        initialSettings={{
-          printSize,
-          printOrientation,
-          customWidthMm,
-          customHeightMm,
-          printDpi,
-          stickerDesign,
-          visualLayout,
-        }}
-        previewData={layoutPreviewData}
-        onSaved={applyDesignSettings}
-      />
     </>
   )
 }

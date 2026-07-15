@@ -21,9 +21,17 @@ const PAGE_SIZE = 25
 
 function orderEstadoTagClass(estado) {
   const e = String(estado ?? '').toUpperCase()
-  if (e === 'COMPLETADA') return 'tag tag--ok'
+  if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'tag tag--ok'
   if (e === 'EN_PROCESO') return 'tag'
   return 'tag'
+}
+
+function formatOrderEstado(estado) {
+  const e = String(estado ?? '').toUpperCase()
+  if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'Completada'
+  if (e === 'EN_PROCESO') return 'En proceso'
+  if (e === 'PENDIENTE') return 'Pendiente'
+  return estado ?? '—'
 }
 
 /**
@@ -261,9 +269,9 @@ export function OrdersPage({ embedded = false }) {
         <span className="small">Estado</span>
         <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
           <option value="">Todos</option>
-          <option value="PENDIENTE">PENDIENTE</option>
-          <option value="EN_PROCESO">EN_PROCESO</option>
-          <option value="COMPLETADO">COMPLETADO</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="EN_PROCESO">En proceso</option>
+          <option value="COMPLETADA">Completada</option>
         </select>
       </label>
       <label className="field">
@@ -355,7 +363,9 @@ export function OrdersPage({ embedded = false }) {
                           </td>
                           <td>{row.orderName}</td>
                           <td>
-                            <span className={orderEstadoTagClass(row.estadoEscaneo)}>{row.estadoEscaneo ?? '—'}</span>
+                            <span className={orderEstadoTagClass(row.estadoEscaneo)}>
+                              {formatOrderEstado(row.estadoEscaneo)}
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -388,7 +398,7 @@ export function OrdersPage({ embedded = false }) {
                     ],
                     ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
                     ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
-                    ['Estado', detail.estadoEscaneo ?? '—'],
+                    ['Estado', formatOrderEstado(detail.estadoEscaneo)],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <dt>{k}</dt>

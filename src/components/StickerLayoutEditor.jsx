@@ -112,8 +112,9 @@ function snapMm(value, step = 0.5) {
  * @param {object} props.initialSettings
  * @param {object} [props.previewData]
  * @param {(settings: object) => void} [props.onSaved]
+ * @param {boolean} [props.embedded] Si true, se muestra inline (p. ej. Gestión → Configuración).
  */
-export function StickerLayoutEditor({ open, onClose, initialSettings, previewData, onSaved }) {
+export function StickerLayoutEditor({ open, onClose, initialSettings, previewData, onSaved, embedded = false }) {
   const [printSize, setPrintSize] = useState(initialSettings.printSize)
   const [printOrientation, setPrintOrientation] = useState(initialSettings.printOrientation)
   const [customWidthMm, setCustomWidthMm] = useState(initialSettings.customWidthMm)
@@ -121,6 +122,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   const [printDpi, setPrintDpi] = useState(initialSettings.printDpi)
   const [stickerDesign, setStickerDesign] = useState(initialSettings.stickerDesign)
   const [layout, setLayout] = useState(initialSettings.visualLayout)
+  const [saveOk, setSaveOk] = useState('')
   const [selectedId, setSelectedId] = useState(() => {
     const first = getActiveLayoutElements(initialSettings.visualLayout.elements)[0]
     return first?.[0] ?? 'headerTitle'
@@ -308,7 +310,12 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
       visualLayout,
       useVisualLayout: true,
     })
-    onClose()
+    if (embedded) {
+      setSaveOk('Diseño guardado. Aplica a todas las impresiones de stickers en este equipo.')
+      window.setTimeout(() => setSaveOk(''), 5000)
+    } else {
+      onClose()
+    }
   }
 
   function handleReset() {
@@ -369,7 +376,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
       case 'subdesc':
         return sample.subdesc || '(vacío)'
       case 'refLine':
-        return sample.refLine
+        return sample.fractionText ?? sample.refLine
       case 'pieceCenter':
         return sample.centerLabel
       case 'edgeUp':
@@ -391,7 +398,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
       case 'qr':
         return 'QR'
       case 'fraction':
-        return `${sample.numeroPieza} / ${sample.cantidad}`
+        return sample.fractionText ?? `${sample.numeroPieza} / ${sample.cantidad}`
       case 'footerLeft':
         return sample.pCode
       case 'footerRight':
@@ -409,15 +416,10 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   const showContentSource =
     isPieceEdgeField || selected?.fieldKey === 'pieceCenter'
 
-  return (
-    <DetailModal
-      open={open}
-      wide
-      title="Diseño y tamaño de etiqueta"
-      subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
-      onClose={onClose}
-    >
-      <div className="flex flex-col gap-4 xl:flex-row">
+  if (!embedded && !open) return null
+
+  const editorBody = (
+    <div className="flex flex-col gap-4 xl:flex-row">
         <div className="min-w-0 flex-1">
           <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-sm text-amber-100">
             Etiqueta real:{' '}
@@ -881,18 +883,36 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
           ) : null}
 
           <div className="flex flex-col gap-2">
+            {saveOk ? <p className="form-success text-sm">{saveOk}</p> : null}
             <Button type="button" onClick={handleSave}>
               Guardar diseño y tamaño
             </Button>
             <Button type="button" variant="ghost" onClick={handleReset}>
               Restaurar plantilla
             </Button>
-            <Button type="button" variant="neutral" onClick={onClose}>
-              Cancelar
-            </Button>
+            {!embedded ? (
+              <Button type="button" variant="neutral" onClick={onClose}>
+                Cancelar
+              </Button>
+            ) : null}
           </div>
         </aside>
       </div>
+  )
+
+  if (embedded) {
+    return editorBody
+  }
+
+  return (
+    <DetailModal
+      open={open}
+      wide
+      title="Diseño y tamaño de etiqueta"
+      subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
+      onClose={onClose}
+    >
+      {editorBody}
     </DetailModal>
   )
 }

@@ -4,6 +4,8 @@ import { DetailModal } from '../components/DetailModal.jsx'
 import { ModuleFilterGrid, ModuleListCard } from '../components/module/ModuleChrome.jsx'
 import { SearchableSelect } from '../components/SearchableSelect.jsx'
 import { ROLE_VENTAS } from '../auth/roles.js'
+import { FEATURE } from '../access/permissionCatalog'
+import { useFeatureActions } from '../access/useFeatureActions'
 import {
   ESTADOS_PROYECTO,
   emptyProyectoFilters,
@@ -52,6 +54,7 @@ function EstadoTiemposList({ tiempos }) {
 }
 
 export function GestionProyectosPanel() {
+  const { canDelete } = useFeatureActions(FEATURE.GESTION_PROYECTOS)
   const [filters, setFilters] = useState(emptyProyectoFilters())
   const [applied, setApplied] = useState(emptyProyectoFilters())
   const [rows, setRows] = useState([])
@@ -250,6 +253,25 @@ export function GestionProyectosPanel() {
     }
   }
 
+  async function handleDelete(row) {
+    const nombre = row.nombre || `proyecto ${row.id}`
+    if (!window.confirm(`¿Eliminar el proyecto «${nombre}» y todas sus órdenes? Esta acción no se puede deshacer.`)) {
+      return
+    }
+    setBusyId(row.id)
+    setActionMsg('')
+    try {
+      await systemApi.deleteProyectoOptimizacion(row.id)
+      if (editRow?.id === row.id) closeEdit()
+      setActionMsg(`Proyecto «${nombre}» eliminado.`)
+      await load()
+    } catch (e) {
+      setActionMsg(e instanceof Error ? e.message : 'No se pudo eliminar el proyecto.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function canCancel(row) {
     return row.estado === 'ENVIADO' || row.estado === 'EN_ATENCION'
   }
@@ -393,6 +415,17 @@ export function GestionProyectosPanel() {
                             Cancelar
                           </button>
                         ) : null}
+                        {canDelete ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            disabled={busyId === row.id}
+                            style={{ color: 'var(--danger, #b00020)' }}
+                            onClick={() => void handleDelete(row)}
+                          >
+                            Eliminar
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -487,6 +520,17 @@ export function GestionProyectosPanel() {
                   onClick={() => void handleCancel(editRow)}
                 >
                   Cancelar proyecto
+                </button>
+              ) : null}
+              {canDelete && editRow ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={busyId === editRow.id}
+                  style={{ color: 'var(--danger, #b00020)' }}
+                  onClick={() => void handleDelete(editRow)}
+                >
+                  Eliminar proyecto
                 </button>
               ) : null}
               <button type="button" className="btn btn--ghost" onClick={closeEdit}>

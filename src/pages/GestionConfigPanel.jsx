@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { canResetKardex, canViewGestionMenu, roleNamesFromEmployee } from '../auth/roles'
 import * as systemApi from '../api/systemApi'
+import { StickerDesignConfigSection } from '../components/StickerDesignConfigSection.jsx'
 
 export function GestionConfigPanel() {
   const { employee } = useAuth()
@@ -195,8 +196,8 @@ export function GestionConfigPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Ajustes globales del portal: kardex de almacén, plantilla de planilla y correo SMTP. Los cambios
-        aplican de inmediato sin reiniciar el servidor.
+        Ajustes globales del portal: kardex de almacén, plantilla de planilla, etiquetas Biesse y correo SMTP. Los
+        cambios aplican de inmediato sin reiniciar el servidor.
       </p>
 
       {err ? <p className="form-inline-error" style={{ marginBottom: '0.75rem' }}>{err}</p> : null}
@@ -298,6 +299,8 @@ export function GestionConfigPanel() {
           </div>
         </div>
       </div>
+
+      <StickerDesignConfigSection />
 
       <div className="card pad form-section">
         <h2>Correo (SMTP)</h2>

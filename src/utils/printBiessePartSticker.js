@@ -7,6 +7,7 @@ import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
 import { getStickerPrintSize, isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
 import { getStickerPrintDpi } from './stickerPrintDpi.js'
 import { getStickerDesignSettings } from './stickerDesignSettings.js'
+import { resolveStickerPieceCounts } from './stickerPieceInfo.js'
 import { resolveVisualLayoutForPrint } from './stickerVisualLayout.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
@@ -553,7 +554,8 @@ function buildStickerInnerHtml(data) {
     L,
     A,
     numeroPieza,
-    cantidad,
+    totalPiezas,
+    fractionText,
     pCode,
     printedAt,
   } = data
@@ -591,7 +593,7 @@ function buildStickerInnerHtml(data) {
           <div>L: ${L != null ? esc(String(L)) : '—'}</div>
           <div>A: ${A != null ? esc(String(A)) : '—'}</div>
         </div>
-        <div class="frac">${esc(String(numeroPieza))} / ${esc(String(cantidad))}</div>
+        <div class="frac">${esc(fractionText)}</div>
         <div class="foot">
           <span>${esc(formatStickerDate(printedAt))}</span>
         </div>
@@ -658,8 +660,7 @@ export async function resolveStickerItemData({
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
       partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
-  const numeroPieza = piece?.numeroPieza ?? 1
-  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
+  const { numeroPieza, totalPiezas, fractionText } = resolveStickerPieceCounts(part, piece)
   const scanCode = buildScanCode(
       orderName,
       partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
@@ -687,7 +688,7 @@ export async function resolveStickerItemData({
     bookingCode: order?.bookingCode,
     matLine: materialLine(part?.material),
     subDesc: joinNonEmpty([part?.descripcion1]),
-    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
+    refLine: fractionText,
     centerLabel: String(part?.descripcion ?? '—').trim(),
     upLabel: String(part?.matedgeup ?? '').trim(),
     loLabel: String(part?.matedgelo ?? '').trim(),
@@ -699,7 +700,8 @@ export async function resolveStickerItemData({
     longitud: part?.longitud,
     ancho: part?.ancho,
     numeroPieza,
-    cantidad,
+    totalPiezas,
+    fractionText,
     pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
     printedAt,
     printSize,
