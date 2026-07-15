@@ -102,13 +102,22 @@
   }
 
   .detail-modal-backdrop {
-    @apply fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm dark:bg-black/60;
+    @apply fixed inset-0 z-[200] flex min-h-full flex-col items-center overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm dark:bg-black/60;
   }
   .detail-modal {
-    @apply flex max-h-[min(92vh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900;
+    @apply my-auto flex w-full max-w-4xl shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900;
+    max-height: min(92vh, 900px);
   }
   .detail-modal--wide {
-    @apply max-h-[min(96vh,960px)] max-w-[min(96vw,1600px)];
+    max-width: min(96vw, 1600px);
+    max-height: min(96vh, 960px);
+  }
+  .detail-modal--tall {
+    max-height: min(96vh, 960px);
+  }
+  .detail-modal--wide.detail-modal--tall {
+    max-width: min(98vw, 1680px);
+    max-height: min(98vh, 980px);
   }
   .detail-modal__head {
     @apply flex shrink-0 items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-4 dark:border-white/10;
@@ -123,7 +132,10 @@
     @apply shrink-0 text-lg leading-none;
   }
   .detail-modal__body {
-    @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
+    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4;
+  }
+  .detail-modal--tall .detail-modal__body {
+    @apply flex min-h-0 flex-col overflow-hidden py-3;
   }
 
   .detail-dl {

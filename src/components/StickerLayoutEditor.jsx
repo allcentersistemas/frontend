@@ -146,9 +146,9 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   )
 
   const scale = useMemo(() => {
-    const maxW = 680
-    const maxH = 400
-    return Math.min(maxW / effectiveLabelMm.widthMm, maxH / effectiveLabelMm.heightMm, 12)
+    const maxW = 560
+    const maxH = 320
+    return Math.min(maxW / effectiveLabelMm.widthMm, maxH / effectiveLabelMm.heightMm, 10)
   }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm])
 
   const activeElements = useMemo(() => getActiveLayoutElements(layout.elements), [layout.elements])
@@ -414,8 +414,8 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   if (!embedded && !open) return null
 
   const editorBody = (
-    <div className="flex flex-col gap-4 xl:flex-row">
-        <div className="min-w-0 flex-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row xl:items-stretch">
+        <div className="min-h-0 min-w-0 flex-1 xl:overflow-y-auto">
           <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-sm text-amber-100">
             Etiqueta real:{' '}
             <strong>
@@ -536,7 +536,8 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
           </div>
         </div>
 
-        <aside className="w-full shrink-0 space-y-3 xl:w-[22rem]">
+        <aside className="flex w-full min-h-0 shrink-0 flex-col xl:w-[20rem] 2xl:w-[22rem]">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
           <details className="rounded-xl border border-white/10 bg-black/25" open>
             <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
               Tamaño de etiqueta (rollo real)
@@ -893,8 +894,9 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
               ) : null}
             </div>
           ) : null}
+          </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="mt-3 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-3">
             <Button type="button" onClick={handleSave}>
               Guardar diseño y tamaño
             </Button>
@@ -917,6 +919,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
     <DetailModal
       open={open}
       wide
+      tall
       title="Diseño y tamaño de etiqueta"
       subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
       onClose={onClose}

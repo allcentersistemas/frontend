@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 /**
  * Panel de detalle a pantalla casi completa (sustituye la columna derecha estrecha `.split`).
  */
-export function DetailModal({ open, title, subtitle, onClose, children, wide = false }) {
+export function DetailModal({ open, title, subtitle, onClose, children, wide = false, tall = false }) {
   useEffect(() => {
     if (!open) return undefined
     const onKey = (e) => {
@@ -23,7 +23,7 @@ export function DetailModal({ open, title, subtitle, onClose, children, wide = f
   return (
     <div className="detail-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className={`detail-modal${wide ? ' detail-modal--wide' : ''}`}
+        className={`detail-modal${wide ? ' detail-modal--wide' : ''}${tall ? ' detail-modal--tall' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-modal-title"
