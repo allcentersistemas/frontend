@@ -22,6 +22,7 @@ export const STICKER_VISUAL_LAYOUT_KEY = 'biesse-sticker-visual-layout'
  * @property {number} [maxLines] Líneas máximas en ^FB (0 = automático según alto del cuadro).
  * @property {number} [lineGapMm] Separación entre líneas en mm.
  * @property {LayoutTextJustify} [justify] Alineación L/C/R.
+ * @property {0 | 90 | 180 | 270} [rotationDeg] Rotación del campo en la etiqueta.
  * @property {string} [customText] Texto fijo (fieldKey customText o contentSource custom).
  * @property {string} [prefix] Prefijo opcional antes del valor.
  * @property {LayoutContentSource} [contentSource] Origen del texto en cantos/medidas.
@@ -49,7 +50,7 @@ export const LAYOUT_FIELD_CATALOG = {
   headerTitle: { label: 'Título pedido', type: 'text', minW: 18, minH: 4, defaultFontHm: 5.4, maxLines: 0 },
   booking: { label: 'Booking', type: 'text', minW: 14, minH: 3, defaultFontHm: 3.6, optional: true },
   material: { label: 'Material', type: 'text', minW: 14, minH: 3.5, defaultFontHm: 4.2 },
-  subdesc: { label: 'Descripción 2', type: 'text', minW: 14, minH: 3, defaultFontHm: 3.2, optional: true },
+  subdesc: { label: 'Descripción 2', type: 'text', minW: 14, minH: 4, defaultFontHm: 3.6, maxLines: 0, optional: true },
   refLine: { label: 'Pieza (n/n)', type: 'text', minW: 8, minH: 3, defaultFontHm: 4.2 },
   pieceFrame: { label: 'Marco pieza', type: 'frame', minW: 18, minH: 10 },
   pieceCenter: { label: 'Centro pieza', type: 'text', minW: 10, minH: 3, defaultFontHm: 3.4, maxLines: 0 },
@@ -82,12 +83,12 @@ const TEMPLATE_LANDSCAPE_100x50 = {
   headerTitle: { xMm: 1, yMm: 1, wMm: 58, hMm: 12, fontHm: 5.4, maxLines: 0, enabled: true, fieldKey: 'headerTitle' },
   booking: { xMm: 1, yMm: 13, wMm: 58, hMm: 4, fontHm: 3.6, enabled: true, fieldKey: 'booking' },
   material: { xMm: 1, yMm: 17.5, wMm: 58, hMm: 5, fontHm: 4.2, enabled: true, fieldKey: 'material' },
-  subdesc: { xMm: 1, yMm: 22.5, wMm: 58, hMm: 4, fontHm: 3.2, enabled: true, fieldKey: 'subdesc' },
-  refLine: { xMm: 1, yMm: 27, wMm: 20, hMm: 5, fontHm: 4.2, enabled: true, fieldKey: 'refLine' },
-  pieceFrame: { xMm: 15, yMm: 28, wMm: 40, hMm: 16, enabled: true, fieldKey: 'pieceFrame' },
+  subdesc: { xMm: 1, yMm: 22.5, wMm: 58, hMm: 7, fontHm: 3.6, maxLines: 0, enabled: true, fieldKey: 'subdesc' },
+  refLine: { xMm: 1, yMm: 30, wMm: 20, hMm: 4.5, fontHm: 4.2, enabled: true, fieldKey: 'refLine' },
+  pieceFrame: { xMm: 15, yMm: 30, wMm: 40, hMm: 14, enabled: true, fieldKey: 'pieceFrame' },
   pieceCenter: {
     xMm: 16,
-    yMm: 34,
+    yMm: 35,
     wMm: 38,
     hMm: 5,
     fontHm: 3.4,
@@ -166,6 +167,13 @@ export function getElementMeta(id, el) {
   }
 }
 
+/** @param {unknown} deg */
+export function normalizeLayoutRotationDeg(deg) {
+  const n = Number(deg)
+  if (n === 90 || n === 180 || n === 270) return n
+  return 0
+}
+
 /** @param {string} id @param {LayoutElement} el @param {number} labelW @param {number} labelH */
 export function normalizeLayoutElement(id, el, labelW, labelH) {
   const meta = getElementMeta(id, el)
@@ -183,6 +191,7 @@ export function normalizeLayoutElement(id, el, labelW, labelH) {
     maxLines: el.maxLines ?? meta.maxLines ?? 0,
     lineGapMm: el.lineGapMm,
     justify: el.justify ?? 'L',
+    rotationDeg: normalizeLayoutRotationDeg(el.rotationDeg),
     customText: el.customText,
     prefix: el.prefix ?? meta.prefix,
     contentSource: el.contentSource ?? 'auto',

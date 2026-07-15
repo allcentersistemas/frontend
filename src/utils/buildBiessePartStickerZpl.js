@@ -16,7 +16,7 @@ import { resolveStickerPieceCounts } from './stickerPieceInfo.js'
 const DEFAULT_ZPL_DPI = 203
 
 export const STICKER_ZPL_LAYOUT_VERSION = 9
-export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 12
+export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 13
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -189,13 +189,23 @@ function effectiveMaxLines(u, el) {
 }
 
 /** @param {import('./stickerVisualLayout.js').LayoutElement} el */
+function zplRotationLetter(el) {
+  const deg = el.rotationDeg ?? 0
+  if (deg === 90) return 'R'
+  if (deg === 180) return 'I'
+  if (deg === 270) return 'B'
+  return 'N'
+}
+
+/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
 function elementFontCmd(u, el) {
   const globalScale = u.design.fontScale
   const elScale = el.fontScale ?? 1
   const h = (el.fontHm ?? 4) * globalScale * elScale
   const ratio = Math.min(0.7, Math.max(0.3, el.charWidthRatio ?? u.design.charWidthRatio))
   const w = Math.max(1, h * ratio)
-  return `^A0N,${u.mmToDots(h)},${u.mmToDots(w)}`
+  const rot = zplRotationLetter(el)
+  return `^A0${rot},${u.mmToDots(h)},${u.mmToDots(w)}`
 }
 
 /** @param {import('./stickerVisualLayout.js').LayoutElement} el */

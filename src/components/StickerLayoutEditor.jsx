@@ -122,7 +122,6 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
   const [printDpi, setPrintDpi] = useState(initialSettings.printDpi)
   const [stickerDesign, setStickerDesign] = useState(initialSettings.stickerDesign)
   const [layout, setLayout] = useState(initialSettings.visualLayout)
-  const [saveOk, setSaveOk] = useState('')
   const [selectedId, setSelectedId] = useState(() => {
     const first = getActiveLayoutElements(initialSettings.visualLayout.elements)[0]
     return first?.[0] ?? 'headerTitle'
@@ -299,6 +298,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
     setStickerPrintDpi(printDpi)
     setVisualLayoutForLabel(visualLayout, true)
     setUseVisualLayout(true)
+    setLayout(visualLayout)
 
     onSaved?.({
       printSize,
@@ -310,12 +310,7 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
       visualLayout,
       useVisualLayout: true,
     })
-    if (embedded) {
-      setSaveOk('Diseño guardado. Aplica a todas las impresiones de stickers en este equipo.')
-      window.setTimeout(() => setSaveOk(''), 5000)
-    } else {
-      onClose()
-    }
+    onClose()
   }
 
   function handleReset() {
@@ -471,6 +466,8 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
                       borderRadius: 2,
                       cursor: 'move',
                       zIndex: meta.type === 'frame' ? 5 : isSelected ? 20 : 10,
+                      transform: el.rotationDeg ? `rotate(${el.rotationDeg}deg)` : undefined,
+                      transformOrigin: '0 0',
                     }}
                     onPointerDown={(e) => handlePointerDown(e, id, 'move')}
                     onClick={(e) => {
@@ -802,6 +799,21 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
               {isTextField ? (
                 <>
                   <label className="mt-2 block text-xs text-slate-400">
+                    Rotación
+                    <select
+                      className={`${inputClass} mt-1`}
+                      value={selected.rotationDeg ?? 0}
+                      onChange={(e) =>
+                        patchElement(selectedId, { rotationDeg: Number(e.target.value) })
+                      }
+                    >
+                      <option value={0}>0° (horizontal)</option>
+                      <option value={90}>90°</option>
+                      <option value={180}>180°</option>
+                      <option value={270}>270°</option>
+                    </select>
+                  </label>
+                  <label className="mt-2 block text-xs text-slate-400">
                     Alto texto (mm)
                     <input
                       type="number"
@@ -883,18 +895,15 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
           ) : null}
 
           <div className="flex flex-col gap-2">
-            {saveOk ? <p className="form-success text-sm">{saveOk}</p> : null}
             <Button type="button" onClick={handleSave}>
               Guardar diseño y tamaño
             </Button>
             <Button type="button" variant="ghost" onClick={handleReset}>
               Restaurar plantilla
             </Button>
-            {!embedded ? (
-              <Button type="button" variant="neutral" onClick={onClose}>
-                Cancelar
-              </Button>
-            ) : null}
+            <Button type="button" variant="neutral" onClick={onClose}>
+              Cancelar
+            </Button>
           </div>
         </aside>
       </div>
