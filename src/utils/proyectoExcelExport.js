@@ -50,6 +50,13 @@ function formatMeasureForOptimizer(value) {
   return String(n * 10)
 }
 
+/** Medidas legibles en Excel de planilla (560 → 560, sin ×10 del optimizador). */
+function formatMeasureForDisplay(value) {
+  if (value === '' || value == null) return ''
+  const n = parseInt(String(value).replace(/\D/g, ''), 10)
+  return Number.isFinite(n) ? String(n) : ''
+}
+
 function formatInt(value) {
   if (value === '' || value == null) return ''
   const n = parseInt(String(value).replace(/\D/g, ''), 10)
@@ -67,7 +74,8 @@ function blankOrString(value) {
   return s
 }
 
-function mapDetalleRow(detalle, { pParams }) {
+function mapDetalleRow(detalle, { pParams, forOptimizer = false }) {
+  const fmtMeasure = forOptimizer ? formatMeasureForOptimizer : formatMeasureForDisplay
   const veta = detalle.veta
   const vetaLongitud =
     veta === '1-Longitud' || String(veta || '').startsWith('1-') || veta === '1'
@@ -75,8 +83,8 @@ function mapDetalleRow(detalle, { pParams }) {
     pCodeMat: withTrailingSpace(detalle.tablero),
     pParams: pParams || '',
     pMinq: formatInt(detalle.cantidad),
-    pLength: formatMeasureForOptimizer(detalle.largoVeta),
-    pWidth: formatMeasureForOptimizer(detalle.ancho),
+    pLength: fmtMeasure(detalle.largoVeta),
+    pWidth: fmtMeasure(detalle.ancho),
     pGrain: vetaToPayload(vetaLongitud).toLowerCase(),
     pEdgeMaSup: withTrailingSpace(detalle.l1),
     pEdgeMaInf: withTrailingSpace(detalle.l2),
@@ -120,7 +128,7 @@ function csvEscape(value) {
 function buildFlatRows(order, tree) {
   const { maquinaParametros } = orderExportContext(tree)
   return (order.detalles || []).map((detalle) => {
-    const cells = mapDetalleRow(detalle, { pParams: maquinaParametros })
+    const cells = mapDetalleRow(detalle, { pParams: maquinaParametros, forOptimizer: true })
     return FLAT_EXPORT_COLUMNS.map((col) => cells[col.key] ?? '')
   })
 }
@@ -133,7 +141,7 @@ export function downloadOrderExcelFromTree(order, tree, filename) {
   const technicalRow = EXCEL_EXPORT_COLUMNS.map((c) => c.technical)
   const labelRow = EXCEL_EXPORT_COLUMNS.map((c) => c.label)
   const dataRows = (order.detalles || []).map((detalle) => {
-    const cells = mapDetalleRow(detalle, { pParams: maquinaParametros })
+    const cells = mapDetalleRow(detalle, { pParams: maquinaParametros, forOptimizer: false })
     return EXCEL_EXPORT_COLUMNS.map((col) => cells[col.key] ?? '')
   })
 
