@@ -3,6 +3,7 @@ import { InventarioLegacyRedirect } from './components/InventarioLegacyRedirect'
 import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
+import { RequireLoggedIn } from './auth/RequireLoggedIn'
 import { AppShell } from './components/AppShell'
 import { ApiCatalogPage } from './pages/ApiCatalogPage'
 
@@ -17,6 +18,7 @@ import { ResumenPage } from './pages/ResumenPage.jsx'
 import { DashboardHomeRedirect } from './pages/DashboardHomeRedirect.jsx'
 import { proyectoOptimizacionRoutes } from './routes/proyectoOptimizacionRoutes.jsx'
 import { gestionRoutes } from './routes/gestionRoutes.jsx'
+import { StickerEditorPage } from './pages/StickerEditorPage.jsx'
 
 export default function App() {
   return (
@@ -25,6 +27,10 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<HomeRedirect />} />
+
+          <Route element={<RequireLoggedIn />}>
+            <Route path="/sticker-editor" element={<StickerEditorPage />} />
+          </Route>
 
           <Route element={<RequireAuth role="produccion" />}>
             <Route path="/dashboard/produccion/*" element={<AppShell role="produccion" />}>

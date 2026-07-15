@@ -1,14 +1,12 @@
-import { useMemo, useState } from 'react'
-import { StickerLayoutEditor } from './StickerLayoutEditor.jsx'
-import { loadGlobalStickerSettings } from '../utils/stickerGlobalSettings.js'
-import { STICKER_LAYOUT_PREVIEW_SAMPLE } from '../utils/stickerVisualLayout.js'
+import { useEffect, useMemo, useState } from 'react'
 import { isZebraZplSize, resolveLabelDimensionsMm } from '../utils/stickerPrintSize.js'
+import { loadGlobalStickerSettings } from '../utils/stickerGlobalSettings.js'
+import { onStickerEditorWindowEvent, openStickerEditorWindow } from '../utils/openStickerEditorWindow.js'
 
 /** Sección en Gestión → Configuración: diseño global de etiquetas Biesse. */
 export function StickerDesignConfigSection() {
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editorSettings, setEditorSettings] = useState(null)
   const [saveMsg, setSaveMsg] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const summary = useMemo(() => {
     const global = loadGlobalStickerSettings()
@@ -17,29 +15,33 @@ export function StickerDesignConfigSection() {
       heightMm: global.customHeightMm,
     })
     return { ...global, dims }
-  }, [editorOpen, saveMsg])
+  }, [refreshKey, saveMsg])
+
+  useEffect(() => {
+    return onStickerEditorWindowEvent((event) => {
+      if (event === 'saved') {
+        setSaveMsg('Diseño guardado. Aplica a todas las impresiones de stickers en este equipo.')
+      }
+      setRefreshKey((k) => k + 1)
+    })
+  }, [])
 
   function openEditor() {
-    setEditorSettings(loadGlobalStickerSettings())
-    setEditorOpen(true)
     setSaveMsg('')
-  }
-
-  function closeEditor() {
-    setEditorOpen(false)
-    setEditorSettings(null)
-  }
-
-  function handleSaved() {
-    setSaveMsg('Diseño guardado. Aplica a todas las impresiones de stickers en este equipo.')
-    closeEditor()
+    const win = openStickerEditorWindow()
+    if (!win) {
+      window.alert(
+        'No se pudo abrir la ventana del editor. Permita ventanas emergentes para este sitio e intente de nuevo.',
+      )
+    }
   }
 
   return (
     <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
       <h2>Etiquetas Biesse (stickers)</h2>
       <p className="muted small form-hint" style={{ marginBottom: '0.75rem' }}>
-        Diseño global para todas las impresiones: tamaño de rollo, dpi, tipografía y posición de campos.
+        Diseño global para todas las impresiones: tamaño de rollo, dpi, tipografía y posición de campos. Se abre
+        en una ventana aparte para ver el lienzo completo.
       </p>
 
       <p className="small" style={{ marginBottom: '0.75rem' }}>
@@ -64,18 +66,8 @@ export function StickerDesignConfigSection() {
       {saveMsg ? <p className="form-success" style={{ marginBottom: '0.75rem' }}>{saveMsg}</p> : null}
 
       <button type="button" className="btn btn--primary" onClick={openEditor}>
-        Abrir diseño y tamaño…
+        Abrir diseño y tamaño en ventana…
       </button>
-
-      {editorOpen && editorSettings ? (
-        <StickerLayoutEditor
-          open
-          initialSettings={editorSettings}
-          previewData={STICKER_LAYOUT_PREVIEW_SAMPLE}
-          onClose={closeEditor}
-          onSaved={handleSaved}
-        />
-      ) : null}
     </div>
   )
 }

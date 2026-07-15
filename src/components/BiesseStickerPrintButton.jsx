@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
 import {
   openStickerPrintWindow,
   printBiessePartSticker,
@@ -38,6 +36,7 @@ import {
 } from '../utils/stickerVisualLayout'
 import { loadGlobalStickerSettings } from '../utils/stickerGlobalSettings'
 import { resolveStickerPieceCounts } from '../utils/stickerPieceInfo'
+import { openStickerEditorWindow } from '../utils/openStickerEditorWindow'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -108,14 +107,6 @@ async function auditStickerPrint(detail, entries) {
  * @param {{ detail: object | null }} props
  */
 export function BiesseStickerPrintButton({ detail }) {
-  const { allowedDashboard } = useAuth()
-  const gestionStickerConfigHref = useMemo(
-    () =>
-      allowedDashboard
-        ? `/dashboard/${allowedDashboard}/gestion?tab=configuracion`
-        : '/gestion?tab=configuracion',
-    [allowedDashboard],
-  )
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('single')
   const [partId, setPartId] = useState(null)
@@ -568,11 +559,16 @@ export function BiesseStickerPrintButton({ detail }) {
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-slate-500">
-                    El tamaño, dpi y posición de campos se configuran en{' '}
-                    <Link to={gestionStickerConfigHref} className="text-sky-400 underline-offset-2 hover:underline">
-                      Gestión → Configuración
-                    </Link>
-                    . Los cambios aplican a todas las impresiones.
+                    El tamaño, dpi y posición de campos se configuran en una{' '}
+                    <button
+                      type="button"
+                      className="text-sky-400 underline-offset-2 hover:underline"
+                      onClick={() => openStickerEditorWindow()}
+                    >
+                      ventana de diseño
+                    </button>
+                    {' '}
+                    (Gestión → Configuración). Los cambios aplican a todas las impresiones.
                   </p>
                 </div>
               ) : (
