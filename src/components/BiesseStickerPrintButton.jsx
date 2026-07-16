@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   openStickerPrintWindow,
   printBiessePartSticker,
@@ -12,7 +13,9 @@ import {
   getGlobalStickerPrintOptions,
 } from '../utils/stickerGlobalSettings'
 import { resolveStickerPieceCounts } from '../utils/stickerPieceInfo'
-import { onStickerEditorWindowEvent, openStickerEditorWindow } from '../utils/openStickerEditorWindow'
+import { onStickerEditorWindowEvent } from '../utils/openStickerEditorWindow'
+import { useAuth } from '../auth/AuthContext'
+import { roleNamesFromEmployee, canViewGestionMenu } from '../auth/roles'
 import * as systemApi from '../api/systemApi'
 import { Button } from '../ui/Button.jsx'
 import { InlineCode } from '../ui/InlineCode.jsx'
@@ -83,6 +86,7 @@ async function auditStickerPrint(detail, entries) {
  * @param {{ detail: object | null }} props
  */
 export function BiesseStickerPrintButton({ detail }) {
+  const { allowedDashboard, employee } = useAuth()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('single')
   const [partId, setPartId] = useState(null)
@@ -103,6 +107,15 @@ export function BiesseStickerPrintButton({ detail }) {
   const activeLayoutVersion = printConfig?.useVisualLayout
     ? STICKER_ZPL_VISUAL_LAYOUT_VERSION
     : STICKER_ZPL_LAYOUT_VERSION
+
+  const gestionConfigHref = useMemo(
+    () =>
+      allowedDashboard
+        ? `/dashboard/${allowedDashboard}/gestion?tab=configuracion`
+        : '/gestion?tab=configuracion',
+    [allowedDashboard],
+  )
+  const canOpenGestionConfig = canViewGestionMenu(roleNamesFromEmployee(employee))
 
   useEffect(() => {
     return onStickerEditorWindowEvent(() => {
@@ -501,18 +514,19 @@ export function BiesseStickerPrintButton({ detail }) {
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-slate-500">
-                    Tamaño, dpi y diseño se configuran en{' '}
-                    <strong className="text-slate-300">Gestión → Configuración</strong>
-                    {' '}
-                    o en la{' '}
-                    <button
-                      type="button"
-                      className="text-sky-400 underline-offset-2 hover:underline"
-                      onClick={() => openStickerEditorWindow()}
-                    >
-                      ventana de diseño
-                    </button>
-                    . Los cambios aplican a todas las impresiones.
+                    Tamaño, dpi y diseño se toman de{' '}
+                    {canOpenGestionConfig ? (
+                      <Link
+                        to={gestionConfigHref}
+                        className="text-sky-400 underline-offset-2 hover:underline"
+                        onClick={() => setOpen(false)}
+                      >
+                        Gestión → Configuración
+                      </Link>
+                    ) : (
+                      <strong className="text-slate-300">Gestión → Configuración</strong>
+                    )}
+                    . Para cambiar el diseño, edítalo allí (no desde este diálogo).
                   </p>
                 </div>
               ) : null}
