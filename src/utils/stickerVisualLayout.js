@@ -411,6 +411,30 @@ function saveVisualLayoutStore(store) {
   }
 }
 
+/** Reemplaza el almacén completo de layouts (importación / sincronización). */
+export function applyVisualLayoutStore(store) {
+  const normalized = {
+    useVisualLayout: Boolean(store?.useVisualLayout),
+    layouts: {},
+  }
+  if (store?.layouts && typeof store.layouts === 'object') {
+    for (const [key, layout] of Object.entries(store.layouts)) {
+      if (!layout?.elements) continue
+      const labelWidthMm = layout.labelWidthMm ?? BASE_LANDSCAPE_W
+      const labelHeightMm = layout.labelHeightMm ?? BASE_LANDSCAPE_H
+      const orientation = layout.orientation ?? 'landscape'
+      normalized.layouts[key] = {
+        labelWidthMm,
+        labelHeightMm,
+        orientation,
+        elements: migrateLegacyElements(layout.elements, labelWidthMm, labelHeightMm),
+      }
+    }
+  }
+  saveVisualLayoutStore(normalized)
+  return normalized
+}
+
 /**
  * Ajusta el layout guardado al tamaño de etiqueta actual (escala posiciones si cambió el rollo).
  * @param {StickerVisualLayout|null|undefined} layout

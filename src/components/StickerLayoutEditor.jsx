@@ -39,6 +39,12 @@ import {
   setUseVisualLayout,
   setVisualLayoutForLabel,
 } from '../utils/stickerVisualLayout.js'
+import {
+  applyStickerDesignProfile,
+  collectStickerDesignProfileFromEditor,
+  downloadStickerDesignProfile,
+  readStickerDesignProfileFile,
+} from '../utils/stickerDesignProfile.js'
 
 const ZEBRA_SIZE_OPTIONS = STICKER_PRINT_SIZES.filter((s) => isZebraZplSize(s.id))
 
@@ -114,6 +120,9 @@ function snapMm(value, step = 0.5) {
  * @param {(settings: object) => void} [props.onSaved]
  */
 export function StickerLayoutEditor({ open, onClose, initialSettings, previewData, onSaved }) {
+  const importInputRef = useRef(null)
+  const [profileMsg, setProfileMsg] = useState('')
+  const [profileErr, setProfileErr] = useState('')
   const [printSize, setPrintSize] = useState(initialSettings.printSize)
   const [printOrientation, setPrintOrientation] = useState(initialSettings.printOrientation)
   const [customWidthMm, setCustomWidthMm] = useState(initialSettings.customWidthMm)
@@ -311,6 +320,65 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
     onClose()
   }
 
+  function applyImportedSettings(settings) {
+    setPrintSize(settings.printSize)
+    setPrintOrientation(settings.printOrientation)
+    setCustomWidthMm(settings.customWidthMm)
+    setCustomHeightMm(settings.customHeightMm)
+    setPrintDpi(settings.printDpi)
+    setStickerDesign(settings.stickerDesign)
+    setLayout(settings.visualLayout)
+    setSelectedId('headerTitle')
+    onSaved?.({
+      printSize: settings.printSize,
+      printOrientation: settings.printOrientation,
+      customWidthMm: settings.customWidthMm,
+      customHeightMm: settings.customHeightMm,
+      printDpi: settings.printDpi,
+      stickerDesign: settings.stickerDesign,
+      visualLayout: settings.visualLayout,
+      useVisualLayout: settings.useVisualLayout,
+    })
+  }
+
+  function handleExportProfile() {
+    setProfileErr('')
+    try {
+      const profile = collectStickerDesignProfileFromEditor({
+        printSize,
+        printOrientation,
+        customWidthMm,
+        customHeightMm,
+        printDpi,
+        stickerDesign,
+        visualLayout: layout,
+        useVisualLayout: true,
+      })
+      downloadStickerDesignProfile(profile)
+      setProfileMsg('Diseño exportado. Copia el archivo .json al otro equipo e impórtalo allí.')
+    } catch (e) {
+      setProfileErr(e instanceof Error ? e.message : 'No se pudo exportar el diseño.')
+    }
+  }
+
+  async function handleImportProfile(file) {
+    setProfileErr('')
+    setProfileMsg('')
+    try {
+      const profile = await readStickerDesignProfileFile(file)
+      const settings = applyStickerDesignProfile(profile)
+      applyImportedSettings(settings)
+      const label = settings.profileName ? ` «${settings.profileName}»` : ''
+      setProfileMsg(`Diseño${label} importado y guardado en este navegador.`)
+    } catch (e) {
+      setProfileErr(e instanceof Error ? e.message : 'No se pudo importar el diseño.')
+    } finally {
+      if (importInputRef.current) {
+        importInputRef.current.value = ''
+      }
+    }
+  }
+
   function handleReset() {
     const fresh = resetVisualLayoutForLabel(
       effectiveLabelMm.widthMm,
@@ -419,6 +487,11 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
     >
       <div className="flex flex-col gap-4 xl:flex-row">
         <div className="min-w-0 flex-1">
+          <div className="mb-3 rounded-xl border border-slate-600/40 bg-slate-900/40 px-3 py-2 text-xs text-slate-300">
+            El diseño se guarda en <strong>este navegador</strong> (localStorage). Usa{' '}
+            <strong>Guardar</strong> para conservarlo aquí, o <strong>Exportar</strong> para llevarlo a otro PC.
+          </div>
+
           <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-sm text-amber-100">
             Etiqueta real:{' '}
             <strong>
@@ -884,6 +957,26 @@ export function StickerLayoutEditor({ open, onClose, initialSettings, previewDat
             <Button type="button" onClick={handleSave}>
               Guardar diseño y tamaño
             </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="ghost" onClick={handleExportProfile}>
+                Exportar diseño
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => importInputRef.current?.click()}>
+                Importar diseño
+              </Button>
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) void handleImportProfile(file)
+              }}
+            />
+            {profileMsg ? <p className="text-xs text-emerald-300">{profileMsg}</p> : null}
+            {profileErr ? <p className="text-xs text-rose-300">{profileErr}</p> : null}
             <Button type="button" variant="ghost" onClick={handleReset}>
               Restaurar plantilla
             </Button>
