@@ -390,7 +390,7 @@ export function visualLayoutKey(w, h, orientation) {
   return `${roundMm(w)}x${roundMm(h)}_${orientation}`
 }
 
-/** @typedef {{ useVisualLayout: boolean, layouts: Record<string, StickerVisualLayout> }} VisualLayoutStore */
+/** @typedef {{ useVisualLayout: boolean, layouts: Record<string, StickerVisualLayout>, lastSavedLayoutKey?: string|null }} VisualLayoutStore */
 
 /** @returns {VisualLayoutStore} */
 export function getVisualLayoutStore() {
@@ -402,13 +402,15 @@ export function getVisualLayoutStore() {
         return {
           useVisualLayout: Boolean(parsed.useVisualLayout),
           layouts: parsed.layouts && typeof parsed.layouts === 'object' ? parsed.layouts : {},
+          lastSavedLayoutKey:
+            typeof parsed.lastSavedLayoutKey === 'string' ? parsed.lastSavedLayoutKey : null,
         }
       }
     }
   } catch {
     /* ignore */
   }
-  return { useVisualLayout: false, layouts: {} }
+  return { useVisualLayout: false, layouts: {}, lastSavedLayoutKey: null }
 }
 
 /** @param {VisualLayoutStore} store */
@@ -484,6 +486,7 @@ export function setVisualLayoutForLabel(layout, useVisualLayout) {
     orientation,
     elements: JSON.parse(JSON.stringify(elements)),
   }
+  store.lastSavedLayoutKey = key
   if (useVisualLayout !== undefined) {
     store.useVisualLayout = useVisualLayout
   }
@@ -580,10 +583,44 @@ export const STICKER_LAYOUT_PREVIEW_SAMPLE = {
  * @param {{ widthMm?: number, heightMm?: number }|null} customLabelMm
  */
 export function resolveVisualLayoutForPrint(printSize, orientation, customLabelMm = null) {
+  return getLayoutForPrint(printSize, orientation, customLabelMm)
+}
+
+/**
+ * Layout y flag listos para imprimir: usa el diseño guardado (último guardado o clave exacta).
+ * @param {import('./stickerPrintSize.js').StickerPrintSizeId | string} printSize
+ * @param {'landscape'|'portrait'} orientation
+ * @param {{ widthMm?: number, heightMm?: number }|null} [customLabelMm]
+ */
+export function getLayoutForPrint(printSize, orientation, customLabelMm = null) {
+  const store = getVisualLayoutStore()
   const { widthMm, heightMm } = resolveLabelDimensionsMm(printSize, orientation, customLabelMm)
-  const raw = getVisualLayoutForLabel(widthMm, heightMm, orientation)
-  return {
-    useVisualLayout: getUseVisualLayout(),
-    visualLayout: normalizeVisualLayoutForPrint(raw, widthMm, heightMm, orientation),
+  const key = visualLayoutKey(widthMm, heightMm, orientation)
+
+  let rawLayout = store.layouts[key]
+  if (!rawLayout?.elements && store.lastSavedLayoutKey) {
+    rawLayout = store.layouts[store.lastSavedLayoutKey]
   }
+
+  const visualLayout = rawLayout?.elements
+    ? normalizeVisualLayoutForPrint(
+        {
+          labelWidthMm: rawLayout.labelWidthMm ?? widthMm,
+          labelHeightMm: rawLayout.labelHeightMm ?? heightMm,
+          orientation,
+          elements: rawLayout.elements,
+        },
+        widthMm,
+        heightMm,
+        orientation,
+      )
+    : getVisualLayoutForLabel(widthMm, heightMm, orientation)
+
+  const hasSaved =
+    Boolean(store.layouts[key]?.elements) ||
+    Boolean(store.lastSavedLayoutKey && store.layouts[store.lastSavedLayoutKey]?.elements)
+
+  const useVisualLayout = Boolean((store.useVisualLayout || hasSaved) && visualLayout?.elements)
+
+  return { useVisualLayout, visualLayout }
 }

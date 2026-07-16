@@ -39,6 +39,7 @@ import {
   setUseVisualLayout,
   setVisualLayoutForLabel,
 } from '../utils/stickerVisualLayout.js'
+import { notifyStickerSettingsChanged } from '../utils/openStickerEditorWindow.js'
 
 const ZEBRA_SIZE_OPTIONS = STICKER_PRINT_SIZES.filter((s) => isZebraZplSize(s.id))
 
@@ -308,6 +309,7 @@ export function StickerLayoutEditor({
     setVisualLayoutForLabel(visualLayout, true)
     setUseVisualLayout(true)
     setLayout(visualLayout)
+    notifyStickerSettingsChanged()
 
     onSaved?.({
       printSize,

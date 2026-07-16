@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isZebraZplSize, resolveLabelDimensionsMm } from '../utils/stickerPrintSize.js'
 import { loadGlobalStickerSettings } from '../utils/stickerGlobalSettings.js'
-import { onStickerEditorWindowEvent, openStickerEditorWindow } from '../utils/openStickerEditorWindow.js'
+import { onStickerEditorWindowEvent, onStickerSettingsChanged, openStickerEditorWindow } from '../utils/openStickerEditorWindow.js'
 
 /** Sección en Gestión → Configuración: diseño global de etiquetas Biesse. */
 export function StickerDesignConfigSection() {
@@ -18,12 +18,20 @@ export function StickerDesignConfigSection() {
   }, [refreshKey, saveMsg])
 
   useEffect(() => {
-    return onStickerEditorWindowEvent((event) => {
+    function refresh() {
+      setRefreshKey((k) => k + 1)
+    }
+    const offEditor = onStickerEditorWindowEvent((event) => {
       if (event === 'saved') {
         setSaveMsg('Diseño guardado. Aplica a todas las impresiones de stickers en este equipo.')
       }
-      setRefreshKey((k) => k + 1)
+      refresh()
     })
+    const offSettings = onStickerSettingsChanged(refresh)
+    return () => {
+      offEditor()
+      offSettings()
+    }
   }, [])
 
   function openEditor() {

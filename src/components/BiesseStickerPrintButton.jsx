@@ -11,9 +11,10 @@ import { isZebraBrowserPrintAvailable, downloadZplFile, ZEBRA_BROWSER_PRINT_URL 
 import { isZebraZplSize } from '../utils/stickerPrintSize'
 import {
   getGlobalStickerPrintOptions,
+  STICKER_SETTINGS_STORAGE_KEYS,
 } from '../utils/stickerGlobalSettings'
 import { resolveStickerPieceCounts } from '../utils/stickerPieceInfo'
-import { onStickerEditorWindowEvent } from '../utils/openStickerEditorWindow'
+import { onStickerEditorWindowEvent, onStickerSettingsChanged } from '../utils/openStickerEditorWindow'
 import { useAuth } from '../auth/AuthContext'
 import { roleNamesFromEmployee, canViewGestionMenu } from '../auth/roles'
 import * as systemApi from '../api/systemApi'
@@ -118,9 +119,22 @@ export function BiesseStickerPrintButton({ detail }) {
   const canOpenGestionConfig = canViewGestionMenu(roleNamesFromEmployee(employee))
 
   useEffect(() => {
-    return onStickerEditorWindowEvent(() => {
+    function bumpConfigRefresh() {
       setConfigRefresh((n) => n + 1)
-    })
+    }
+    const offEditor = onStickerEditorWindowEvent(bumpConfigRefresh)
+    const offSettings = onStickerSettingsChanged(bumpConfigRefresh)
+    function onStorage(event) {
+      if (event.key && STICKER_SETTINGS_STORAGE_KEYS.includes(event.key)) {
+        bumpConfigRefresh()
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => {
+      offEditor()
+      offSettings()
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   useEffect(() => {
@@ -289,13 +303,6 @@ export function BiesseStickerPrintButton({ detail }) {
       const piece = buildPiecePayload(selectedPart, numeroPieza)
       const printResult = await printBiessePartSticker({
         printWindow,
-        printSize: config.printSize,
-        printOrientation: config.printOrientation,
-        printDpi: config.printDpi,
-        customLabelMm: config.customLabelMm,
-        stickerDesign: config.stickerDesign,
-        useVisualLayout: config.useVisualLayout,
-        visualLayout: config.visualLayout,
         order: buildOrderPayload(),
         part,
         piece,
@@ -350,13 +357,6 @@ export function BiesseStickerPrintButton({ detail }) {
 
       const results = await printBiessePartStickersBulk({
         items,
-        printSize: config.printSize,
-        printOrientation: config.printOrientation,
-        printDpi: config.printDpi,
-        customLabelMm: config.customLabelMm,
-        stickerDesign: config.stickerDesign,
-        useVisualLayout: config.useVisualLayout,
-        visualLayout: config.visualLayout,
         printWindow,
       })
 

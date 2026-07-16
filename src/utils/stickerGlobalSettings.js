@@ -6,11 +6,18 @@ import {
   resolveLabelDimensionsMm,
 } from './stickerPrintSize.js'
 import { getStickerDesignSettings } from './stickerDesignSettings.js'
-import {
-  getUseVisualLayout,
-  getVisualLayoutForLabel,
-  normalizeVisualLayoutForPrint,
-} from './stickerVisualLayout.js'
+import { getLayoutForPrint } from './stickerVisualLayout.js'
+
+/** Claves localStorage que definen la configuración global de stickers. */
+export const STICKER_SETTINGS_STORAGE_KEYS = [
+  'biesse-sticker-print-size',
+  'biesse-sticker-print-orientation',
+  'biesse-sticker-print-dpi',
+  'biesse-sticker-print-custom-width-mm',
+  'biesse-sticker-print-custom-height-mm',
+  'biesse-sticker-design-settings',
+  'biesse-sticker-visual-layout',
+]
 
 /** Ajustes globales de impresión de stickers (localStorage, compartidos por todas las impresiones). */
 export function loadGlobalStickerSettings() {
@@ -19,6 +26,7 @@ export function loadGlobalStickerSettings() {
   const custom = getStickerPrintCustomSize()
   const customLabelMm = printSize === 'label_custom' ? custom : null
   const { widthMm, heightMm } = resolveLabelDimensionsMm(printSize, printOrientation, customLabelMm)
+  const { useVisualLayout, visualLayout } = getLayoutForPrint(printSize, printOrientation, customLabelMm)
 
   return {
     printSize,
@@ -27,8 +35,9 @@ export function loadGlobalStickerSettings() {
     customHeightMm: custom.heightMm,
     printDpi: getStickerPrintDpi(),
     stickerDesign: getStickerDesignSettings(),
-    visualLayout: getVisualLayoutForLabel(widthMm, heightMm, printOrientation),
-    useVisualLayout: getUseVisualLayout(),
+    visualLayout,
+    useVisualLayout,
+    effectiveLabelMm: { widthMm, heightMm },
   }
 }
 
@@ -42,20 +51,6 @@ export function getGlobalStickerPrintOptions() {
     settings.printSize === 'label_custom'
       ? { widthMm: settings.customWidthMm, heightMm: settings.customHeightMm }
       : null
-  const effectiveLabelMm = resolveLabelDimensionsMm(
-    settings.printSize,
-    settings.printOrientation,
-    customLabelMm,
-  )
-  const useVisualLayout = Boolean(settings.useVisualLayout && settings.visualLayout?.elements)
-  const visualLayout = useVisualLayout
-    ? normalizeVisualLayoutForPrint(
-        settings.visualLayout,
-        effectiveLabelMm.widthMm,
-        effectiveLabelMm.heightMm,
-        settings.printOrientation,
-      )
-    : null
 
   return {
     printSize: settings.printSize,
@@ -63,8 +58,8 @@ export function getGlobalStickerPrintOptions() {
     printDpi: settings.printDpi,
     stickerDesign: settings.stickerDesign,
     customLabelMm,
-    effectiveLabelMm,
-    useVisualLayout,
-    visualLayout,
+    effectiveLabelMm: settings.effectiveLabelMm,
+    useVisualLayout: settings.useVisualLayout,
+    visualLayout: settings.visualLayout,
   }
 }
