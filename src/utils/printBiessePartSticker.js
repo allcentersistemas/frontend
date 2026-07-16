@@ -4,9 +4,10 @@
  */
 
 import { buildBiessePartStickerZpl } from './buildBiessePartStickerZpl.js'
-import { isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
-import { getGlobalStickerPrintOptions } from './stickerGlobalSettings.js'
-import { resolveStickerPieceCounts } from './stickerPieceInfo.js'
+import { getStickerPrintSize, isZebraZplSize, resolveLabelDimensionsMm } from './stickerPrintSize.js'
+import { getStickerPrintDpi } from './stickerPrintDpi.js'
+import { getStickerDesignSettings } from './stickerDesignSettings.js'
+import { resolveVisualLayoutForPrint } from './stickerVisualLayout.js'
 import { sendZplToZebra } from './zebraBrowserPrint.js'
 
 function esc(s) {
@@ -552,8 +553,7 @@ function buildStickerInnerHtml(data) {
     L,
     A,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode,
     printedAt,
   } = data
@@ -591,7 +591,7 @@ function buildStickerInnerHtml(data) {
           <div>L: ${L != null ? esc(String(L)) : '—'}</div>
           <div>A: ${A != null ? esc(String(A)) : '—'}</div>
         </div>
-        <div class="frac">${esc(fractionText)}</div>
+        <div class="frac">${esc(String(numeroPieza))} / ${esc(String(cantidad))}</div>
         <div class="foot">
           <span>${esc(formatStickerDate(printedAt))}</span>
         </div>
@@ -658,7 +658,8 @@ export async function resolveStickerItemData({
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
       partNumberRaw != null && Number(partNumberRaw) > 0 ? Number(partNumberRaw) : null
-  const { numeroPieza, totalPiezas, fractionText } = resolveStickerPieceCounts(part, piece)
+  const numeroPieza = piece?.numeroPieza ?? 1
+  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(
       orderName,
       partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
@@ -686,7 +687,7 @@ export async function resolveStickerItemData({
     bookingCode: order?.bookingCode,
     matLine: materialLine(part?.material),
     subDesc: joinNonEmpty([part?.descripcion1]),
-    refLine: fractionText,
+    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
     centerLabel: String(part?.descripcion ?? '—').trim(),
     upLabel: String(part?.matedgeup ?? '').trim(),
     loLabel: String(part?.matedgelo ?? '').trim(),
@@ -698,8 +699,7 @@ export async function resolveStickerItemData({
     longitud: part?.longitud,
     ancho: part?.ancho,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode: `P${partNumber != null && partNumber !== '' ? String(partNumber) : '0'}`,
     printedAt,
     printSize,
@@ -711,23 +711,6 @@ export async function resolveStickerItemData({
 }
 
 /**
- * Opciones de impresión: lee siempre la configuración global al momento de imprimir.
- * @param {object} [overrides] Solo para pruebas o casos avanzados.
- */
-function resolvePrintOptions(overrides = {}) {
-  const global = getGlobalStickerPrintOptions()
-  return {
-    printSize: overrides.printSize ?? global.printSize,
-    printOrientation: overrides.printOrientation ?? global.printOrientation,
-    printDpi: overrides.printDpi ?? global.printDpi,
-    customLabelMm: overrides.customLabelMm !== undefined ? overrides.customLabelMm : global.customLabelMm,
-    stickerDesign: overrides.stickerDesign ?? global.stickerDesign,
-    useVisualLayout: overrides.useVisualLayout ?? global.useVisualLayout,
-    visualLayout: overrides.visualLayout ?? global.visualLayout,
-  }
-}
-
-/**
  * @param {object} opts
  * @param {Array<{ order: object, part: object, piece: object }>} opts.items
  * @param {'auto'|'fill'|'label_80x50'|'label_100x50'|'label_60x40'} [opts.printSize]
@@ -735,32 +718,15 @@ function resolvePrintOptions(overrides = {}) {
  */
 export async function printBiessePartStickersBulk({
                                                     items,
-                                                    printSize,
-                                                    printOrientation,
-                                                    printDpi,
-                                                    customLabelMm,
-                                                    stickerDesign,
+                                                    printSize = getStickerPrintSize(),
+                                                    printOrientation = 'landscape',
+                                                    printDpi = getStickerPrintDpi(),
+                                                    customLabelMm = null,
+                                                    stickerDesign = getStickerDesignSettings(),
                                                     useVisualLayout: useVisualLayoutOverride,
                                                     visualLayout: visualLayoutOverride,
                                                     printWindow = null,
                                                   }) {
-  const opts = resolvePrintOptions({
-    printSize,
-    printOrientation,
-    printDpi,
-    customLabelMm,
-    stickerDesign,
-    useVisualLayout: useVisualLayoutOverride,
-    visualLayout: visualLayoutOverride,
-  })
-  printSize = opts.printSize
-  printOrientation = opts.printOrientation
-  printDpi = opts.printDpi
-  customLabelMm = opts.customLabelMm
-  stickerDesign = opts.stickerDesign
-  const useVisualLayout = opts.useVisualLayout
-  const visualLayout = opts.visualLayout
-
   if (!items?.length) {
     throw new Error('No hay etiquetas para imprimir.')
   }
@@ -776,6 +742,11 @@ export async function printBiessePartStickersBulk({
 
   if (isZebraZplSize(printSize)) {
     try {
+      const resolvedVisual =
+        visualLayoutOverride != null && useVisualLayoutOverride != null
+          ? { useVisualLayout: useVisualLayoutOverride, visualLayout: visualLayoutOverride }
+          : resolveVisualLayoutForPrint(printSize, printOrientation, customLabelMm)
+      const { useVisualLayout, visualLayout } = resolvedVisual
       for (let i = 0; i < items.length; i += 1) {
         const item = items[i]
         const zpl = buildBiessePartStickerZpl({
@@ -844,31 +815,14 @@ export async function printBiessePartSticker({
                                                part,
                                                piece,
                                                printWindow = null,
-                                               printSize,
-                                               printOrientation,
-                                               printDpi,
-                                               customLabelMm,
-                                               stickerDesign,
+                                               printSize = getStickerPrintSize(),
+                                               printOrientation = 'landscape',
+                                               printDpi = getStickerPrintDpi(),
+                                               customLabelMm = null,
+                                               stickerDesign = getStickerDesignSettings(),
                                                useVisualLayout: useVisualLayoutOverride,
                                                visualLayout: visualLayoutOverride,
                                              }) {
-  const opts = resolvePrintOptions({
-    printSize,
-    printOrientation,
-    printDpi,
-    customLabelMm,
-    stickerDesign,
-    useVisualLayout: useVisualLayoutOverride,
-    visualLayout: visualLayoutOverride,
-  })
-  printSize = opts.printSize
-  printOrientation = opts.printOrientation
-  printDpi = opts.printDpi
-  customLabelMm = opts.customLabelMm
-  stickerDesign = opts.stickerDesign
-  const useVisualLayout = opts.useVisualLayout
-  const visualLayout = opts.visualLayout
-
   const orderName = order?.orderName ?? ''
   const partNumberRaw = part?.partNumber ?? part?.partnumber
   const partNumber =
@@ -884,6 +838,10 @@ export async function printBiessePartSticker({
   const printedAt = new Date()
 
   if (isZebraZplSize(printSize)) {
+    const { useVisualLayout, visualLayout } =
+      visualLayoutOverride != null && useVisualLayoutOverride != null
+        ? { useVisualLayout: useVisualLayoutOverride, visualLayout: visualLayoutOverride }
+        : resolveVisualLayoutForPrint(printSize, printOrientation, customLabelMm)
     const zpl = buildBiessePartStickerZpl({
       scanCode,
       orderName,

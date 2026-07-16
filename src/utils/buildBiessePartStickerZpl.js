@@ -11,12 +11,11 @@ import {
   normalizeStickerDesignSettings,
 } from './stickerDesignSettings.js'
 import { LAYOUT_FIELD_CATALOG, normalizeVisualLayoutForPrint } from './stickerVisualLayout.js'
-import { resolveStickerPieceCounts } from './stickerPieceInfo.js'
 
 const DEFAULT_ZPL_DPI = 203
 
 export const STICKER_ZPL_LAYOUT_VERSION = 9
-export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 13
+export const STICKER_ZPL_VISUAL_LAYOUT_VERSION = 12
 
 /** @typedef {'label_80x50' | 'label_100x50' | 'label_60x40' | 'label_custom'} ZebraLabelSizeId */
 
@@ -104,7 +103,6 @@ function buildStickerTextFields({
   orderName,
   bookingCode,
   part,
-  piece,
   orientation,
   useVisualLayout,
 }) {
@@ -114,23 +112,18 @@ function buildStickerTextFields({
     zplTrunc(text, useVisualLayout ? visualMax : autoMax)
 
   const partNumber = part?.partNumber ?? part?.partId ?? 0
-  const { numeroPieza, totalPiezas, fractionText } = resolveStickerPieceCounts(part, piece)
 
   return {
     headerTitle: cap(String(orderName ?? '').toUpperCase(), isPortrait ? 28 : 48),
     booking: bookingCode ? cap(String(bookingCode).trim(), isPortrait ? 24 : 36) : '',
     matLine: cap(String(part?.material ?? '').trim().toUpperCase() || '—', isPortrait ? 28 : 40),
     subDesc: cap(part?.descripcion1 ?? '', isPortrait ? 28 : 40),
-    refLine: fractionText,
+    refLine: partNumber != null && partNumber !== '' ? String(partNumber) : '0',
     centerLabel: cap(String(part?.descripcion ?? '—').trim(), 28, 80),
     upLabel: cap(part?.matedgeup ?? '', 18, 40),
     loLabel: cap(part?.matedgelo ?? '', 18, 40),
     leftLabel: cap(part?.matedgel ?? '', 12, 24),
     rightLabel: cap(part?.matedger ?? '', 12, 24),
-    numeroPieza,
-    totalPiezas,
-    fractionText,
-    partNumber,
   }
 }
 
@@ -189,23 +182,13 @@ function effectiveMaxLines(u, el) {
 }
 
 /** @param {import('./stickerVisualLayout.js').LayoutElement} el */
-function zplRotationLetter(el) {
-  const deg = el.rotationDeg ?? 0
-  if (deg === 90) return 'R'
-  if (deg === 180) return 'I'
-  if (deg === 270) return 'B'
-  return 'N'
-}
-
-/** @param {import('./stickerVisualLayout.js').LayoutElement} el */
 function elementFontCmd(u, el) {
   const globalScale = u.design.fontScale
   const elScale = el.fontScale ?? 1
   const h = (el.fontHm ?? 4) * globalScale * elScale
   const ratio = Math.min(0.7, Math.max(0.3, el.charWidthRatio ?? u.design.charWidthRatio))
   const w = Math.max(1, h * ratio)
-  const rot = zplRotationLetter(el)
-  return `^A0${rot},${u.mmToDots(h)},${u.mmToDots(w)}`
+  return `^A0N,${u.mmToDots(h)},${u.mmToDots(w)}`
 }
 
 /** @param {import('./stickerVisualLayout.js').LayoutElement} el */
@@ -333,8 +316,7 @@ function buildLandscapeZpl(ctx) {
     L,
     A,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode,
     dateStr,
   } = ctx
@@ -390,7 +372,7 @@ function buildLandscapeZpl(ctx) {
   infoY = reserveRow(u, infoY, 4.2, 0.55)
   lines.push(`^FO${rightX},${infoY}${u.text(4.2)}^FDA: ${A != null ? A : '—'}^FS`)
   infoY = reserveRow(u, infoY, 4.2, 0.55)
-  lines.push(`^FO${rightX},${infoY}${u.text(4)}^FD${fractionText}^FS`)
+  lines.push(`^FO${rightX},${infoY}${u.text(4)}^FD${numeroPieza} / ${cantidad}^FS`)
 
   const footY = LL - u.mmToDots(3.4)
   lines.push(`^FO${leftX},${footY}${u.text(3.2)}^FD${zplEscape(pCode)}^FS`)
@@ -448,8 +430,7 @@ function buildPortraitZpl(ctx) {
     L,
     A,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode,
     dateStr,
   } = ctx
@@ -506,7 +487,7 @@ function buildPortraitZpl(ctx) {
   infoY = reserveRow(u, infoY, 4, 0.55)
   lines.push(`^FO${pad},${infoY}${u.text(4)}^FDA: ${A != null ? A : '—'}^FS`)
   infoY = reserveRow(u, infoY, 4, 0.55)
-  lines.push(`^FO${pad},${infoY}${u.text(3.8)}^FD${fractionText}^FS`)
+  lines.push(`^FO${pad},${infoY}${u.text(3.8)}^FD${numeroPieza} / ${cantidad}^FS`)
   infoY = reserveRow(u, infoY, 3.8, 0.45)
   lines.push(`^FO${pad},${infoY}${u.text(3)}^FD${zplEscape(pCode)}^FS`)
 
@@ -540,8 +521,7 @@ function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
     L,
     A,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode,
     dateStr,
   } = ctx
@@ -620,7 +600,7 @@ function buildVisualLayoutZpl(ctx, visualLayout, labelMm) {
       case 'dimsA':
         return `${prefix}${A != null ? A : '—'}`
       case 'fraction':
-        return fractionText
+        return `${numeroPieza} / ${cantidad}`
       case 'footerLeft':
         return pCode
       case 'footerRight':
@@ -719,6 +699,8 @@ export function buildBiessePartStickerZpl({
   const pieceBoxW = u.mmToDots(PIECE_FRAME_W_MM)
   const pieceBoxH = u.mmToDots(PIECE_FRAME_H_MM)
   const partNumber = part?.partNumber ?? part?.partId ?? 0
+  const numeroPieza = piece?.numeroPieza ?? 1
+  const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const {
     headerTitle,
     booking,
@@ -730,14 +712,10 @@ export function buildBiessePartStickerZpl({
     loLabel,
     leftLabel,
     rightLabel,
-    numeroPieza,
-    totalPiezas,
-    fractionText,
   } = buildStickerTextFields({
     orderName,
     bookingCode,
     part,
-    piece,
     orientation,
     useVisualLayout: Boolean(useVisualLayout && visualLayout?.elements),
   })
@@ -766,8 +744,7 @@ export function buildBiessePartStickerZpl({
     L,
     A,
     numeroPieza,
-    totalPiezas,
-    fractionText,
+    cantidad,
     pCode,
     dateStr,
   }

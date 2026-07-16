@@ -39,7 +39,6 @@ import {
   setUseVisualLayout,
   setVisualLayoutForLabel,
 } from '../utils/stickerVisualLayout.js'
-import { notifyStickerSettingsChanged } from '../utils/openStickerEditorWindow.js'
 
 const ZEBRA_SIZE_OPTIONS = STICKER_PRINT_SIZES.filter((s) => isZebraZplSize(s.id))
 
@@ -113,18 +112,8 @@ function snapMm(value, step = 0.5) {
  * @param {object} props.initialSettings
  * @param {object} [props.previewData]
  * @param {(settings: object) => void} [props.onSaved]
- * @param {boolean} [props.embedded] Si true, se muestra inline (p. ej. ventana dedicada).
- * @param {boolean} [props.windowMode] Si true, usa todo el alto disponible (ventana emergente).
  */
-export function StickerLayoutEditor({
-  open,
-  onClose,
-  initialSettings,
-  previewData,
-  onSaved,
-  embedded = false,
-  windowMode = false,
-}) {
+export function StickerLayoutEditor({ open, onClose, initialSettings, previewData, onSaved }) {
   const [printSize, setPrintSize] = useState(initialSettings.printSize)
   const [printOrientation, setPrintOrientation] = useState(initialSettings.printOrientation)
   const [customWidthMm, setCustomWidthMm] = useState(initialSettings.customWidthMm)
@@ -156,10 +145,10 @@ export function StickerLayoutEditor({
   )
 
   const scale = useMemo(() => {
-    const maxW = windowMode ? 720 : 560
-    const maxH = windowMode ? 480 : 320
-    return Math.min(maxW / effectiveLabelMm.widthMm, maxH / effectiveLabelMm.heightMm, windowMode ? 12 : 10)
-  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm, windowMode])
+    const maxW = 680
+    const maxH = 400
+    return Math.min(maxW / effectiveLabelMm.widthMm, maxH / effectiveLabelMm.heightMm, 12)
+  }, [effectiveLabelMm.widthMm, effectiveLabelMm.heightMm])
 
   const activeElements = useMemo(() => getActiveLayoutElements(layout.elements), [layout.elements])
   const addableFields = useMemo(() => listAddableFields(layout), [layout])
@@ -308,8 +297,6 @@ export function StickerLayoutEditor({
     setStickerPrintDpi(printDpi)
     setVisualLayoutForLabel(visualLayout, true)
     setUseVisualLayout(true)
-    setLayout(visualLayout)
-    notifyStickerSettingsChanged()
 
     onSaved?.({
       printSize,
@@ -321,9 +308,7 @@ export function StickerLayoutEditor({
       visualLayout,
       useVisualLayout: true,
     })
-    if (!embedded) {
-      onClose()
-    }
+    onClose()
   }
 
   function handleReset() {
@@ -384,7 +369,7 @@ export function StickerLayoutEditor({
       case 'subdesc':
         return sample.subdesc || '(vacío)'
       case 'refLine':
-        return sample.fractionText ?? sample.refLine
+        return sample.refLine
       case 'pieceCenter':
         return sample.centerLabel
       case 'edgeUp':
@@ -406,7 +391,7 @@ export function StickerLayoutEditor({
       case 'qr':
         return 'QR'
       case 'fraction':
-        return sample.fractionText ?? `${sample.numeroPieza} / ${sample.cantidad}`
+        return `${sample.numeroPieza} / ${sample.cantidad}`
       case 'footerLeft':
         return sample.pCode
       case 'footerRight':
@@ -424,13 +409,16 @@ export function StickerLayoutEditor({
   const showContentSource =
     isPieceEdgeField || selected?.fieldKey === 'pieceCenter'
 
-  if (!embedded && !open) return null
-
-  const editorBody = (
-    <div
-      className={`flex min-h-0 flex-1 flex-col gap-4 ${windowMode ? 'h-full lg:flex-row lg:items-stretch' : 'xl:flex-row xl:items-stretch'}`}
+  return (
+    <DetailModal
+      open={open}
+      wide
+      title="Diseño y tamaño de etiqueta"
+      subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
+      onClose={onClose}
     >
-        <div className={`min-h-0 min-w-0 flex-1 ${windowMode ? 'overflow-y-auto' : 'xl:overflow-y-auto'}`}>
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <div className="min-w-0 flex-1">
           <div className="mb-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-sm text-amber-100">
             Etiqueta real:{' '}
             <strong>
@@ -481,8 +469,6 @@ export function StickerLayoutEditor({
                       borderRadius: 2,
                       cursor: 'move',
                       zIndex: meta.type === 'frame' ? 5 : isSelected ? 20 : 10,
-                      transform: el.rotationDeg ? `rotate(${el.rotationDeg}deg)` : undefined,
-                      transformOrigin: '0 0',
                     }}
                     onPointerDown={(e) => handlePointerDown(e, id, 'move')}
                     onClick={(e) => {
@@ -551,10 +537,7 @@ export function StickerLayoutEditor({
           </div>
         </div>
 
-        <aside
-          className={`flex w-full min-h-0 shrink-0 flex-col ${windowMode ? 'lg:w-[22rem] lg:overflow-hidden 2xl:w-[24rem]' : 'xl:w-[20rem] 2xl:w-[22rem]'}`}
-        >
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
+        <aside className="w-full shrink-0 space-y-3 xl:w-[22rem]">
           <details className="rounded-xl border border-white/10 bg-black/25" open>
             <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium text-slate-200">
               Tamaño de etiqueta (rollo real)
@@ -817,21 +800,6 @@ export function StickerLayoutEditor({
               {isTextField ? (
                 <>
                   <label className="mt-2 block text-xs text-slate-400">
-                    Rotación
-                    <select
-                      className={`${inputClass} mt-1`}
-                      value={selected.rotationDeg ?? 0}
-                      onChange={(e) =>
-                        patchElement(selectedId, { rotationDeg: Number(e.target.value) })
-                      }
-                    >
-                      <option value={0}>0° (horizontal)</option>
-                      <option value={90}>90°</option>
-                      <option value={180}>180°</option>
-                      <option value={270}>270°</option>
-                    </select>
-                  </label>
-                  <label className="mt-2 block text-xs text-slate-400">
                     Alto texto (mm)
                     <input
                       type="number"
@@ -911,9 +879,8 @@ export function StickerLayoutEditor({
               ) : null}
             </div>
           ) : null}
-          </div>
 
-          <div className="mt-3 flex shrink-0 flex-col gap-2 border-t border-white/10 pt-3">
+          <div className="flex flex-col gap-2">
             <Button type="button" onClick={handleSave}>
               Guardar diseño y tamaño
             </Button>
@@ -921,27 +888,11 @@ export function StickerLayoutEditor({
               Restaurar plantilla
             </Button>
             <Button type="button" variant="neutral" onClick={onClose}>
-              {windowMode ? 'Cerrar ventana' : 'Cancelar'}
+              Cancelar
             </Button>
           </div>
         </aside>
       </div>
-  )
-
-  if (embedded) {
-    return <div className="flex h-full min-h-0 flex-col">{editorBody}</div>
-  }
-
-  return (
-    <DetailModal
-      open={open}
-      wide
-      tall
-      title="Diseño y tamaño de etiqueta"
-      subtitle="Todo lo que afecta al sticker ZPL: tamaño real del rollo, dpi, tipografía y posición de campos"
-      onClose={onClose}
-    >
-      {editorBody}
     </DetailModal>
   )
 }
