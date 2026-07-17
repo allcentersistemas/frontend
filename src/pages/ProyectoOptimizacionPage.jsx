@@ -67,7 +67,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
             {project.clientUserId ? (
               canManagePortal ? (
                 <Link
-                  to={gestionClientePortalHref(base, clientModalOpen.clientUserId)}
+                  to={clientModalOpen(base, project.clientUserId)}
                   className="btn btn--ghost btn--sm"
                 >
                   Cliente portal
