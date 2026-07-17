@@ -527,7 +527,7 @@ export function PalesPage({ embedded = false }) {
       setDetail(updated)
       setEditForm(formFromHeader(updated?.pallet))
       await refreshList()
-      setOpMsg('Línea eliminada.')
+      setOpMsg('Línea eliminada. La pieza quedó libre para volver a escanearse en la orden.')
     } catch (ex) {
       setOpErr(ex instanceof Error ? ex.message : 'No se pudo eliminar la línea')
     } finally {
