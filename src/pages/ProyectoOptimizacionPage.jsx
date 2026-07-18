@@ -65,14 +65,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
           <dd style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
             <span>{project.cliente || '—'}</span>
             {project.clientUserId ? (
-              canManagePortal ? (
-                <Link
-                  to={gestionClientePortalHref(base, project.clientUserId)}
-                  className="btn btn--ghost btn--sm"
-                >
-                  Cliente portal
-                </Link>
-              ) : (
+              <>
                 <button
                   type="button"
                   className="btn btn--ghost btn--sm"
@@ -80,7 +73,15 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
                 >
                   Ver cliente
                 </button>
-              )
+                {canManagePortal ? (
+                  <Link
+                    to={gestionClientePortalHref(base, project.clientUserId)}
+                    className="btn btn--ghost btn--sm"
+                  >
+                    Gestionar en portal
+                  </Link>
+                ) : null}
+              </>
             ) : null}
           </dd>
         </div>
