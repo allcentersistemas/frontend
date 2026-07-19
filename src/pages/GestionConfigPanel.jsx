@@ -31,6 +31,12 @@ export function GestionConfigPanel() {
   const [plantillaInfo, setPlantillaInfo] = useState(null)
   const [plantillaFile, setPlantillaFile] = useState(null)
   const [uploadingPlantilla, setUploadingPlantilla] = useState(false)
+  const [savingAi, setSavingAi] = useState(false)
+  const [aiVisionEnabled, setAiVisionEnabled] = useState(false)
+  const [aiProvider, setAiProvider] = useState('claude')
+  const [aiModel, setAiModel] = useState('')
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [aiApiKeyConfigured, setAiApiKeyConfigured] = useState(false)
 
   const applyConfig = useCallback((cfg) => {
     setKardexEnabled(Boolean(cfg.kardexEnabled))
@@ -44,6 +50,11 @@ export function GestionConfigPanel() {
     setSmtpAuth(Boolean(cfg.smtpAuth))
     setSmtpStarttls(cfg.smtpStarttls !== false)
     setSmtpPassword('')
+    setAiVisionEnabled(Boolean(cfg.aiVisionEnabled))
+    setAiProvider(cfg.aiProvider === 'openai' ? 'openai' : 'claude')
+    setAiModel(cfg.aiModel ?? '')
+    setAiApiKeyConfigured(Boolean(cfg.aiApiKeyConfigured))
+    setAiApiKey('')
   }, [])
 
   const load = useCallback(async () => {
@@ -98,6 +109,34 @@ export function GestionConfigPanel() {
       setErr(e2?.message ?? 'No se pudo guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function submitAiConfig(e) {
+    e.preventDefault()
+    setSavingAi(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const body = {
+        aiVisionEnabled,
+        aiProvider,
+        aiModel: aiModel.trim(),
+      }
+      if (aiApiKey.trim()) {
+        body.aiApiKey = aiApiKey.trim()
+      }
+      const updated = await systemApi.updateAppConfig(body)
+      applyConfig(updated)
+      setOk(
+        aiVisionEnabled
+          ? 'Importación por foto (IA) activada. Los clientes verán el botón en la planilla.'
+          : 'Importación por foto (IA) desactivada. El botón no aparece en el portal cliente.',
+      )
+    } catch (e2) {
+      setErr(e2?.message ?? 'No se pudo guardar la configuración de IA')
+    } finally {
+      setSavingAi(false)
     }
   }
 
@@ -195,8 +234,8 @@ export function GestionConfigPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Ajustes globales del portal: kardex de almacén, plantilla de planilla y correo SMTP. Los cambios
-        aplican de inmediato sin reiniciar el servidor.
+        Ajustes globales del portal: kardex, plantilla de planilla, importación por foto (IA) y correo SMTP.
+        Los cambios aplican de inmediato sin reiniciar el servidor.
       </p>
 
       {err ? <p className="form-inline-error" style={{ marginBottom: '0.75rem' }}>{err}</p> : null}
@@ -297,6 +336,73 @@ export function GestionConfigPanel() {
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
+        <h2>Importar medidas por foto (IA)</h2>
+        <p className="muted small form-hint">
+          Permite a los clientes del portal subir una foto de una hoja de medidas (a mano o impresa) y
+          rellenar Cantidad, Largo, Ancho, cantos (L1–A2) y ranuras. Si lo desactiva, el botón no aparece.
+          La API key se guarda en el servidor y nunca se envía al navegador del cliente.
+        </p>
+        <form onSubmit={(e) => void submitAiConfig(e)}>
+          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={aiVisionEnabled}
+              onChange={(e) => setAiVisionEnabled(e.target.checked)}
+            />
+            <span>Habilitar importación por foto con IA</span>
+          </label>
+
+          <div className="form-row-2">
+            <label className="field">
+              <span>Proveedor de IA</span>
+              <select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)}>
+                <option value="claude">Claude (Anthropic)</option>
+                <option value="openai">OpenAI (GPT-4o)</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Modelo (opcional)</span>
+              <input
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                placeholder={
+                  aiProvider === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514'
+                }
+              />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>API key</span>
+            <input
+              type="password"
+              value={aiApiKey}
+              onChange={(e) => setAiApiKey(e.target.value)}
+              placeholder={
+                aiApiKeyConfigured
+                  ? '•••••••• (ya configurada; deje vacío para no cambiar)'
+                  : aiProvider === 'openai'
+                    ? 'sk-…'
+                    : 'sk-ant-…'
+              }
+              autoComplete="new-password"
+            />
+          </label>
+          <p className="muted small form-hint">
+            {aiProvider === 'openai'
+              ? 'Obtenga la key en platform.openai.com. Modelo por defecto: gpt-4o.'
+              : 'Obtenga la key en console.anthropic.com. Modelo por defecto: Claude Sonnet.'}
+          </p>
+
+          <div className="form-actions">
+            <button type="submit" className="btn btn--primary" disabled={savingAi || saving}>
+              {savingAi ? 'Guardando…' : 'Guardar configuración IA'}
+            </button>
+          </div>
+        </form>
       </div>
 
       <div className="card pad form-section">
