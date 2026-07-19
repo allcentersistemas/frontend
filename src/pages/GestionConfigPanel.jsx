@@ -369,7 +369,7 @@ export function GestionConfigPanel() {
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
                 placeholder={
-                  aiProvider === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514'
+                  aiProvider === 'openai' ? 'gpt-4o' : 'claude-sonnet-5'
                 }
               />
             </label>
@@ -394,7 +394,7 @@ export function GestionConfigPanel() {
           <p className="muted small form-hint">
             {aiProvider === 'openai'
               ? 'Obtenga la key en platform.openai.com. Modelo por defecto: gpt-4o.'
-              : 'Obtenga la key en console.anthropic.com. Modelo por defecto: Claude Sonnet.'}
+              : 'Obtenga la key en console.anthropic.com. Deje el modelo vacío o use el ID exacto: claude-sonnet-5 (no «sonnet 5»).'}
           </p>
 
           <div className="form-actions">
