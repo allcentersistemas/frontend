@@ -671,6 +671,15 @@
   }
 
   /* ——— Detalle órdenes Biesse (partes / piezas) ——— */
+  .order-parts-panel {
+    @apply flex flex-col gap-3;
+  }
+  .order-parts-filters {
+    @apply flex flex-wrap gap-2;
+  }
+  .order-parts-filters__count {
+    @apply ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-black/10 px-1.5 text-[0.7rem] tabular-nums dark:bg-white/15;
+  }
   .order-parts-list {
     @apply m-0 flex list-none flex-col gap-3 p-0;
   }
