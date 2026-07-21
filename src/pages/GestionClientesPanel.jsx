@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import * as systemApi from '../api/systemApi'
 import { ClientAuditSummary, ClientLoginHistorySection } from '../components/ClientLoginHistorySection.jsx'
+import { ClientAiUsageSection } from '../components/ClientAiUsageSection.jsx'
 import { isStrongPassword, validatePassword } from '../utils/passwordPolicy'
 import { formatAppDateTime } from '../utils/appDateTime'
 
@@ -526,6 +527,10 @@ export function GestionClientesPanel() {
 
           <div className="card pad" style={{ marginTop: '1rem' }}>
             <ClientLoginHistorySection clientId={editingId} />
+          </div>
+
+          <div className="card pad" style={{ marginTop: '1rem' }}>
+            <ClientAiUsageSection clientId={editingId} />
           </div>
         </div>
       ) : null}

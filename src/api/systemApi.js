@@ -819,6 +819,15 @@ export async function getClientLoginHistory(id, { page = 0, size = 20 } = {}) {
   return systemJson(`/api/gestion/clientes/${id}/login-history?${q}`)
 }
 
+export async function getClientAiUsage(id, { page = 0, size = 20 } = {}) {
+  const q = new URLSearchParams({ page: String(page), size: String(size) })
+  return systemJson(`/api/gestion/clientes/${id}/ai-usage?${q}`)
+}
+
+export async function fetchAiUsageSummary() {
+  return systemJson('/api/admin/config/ai-usage/summary')
+}
+
 /* ——— Backups (admin) ——— */
 
 export async function fetchBackupConfig() {

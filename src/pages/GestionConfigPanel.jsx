@@ -37,6 +37,8 @@ export function GestionConfigPanel() {
   const [aiModel, setAiModel] = useState('')
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiApiKeyConfigured, setAiApiKeyConfigured] = useState(false)
+  const [aiDailyLimitPerClient, setAiDailyLimitPerClient] = useState(20)
+  const [aiUsageSummary, setAiUsageSummary] = useState(null)
 
   const applyConfig = useCallback((cfg) => {
     setKardexEnabled(Boolean(cfg.kardexEnabled))
@@ -55,18 +57,23 @@ export function GestionConfigPanel() {
     setAiModel(cfg.aiModel ?? '')
     setAiApiKeyConfigured(Boolean(cfg.aiApiKeyConfigured))
     setAiApiKey('')
+    setAiDailyLimitPerClient(
+      cfg.aiDailyLimitPerClient == null ? 20 : Math.max(0, Number(cfg.aiDailyLimitPerClient) || 0),
+    )
   }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     setErr(null)
     try {
-      const [cfg, plantilla] = await Promise.all([
+      const [cfg, plantilla, usageSummary] = await Promise.all([
         systemApi.fetchAppConfig(),
         systemApi.fetchPlantillaPlanillaInfo().catch(() => null),
+        systemApi.fetchAiUsageSummary().catch(() => null),
       ])
       applyConfig(cfg)
       setPlantillaInfo(plantilla)
+      setAiUsageSummary(usageSummary)
     } catch (e) {
       setErr(e?.message ?? 'No se pudo cargar la configuración')
     } finally {
@@ -122,12 +129,15 @@ export function GestionConfigPanel() {
         aiVisionEnabled,
         aiProvider,
         aiModel: aiModel.trim(),
+        aiDailyLimitPerClient: Math.max(0, Number(aiDailyLimitPerClient) || 0),
       }
       if (aiApiKey.trim()) {
         body.aiApiKey = aiApiKey.trim()
       }
       const updated = await systemApi.updateAppConfig(body)
       applyConfig(updated)
+      const usageSummary = await systemApi.fetchAiUsageSummary().catch(() => null)
+      setAiUsageSummary(usageSummary)
       setOk(
         aiVisionEnabled
           ? 'Importación por foto (IA) activada. Los clientes verán el botón en la planilla.'
@@ -391,11 +401,50 @@ export function GestionConfigPanel() {
               autoComplete="new-password"
             />
           </label>
+          <label className="field">
+            <span>Límite diario por cliente</span>
+            <input
+              type="number"
+              min={0}
+              max={10000}
+              value={aiDailyLimitPerClient}
+              onChange={(e) => setAiDailyLimitPerClient(e.target.value)}
+            />
+          </label>
           <p className="muted small form-hint">
             {aiProvider === 'openai'
               ? 'Obtenga la key en platform.openai.com. Modelo por defecto: gpt-4o.'
-              : 'Obtenga la key en console.anthropic.com. Deje el modelo vacío o use el ID exacto: claude-sonnet-5 (no «sonnet 5»).'}
+              : 'Obtenga la key en console.anthropic.com. Deje el modelo vacío o use el ID exacto: claude-sonnet-5 (no «sonnet 5»).'}{' '}
+            Límite diario: {Number(aiDailyLimitPerClient) === 0 ? 'ilimitado (0)' : `${aiDailyLimitPerClient} por cliente`}.
           </p>
+
+          {aiUsageSummary ? (
+            <dl className="client-audit-summary" style={{ marginBottom: '1rem' }}>
+              <div>
+                <dt>Hoy — subidas / tokens</dt>
+                <dd>
+                  {aiUsageSummary.today?.totalUploads ?? 0} · in{' '}
+                  {aiUsageSummary.today?.inputTokens ?? 0} / out {aiUsageSummary.today?.outputTokens ?? 0}
+                </dd>
+              </div>
+              <div>
+                <dt>Últimos 30 días</dt>
+                <dd>
+                  {aiUsageSummary.last30Days?.totalUploads ?? 0} · in{' '}
+                  {aiUsageSummary.last30Days?.inputTokens ?? 0} / out{' '}
+                  {aiUsageSummary.last30Days?.outputTokens ?? 0}
+                </dd>
+              </div>
+              <div>
+                <dt>Histórico</dt>
+                <dd>
+                  {aiUsageSummary.allTime?.totalUploads ?? 0} · OK{' '}
+                  {aiUsageSummary.allTime?.successCount ?? 0} / fallos{' '}
+                  {aiUsageSummary.allTime?.failCount ?? 0}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
 
           <div className="form-actions">
             <button type="submit" className="btn btn--primary" disabled={savingAi || saving}>
