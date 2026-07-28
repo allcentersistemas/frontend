@@ -29,6 +29,8 @@ import {
   downloadOrderExcelFromTree,
   downloadOrderTextFromTree,
 } from '../utils/proyectoExcelExport.js'
+import { PROYECTO_COTIZACION_EVENT } from '../notifications/proyectoCotizacionEvents.js'
+import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider.jsx'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'
@@ -192,6 +194,7 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
 export function ProyectoOptimizacionPage() {
   const ability = useAppAbility()
   const isAdmin = ability.can('manage', 'all')
+  const { markAllRead } = useEmployeeNotifications()
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTabState] = useState(() => resolveProyectoTab(searchParams.get('tab')))
 
@@ -266,6 +269,18 @@ export function ProyectoOptimizacionPage() {
       setLoading(false)
     }
   }, [buildListParams])
+
+  useEffect(() => {
+    void markAllRead()
+  }, [markAllRead])
+
+  useEffect(() => {
+    function onLiveProyecto() {
+      void load()
+    }
+    window.addEventListener(PROYECTO_COTIZACION_EVENT, onLiveProyecto)
+    return () => window.removeEventListener(PROYECTO_COTIZACION_EVENT, onLiveProyecto)
+  }, [load])
 
   useEffect(() => {
     let cancelled = false

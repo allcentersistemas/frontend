@@ -339,3 +339,83 @@ export async function biessePingText() {
   const payload = await res.json()
   return JSON.stringify(payload, null, 2)
 }
+
+/**
+ * Lee un stream SSE (text/event-stream) con JWT en Authorization.
+ * Invoca onEvent({ event, data }) por cada evento; data es JSON parseado cuando aplica.
+ */
+export async function systemEventStream(path, { onEvent, signal, mergeSystemHeaders = true } = {}) {
+  const buildHeaders = () => {
+    const headers = new Headers({ Accept: 'text/event-stream' })
+    if (mergeSystemHeaders) {
+      for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
+        headers.set(k, v)
+      }
+    }
+    let t = getStoredTokens()
+    if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+      // refresh sync not awaited here; caller reconnects on failure
+    }
+    t = getStoredTokens()
+    if (t?.accessToken) {
+      headers.set('Authorization', `Bearer ${t.accessToken}`)
+    }
+    return headers
+  }
+
+  const url = `${systemApiBase}${path.startsWith('/') ? '' : '/'}${path}`
+  let res = await fetch(url, { headers: buildHeaders(), credentials: 'omit', signal })
+  if (res.status === 401 && getStoredTokens()?.refreshToken) {
+    const ok = await tryRefresh()
+    if (ok) {
+      res = await fetch(url, { headers: buildHeaders(), credentials: 'omit', signal })
+    }
+  }
+  if (!res.ok) {
+    const detail = await readErrorDetail(res)
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
+  if (!res.body) {
+    throw new Error('Stream no disponible')
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const dispatchBlock = (block) => {
+    const lines = block.split('\n')
+    let eventName = 'message'
+    const dataLines = []
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim()
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim())
+      }
+    }
+    if (dataLines.length === 0) {
+      return
+    }
+    const raw = dataLines.join('\n')
+    let data = raw
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      /* plain text */
+    }
+    onEvent?.({ event: eventName, data })
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let splitAt
+    while ((splitAt = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, splitAt).trim()
+      buffer = buffer.slice(splitAt + 2)
+      if (block) dispatchBlock(block)
+    }
+  }
+}

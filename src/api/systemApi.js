@@ -1093,3 +1093,21 @@ export async function downloadPlantillaPlanillaAdmin() {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
+/* ——— Notificaciones empleado (SSE) ——— */
+
+export async function fetchNotificationUnreadCount() {
+  return systemJson('/api/notifications/unread-count')
+}
+
+export async function fetchNotifications() {
+  return systemJson('/api/notifications')
+}
+
+export async function markNotificationRead(id) {
+  return systemJson(`/api/notifications/${id}/read`, { method: 'POST' })
+}
+
+export async function markAllNotificationsRead() {
+  return systemJson('/api/notifications/read-all', { method: 'POST' })
+}

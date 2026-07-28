@@ -1,0 +1,163 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { systemEventStream } from '../api/http'
+import * as systemApi from '../api/systemApi'
+import { useAppAbility } from '../access/useAppAbility'
+import { FEATURE } from '../access/permissionCatalog'
+import { useAuth } from '../auth/AuthContext'
+import { dispatchProyectoCotizacionNotification } from './proyectoCotizacionEvents'
+import { NotificationToastStack } from '../components/NotificationToastStack.jsx'
+
+const EmployeeNotificationContext = createContext(null)
+
+const RECONNECT_MS = 5_000
+const TOAST_TTL_MS = 12_000
+
+function canReceiveNotifications(ability) {
+  if (!ability) return false
+  if (ability.can('manage', 'all')) return true
+  return (
+    ability.can('view', FEATURE.PROJECT_LIST) || ability.can('view', FEATURE.GESTION_PROYECTOS)
+  )
+}
+
+export function EmployeeNotificationProvider({ children }) {
+  const { employee } = useAuth()
+  const ability = useAppAbility()
+  const enabled = Boolean(employee) && canReceiveNotifications(ability)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [toasts, setToasts] = useState([])
+  const reconnectTimer = useRef(null)
+  const streamAbort = useRef(null)
+
+  const refreshUnread = useCallback(async () => {
+    if (!enabled) return
+    try {
+      const res = await systemApi.fetchNotificationUnreadCount()
+      setUnreadCount(typeof res?.unreadCount === 'number' ? res.unreadCount : 0)
+    } catch {
+      /* ignore */
+    }
+  }, [enabled])
+
+  const pushToast = useCallback((message) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setToasts((prev) => [...prev, { id, message }])
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, TOAST_TTL_MS)
+  }, [])
+
+  const handleLivePayload = useCallback(
+    (data) => {
+      if (!data || typeof data !== 'object') return
+      const body =
+        typeof data.body === 'string' && data.body.trim()
+          ? data.body.trim()
+          : typeof data.title === 'string'
+            ? data.title
+            : 'Nueva notificación'
+      pushToast(body)
+      if (typeof data.unreadCount === 'number') {
+        setUnreadCount(data.unreadCount)
+      } else {
+        void refreshUnread()
+      }
+      dispatchProyectoCotizacionNotification(data)
+    },
+    [pushToast, refreshUnread],
+  )
+
+  useEffect(() => {
+    if (!enabled) {
+      setUnreadCount(0)
+      setToasts([])
+      return undefined
+    }
+    void refreshUnread()
+    return undefined
+  }, [enabled, refreshUnread, employee?.id])
+
+  useEffect(() => {
+    if (!enabled) return undefined
+
+    let cancelled = false
+
+    const connect = async () => {
+      if (cancelled) return
+      streamAbort.current?.abort()
+      const controller = new AbortController()
+      streamAbort.current = controller
+      try {
+        await systemEventStream('/api/notifications/stream', {
+          signal: controller.signal,
+          onEvent: ({ event, data }) => {
+            if (event === 'proyecto-cotizacion') {
+              handleLivePayload(data)
+            }
+          },
+        })
+      } catch (err) {
+        if (controller.signal.aborted || cancelled) return
+        reconnectTimer.current = window.setTimeout(connect, RECONNECT_MS)
+      }
+    }
+
+    void connect()
+
+    return () => {
+      cancelled = true
+      streamAbort.current?.abort()
+      if (reconnectTimer.current) {
+        window.clearTimeout(reconnectTimer.current)
+        reconnectTimer.current = null
+      }
+    }
+  }, [enabled, employee?.id, handleLivePayload])
+
+  const markAllRead = useCallback(async () => {
+    try {
+      const res = await systemApi.markAllNotificationsRead()
+      setUnreadCount(typeof res?.unreadCount === 'number' ? res.unreadCount : 0)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      unreadCount,
+      refreshUnread,
+      markAllRead,
+      enabled,
+    }),
+    [unreadCount, refreshUnread, markAllRead, enabled],
+  )
+
+  return (
+    <EmployeeNotificationContext.Provider value={value}>
+      {children}
+      {enabled ? <NotificationToastStack toasts={toasts} /> : null}
+    </EmployeeNotificationContext.Provider>
+  )
+}
+
+export function useEmployeeNotifications() {
+  const ctx = useContext(EmployeeNotificationContext)
+  if (!ctx) {
+    return {
+      unreadCount: 0,
+      refreshUnread: async () => {},
+      markAllRead: async () => {},
+      enabled: false,
+    }
+  }
+  return ctx
+}

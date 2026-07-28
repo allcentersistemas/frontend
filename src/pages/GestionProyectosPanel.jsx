@@ -13,6 +13,7 @@ import {
   formatEstadoProyecto,
   formatProyectoDate,
 } from '../utils/proyectoOptimizacion.js'
+import { PROYECTO_COTIZACION_EVENT } from '../notifications/proyectoCotizacionEvents.js'
 
 function clientOptionLabel(c) {
   if (c.juridica && c.razonSocial) return c.razonSocial
@@ -97,6 +98,14 @@ export function GestionProyectosPanel() {
 
   useEffect(() => {
     void load()
+  }, [load])
+
+  useEffect(() => {
+    function onLiveProyecto() {
+      void load()
+    }
+    window.addEventListener(PROYECTO_COTIZACION_EVENT, onLiveProyecto)
+    return () => window.removeEventListener(PROYECTO_COTIZACION_EVENT, onLiveProyecto)
   }, [load])
 
   useEffect(() => {

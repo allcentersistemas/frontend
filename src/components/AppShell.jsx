@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { sidebarSectionsForDashboard } from '../access/navigationConfig'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
+import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider'
 import { shellSubtitle } from '../auth/roles'
 import { cn } from '../lib/cn'
 import { ThemeToggle } from './ThemeToggle'
@@ -13,6 +14,7 @@ import logo from '../assets/allcenter1.png'
 export function AppShell({ role }) {
   const { employee, logout } = useAuth()
   const ability = useAppAbility()
+  const { unreadCount } = useEmployeeNotifications()
   const [menuOpen, setMenuOpen] = useState(false)
   const sections = sidebarSectionsForDashboard(role, ability, employee).filter((section) => section.items.length > 0)
 
@@ -137,14 +139,22 @@ export function AppShell({ role }) {
                       onClick={() => setMenuOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          'block rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                          'flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition',
                           isActive
                             ? 'bg-gradient-to-r from-amber-400/25 to-amber-600/15 text-amber-900 ring-1 ring-amber-400/30 dark:from-amber-400/20 dark:to-amber-600/10 dark:text-amber-50 dark:ring-amber-400/20'
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-slate-200',
                         )
                       }
                     >
-                      {item.label}
+                      <span>{item.label}</span>
+                      {item.id === 'proyecto-optimizacion' && unreadCount > 0 ? (
+                        <span
+                          className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[0.65rem] font-bold text-slate-950"
+                          aria-label={`${unreadCount} notificaciones sin leer`}
+                        >
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      ) : null}
                     </NavLink>
                   </li>
                 ))}

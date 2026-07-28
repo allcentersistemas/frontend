@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { InventarioLegacyRedirect } from './components/InventarioLegacyRedirect'
 import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
+import { EmployeeNotificationProvider } from './notifications/EmployeeNotificationProvider'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppShell } from './components/AppShell'
 import { ApiCatalogPage } from './pages/ApiCatalogPage'
@@ -21,6 +22,7 @@ import { gestionRoutes } from './routes/gestionRoutes.jsx'
 export default function App() {
   return (
     <AuthProvider>
+      <EmployeeNotificationProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -87,6 +89,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </EmployeeNotificationProvider>
     </AuthProvider>
   )
 }
