@@ -19,6 +19,7 @@ const EmployeeNotificationContext = createContext(null)
 
 const RECONNECT_MS = 5_000
 const TOAST_TTL_MS = 12_000
+const POLL_UNREAD_MS = 45_000
 
 function canReceiveNotifications(ability) {
   if (!ability) return false
@@ -57,15 +58,11 @@ export function EmployeeNotificationProvider({ children }) {
 
   const refreshNotifications = useCallback(async () => {
     if (!enabled) return []
-    try {
-      const res = await systemApi.fetchNotifications()
-      const list = normalizeNotificationList(res)
-      setNotifications(list)
-      listLoadedRef.current = true
-      return list
-    } catch {
-      return []
-    }
+    const res = await systemApi.fetchNotifications()
+    const list = normalizeNotificationList(res)
+    setNotifications(list)
+    listLoadedRef.current = true
+    return list
   }, [enabled])
 
   const pushToast = useCallback((message) => {
@@ -92,7 +89,7 @@ export function EmployeeNotificationProvider({ children }) {
         void refreshUnread()
       }
       if (listLoadedRef.current) {
-        void refreshNotifications()
+        void refreshNotifications().catch(() => {})
       }
       dispatchProyectoCotizacionNotification(data)
     },
@@ -111,6 +108,24 @@ export function EmployeeNotificationProvider({ children }) {
     return undefined
   }, [enabled, refreshUnread, employee?.id])
 
+  // Polling de respaldo si SSE falla o queda bufferizado detrás del proxy
+  useEffect(() => {
+    if (!enabled) return undefined
+    const tick = () => {
+      if (document.visibilityState === 'hidden') return
+      void refreshUnread()
+    }
+    const timer = window.setInterval(tick, POLL_UNREAD_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshUnread()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [enabled, refreshUnread, employee?.id])
+
   useEffect(() => {
     if (!enabled) return undefined
 
@@ -123,7 +138,7 @@ export function EmployeeNotificationProvider({ children }) {
       streamAbort.current = controller
       void refreshUnread()
       if (listLoadedRef.current) {
-        void refreshNotifications()
+        void refreshNotifications().catch(() => {})
       }
       try {
         await systemEventStream('/api/notifications/stream', {

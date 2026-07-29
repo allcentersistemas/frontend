@@ -12,6 +12,14 @@ export function parseAppDateTime(value) {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value
   }
+  // Jackson a veces serializa LocalDateTime como [y, m, d, h, mi, s]
+  if (Array.isArray(value) && value.length >= 5) {
+    const [y, mo, d, h, mi, se = 0] = value.map(Number)
+    if (![y, mo, d, h, mi, se].every((n) => Number.isFinite(n))) return null
+    const withOffset = `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}:${String(se).padStart(2, '0')}-05:00`
+    const parsed = new Date(withOffset)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
   const raw = String(value).trim()
   if (!raw) return null
   if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(raw)) {

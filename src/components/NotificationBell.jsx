@@ -1,13 +1,23 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider'
-import { formatRelativeTimeEs } from '../utils/appDateTime'
+import { formatAppDateTime, formatRelativeTimeEs } from '../utils/appDateTime'
 import { cn } from '../lib/cn'
 
 function isQuoteRequest(notification) {
   const type = notification?.type
   return type === 'PROYECTO_COTIZACION' || type === 'proyecto-cotizacion'
+}
+
+function notificationSubtitle(item) {
+  const cliente = item?.payload?.cliente?.trim?.() || ''
+  const body = item?.body?.trim?.() || ''
+  const title = item?.title?.trim?.() || ''
+  if (cliente) return `Cliente: ${cliente}`
+  if (body && body !== title) return body
+  return ''
 }
 
 /**
@@ -25,8 +35,12 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [now, setNow] = useState(() => new Date())
+  const [panelStyle, setPanelStyle] = useState(null)
   const rootRef = useRef(null)
+  const buttonRef = useRef(null)
+  const panelRef = useRef(null)
   const panelId = useId()
 
   useEffect(() => {
@@ -40,13 +54,75 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
     if (!open || !enabled) return undefined
     let cancelled = false
     setLoading(true)
-    void refreshNotifications().finally(() => {
-      if (!cancelled) setLoading(false)
-    })
+    setLoadError('')
+    void refreshNotifications()
+      .then((list) => {
+        if (!cancelled && (!list || list.length === 0)) {
+          /* empty is ok */
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('No se pudieron cargar las notificaciones.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
   }, [open, enabled, refreshNotifications])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelStyle(null)
+      return undefined
+    }
+
+    function placePanel() {
+      const btn = buttonRef.current
+      if (!btn) return
+      const rect = btn.getBoundingClientRect()
+      const panelWidth = Math.min(window.innerWidth - 16, 22 * 16)
+      const gap = 8
+      let left =
+        align === 'right' ? rect.right - panelWidth : rect.left
+      left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8))
+
+      const preferTop = panelPlacement === 'top'
+      const spaceBelow = window.innerHeight - rect.bottom - gap
+      const spaceAbove = rect.top - gap
+      const maxPanel = Math.min(window.innerHeight * 0.7, 24 * 16)
+      const openUp = preferTop ? spaceAbove >= 120 || spaceAbove > spaceBelow : spaceBelow < 160 && spaceAbove > spaceBelow
+
+      if (openUp) {
+        setPanelStyle({
+          position: 'fixed',
+          left,
+          width: panelWidth,
+          bottom: window.innerHeight - rect.top + gap,
+          maxHeight: Math.min(maxPanel, Math.max(120, spaceAbove)),
+          zIndex: 80,
+        })
+      } else {
+        setPanelStyle({
+          position: 'fixed',
+          left,
+          width: panelWidth,
+          top: rect.bottom + gap,
+          maxHeight: Math.min(maxPanel, Math.max(120, spaceBelow)),
+          zIndex: 80,
+        })
+      }
+    }
+
+    placePanel()
+    window.addEventListener('resize', placePanel)
+    window.addEventListener('scroll', placePanel, true)
+    return () => {
+      window.removeEventListener('resize', placePanel)
+      window.removeEventListener('scroll', placePanel, true)
+    }
+  }, [open, align, panelPlacement, notifications.length, loading])
 
   useEffect(() => {
     if (!open) return undefined
@@ -54,9 +130,10 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
       if (event.key === 'Escape') setOpen(false)
     }
     function onPointerDown(event) {
-      if (rootRef.current && !rootRef.current.contains(event.target)) {
-        setOpen(false)
-      }
+      const target = event.target
+      if (rootRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('pointerdown', onPointerDown)
@@ -80,9 +157,110 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
     }
   }
 
+  const panel =
+    open && panelStyle ? (
+      <div
+        ref={panelRef}
+        id={panelId}
+        role="dialog"
+        aria-label="Panel de notificaciones"
+        style={panelStyle}
+        className={cn(
+          'flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl backdrop-blur-xl',
+          'dark:border-white/[0.1] dark:bg-slate-950/95 dark:shadow-depth',
+        )}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2.5 dark:border-white/[0.08]">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">Notificaciones</p>
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              className="shrink-0 text-xs font-medium text-amber-700 transition hover:text-amber-600 dark:text-amber-200/90 dark:hover:text-amber-100"
+              onClick={() => void markAllRead()}
+            >
+              Marcar todas
+            </button>
+          ) : null}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading && notifications.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-slate-500">Cargando…</p>
+          ) : loadError ? (
+            <p className="px-3 py-6 text-center text-sm text-rose-600 dark:text-rose-300">{loadError}</p>
+          ) : notifications.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-slate-500">
+              No hay notificaciones recientes
+            </p>
+          ) : (
+            <ul role="list" className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+              {notifications.map((item) => {
+                const title = item.title?.trim() || 'Notificación'
+                const subtitle = notificationSubtitle(item)
+                const relative = formatRelativeTimeEs(item.createdAt, now)
+                const absolute = formatAppDateTime(item.createdAt, {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })
+                const timeLabel = relative || (absolute !== '—' ? absolute : '')
+                const unread = item.read !== true
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition',
+                        unread
+                          ? 'bg-amber-50/70 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/15'
+                          : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
+                      )}
+                      onClick={() => void onSelectNotification(item)}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span
+                          className={cn(
+                            'text-sm text-slate-900 dark:text-slate-100',
+                            unread ? 'font-semibold' : 'font-medium',
+                          )}
+                        >
+                          {title}
+                        </span>
+                        {unread ? (
+                          <span
+                            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500"
+                            aria-label="Sin leer"
+                          />
+                        ) : null}
+                      </span>
+                      {subtitle ? (
+                        <span className="line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
+                          {subtitle}
+                        </span>
+                      ) : null}
+                      {item.payload?.proyectoNombre ? (
+                        <span className="line-clamp-1 text-xs text-slate-500 dark:text-slate-500">
+                          {item.payload.proyectoNombre}
+                        </span>
+                      ) : null}
+                      {timeLabel ? (
+                        <span className="text-[0.7rem] text-slate-500 dark:text-slate-500">
+                          {timeLabel}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    ) : null
+
   return (
     <div ref={rootRef} className={cn('relative', className)}>
       <button
+        ref={buttonRef}
         type="button"
         className={cn(
           'relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition',
@@ -111,92 +289,7 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
         ) : null}
       </button>
 
-      {open ? (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-label="Panel de notificaciones"
-          className={cn(
-            'absolute z-50 w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl backdrop-blur-xl',
-            'dark:border-white/[0.1] dark:bg-slate-950/95 dark:shadow-depth',
-            align === 'right' ? 'right-0' : 'left-0',
-            panelPlacement === 'top' ? 'bottom-[calc(100%+0.5rem)]' : 'top-[calc(100%+0.5rem)]',
-          )}
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-2.5 dark:border-white/[0.08]">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">Notificaciones</p>
-            {unreadCount > 0 ? (
-              <button
-                type="button"
-                className="shrink-0 text-xs font-medium text-amber-700 transition hover:text-amber-600 dark:text-amber-200/90 dark:hover:text-amber-100"
-                onClick={() => void markAllRead()}
-              >
-                Marcar todas
-              </button>
-            ) : null}
-          </div>
-
-          <div className="max-h-[min(70vh,24rem)] overflow-y-auto">
-            {loading && notifications.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-500">Cargando…</p>
-            ) : notifications.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-500">
-                No hay notificaciones recientes
-              </p>
-            ) : (
-              <ul role="list" className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-                {notifications.map((item) => {
-                  const title = item.title?.trim() || 'Notificación'
-                  const body = item.body?.trim() || ''
-                  const relative = formatRelativeTimeEs(item.createdAt, now)
-                  const unread = item.read !== true
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={cn(
-                          'flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition',
-                          unread
-                            ? 'bg-amber-50/70 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/15'
-                            : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
-                        )}
-                        onClick={() => void onSelectNotification(item)}
-                      >
-                        <span className="flex items-start justify-between gap-2">
-                          <span
-                            className={cn(
-                              'text-sm text-slate-900 dark:text-slate-100',
-                              unread ? 'font-semibold' : 'font-medium',
-                            )}
-                          >
-                            {title}
-                          </span>
-                          {unread ? (
-                            <span
-                              className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500"
-                              aria-label="Sin leer"
-                            />
-                          ) : null}
-                        </span>
-                        {body && body !== title ? (
-                          <span className="line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
-                            {body}
-                          </span>
-                        ) : null}
-                        {relative ? (
-                          <span className="text-[0.7rem] text-slate-500 dark:text-slate-500">
-                            {relative}
-                          </span>
-                        ) : null}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {typeof document !== 'undefined' && panel ? createPortal(panel, document.body) : null}
     </div>
   )
 }
