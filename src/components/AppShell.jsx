@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider'
 import { shellSubtitle } from '../auth/roles'
 import { cn } from '../lib/cn'
+import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import logo from '../assets/allcenter1.png'
 /** @typedef {{ to: string, label: string, end?: boolean }} NavItem */
@@ -71,9 +72,14 @@ export function AppShell({ role }) {
           </span>
           {menuOpen ? 'Cerrar' : 'Menú'}
         </button>
-        <div className="min-w-0 text-right">
-          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">AllCenter</p>
-          <p className="truncate text-xs text-slate-500">{subtitle}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 text-right">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">AllCenter</p>
+            <p className="truncate text-xs text-slate-500">{subtitle}</p>
+          </div>
+          {employee ? (
+            <NotificationBell role={role} align="right" panelPlacement="bottom" />
+          ) : null}
         </div>
       </header>
 
@@ -164,8 +170,16 @@ export function AppShell({ role }) {
         </nav>
 
         <div className="mt-auto space-y-3 border-t border-slate-200/80 pt-4 dark:border-white/[0.08]">
-          <div className="flex justify-center px-1">
-            <ThemeToggle size="sm" className="w-full max-w-[220px] justify-center" />
+          <div className="flex items-center justify-center gap-2 px-1">
+            <ThemeToggle size="sm" className="min-w-0 flex-1 max-w-[220px] justify-center" />
+            {employee ? (
+              <NotificationBell
+                role={role}
+                align="right"
+                panelPlacement="top"
+                className="hidden lg:block"
+              />
+            ) : null}
           </div>
           {profileHref ? (
             <Link

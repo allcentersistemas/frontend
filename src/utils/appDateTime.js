@@ -43,3 +43,49 @@ export function formatAppDateTime(value, options = {}) {
     return String(value)
   }
 }
+
+function limaCalendarDayKey(date) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: APP_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Tiempo relativo en español: "hace 5 minutos", "hace 2 horas", "ayer", etc.
+ */
+export function formatRelativeTimeEs(value, now = new Date()) {
+  const date = parseAppDateTime(value)
+  if (!date) return ''
+  const diffMs = now.getTime() - date.getTime()
+  if (!Number.isFinite(diffMs)) return ''
+  if (diffMs < 0) return 'hace un momento'
+
+  const sec = Math.floor(diffMs / 1000)
+  if (sec < 45) return 'hace un momento'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return min === 1 ? 'hace 1 minuto' : `hace ${min} minutos`
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return hours === 1 ? 'hace 1 hora' : `hace ${hours} horas`
+
+  const todayKey = limaCalendarDayKey(now)
+  const dateKey = limaCalendarDayKey(date)
+  if (todayKey && dateKey) {
+    const today = new Date(`${todayKey}T12:00:00-05:00`)
+    const day = new Date(`${dateKey}T12:00:00-05:00`)
+    const dayDiff = Math.round((today.getTime() - day.getTime()) / 86_400_000)
+    if (dayDiff === 1) return 'ayer'
+    if (dayDiff > 1 && dayDiff < 7) return `hace ${dayDiff} días`
+  }
+
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'ayer'
+  if (days < 7) return `hace ${days} días`
+  return formatAppDateTime(value, { dateStyle: 'medium', timeStyle: undefined })
+}

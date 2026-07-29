@@ -28,14 +28,22 @@ function canReceiveNotifications(ability) {
   )
 }
 
+function normalizeNotificationList(res) {
+  if (Array.isArray(res)) return res
+  if (Array.isArray(res?.items)) return res.items
+  return []
+}
+
 export function EmployeeNotificationProvider({ children }) {
   const { employee } = useAuth()
   const ability = useAppAbility()
   const enabled = Boolean(employee) && canReceiveNotifications(ability)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
   const [toasts, setToasts] = useState([])
   const reconnectTimer = useRef(null)
   const streamAbort = useRef(null)
+  const listLoadedRef = useRef(false)
 
   const refreshUnread = useCallback(async () => {
     if (!enabled) return
@@ -44,6 +52,19 @@ export function EmployeeNotificationProvider({ children }) {
       setUnreadCount(typeof res?.unreadCount === 'number' ? res.unreadCount : 0)
     } catch {
       /* ignore */
+    }
+  }, [enabled])
+
+  const refreshNotifications = useCallback(async () => {
+    if (!enabled) return []
+    try {
+      const res = await systemApi.fetchNotifications()
+      const list = normalizeNotificationList(res)
+      setNotifications(list)
+      listLoadedRef.current = true
+      return list
+    } catch {
+      return []
     }
   }, [enabled])
 
@@ -70,15 +91,20 @@ export function EmployeeNotificationProvider({ children }) {
       } else {
         void refreshUnread()
       }
+      if (listLoadedRef.current) {
+        void refreshNotifications()
+      }
       dispatchProyectoCotizacionNotification(data)
     },
-    [pushToast, refreshUnread],
+    [pushToast, refreshUnread, refreshNotifications],
   )
 
   useEffect(() => {
     if (!enabled) {
       setUnreadCount(0)
+      setNotifications([])
       setToasts([])
+      listLoadedRef.current = false
       return undefined
     }
     void refreshUnread()
@@ -95,6 +121,10 @@ export function EmployeeNotificationProvider({ children }) {
       streamAbort.current?.abort()
       const controller = new AbortController()
       streamAbort.current = controller
+      void refreshUnread()
+      if (listLoadedRef.current) {
+        void refreshNotifications()
+      }
       try {
         await systemEventStream('/api/notifications/stream', {
           signal: controller.signal,
@@ -120,12 +150,28 @@ export function EmployeeNotificationProvider({ children }) {
         reconnectTimer.current = null
       }
     }
-  }, [enabled, employee?.id, handleLivePayload])
+  }, [enabled, employee?.id, handleLivePayload, refreshUnread, refreshNotifications])
+
+  const markRead = useCallback(async (id) => {
+    if (id == null) return
+    try {
+      const res = await systemApi.markNotificationRead(id)
+      setUnreadCount((prev) =>
+        typeof res?.unreadCount === 'number' ? res.unreadCount : Math.max(0, prev - 1),
+      )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      )
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const markAllRead = useCallback(async () => {
     try {
       const res = await systemApi.markAllNotificationsRead()
       setUnreadCount(typeof res?.unreadCount === 'number' ? res.unreadCount : 0)
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
     } catch {
       /* ignore */
     }
@@ -134,11 +180,14 @@ export function EmployeeNotificationProvider({ children }) {
   const value = useMemo(
     () => ({
       unreadCount,
+      notifications,
       refreshUnread,
+      refreshNotifications,
+      markRead,
       markAllRead,
       enabled,
     }),
-    [unreadCount, refreshUnread, markAllRead, enabled],
+    [unreadCount, notifications, refreshUnread, refreshNotifications, markRead, markAllRead, enabled],
   )
 
   return (
@@ -154,7 +203,10 @@ export function useEmployeeNotifications() {
   if (!ctx) {
     return {
       unreadCount: 0,
+      notifications: [],
       refreshUnread: async () => {},
+      refreshNotifications: async () => [],
+      markRead: async () => {},
       markAllRead: async () => {},
       enabled: false,
     }
