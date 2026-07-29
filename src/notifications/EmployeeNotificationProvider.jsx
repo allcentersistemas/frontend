@@ -12,6 +12,7 @@ import * as systemApi from '../api/systemApi'
 import { useAppAbility } from '../access/useAppAbility'
 import { FEATURE } from '../access/permissionCatalog'
 import { useAuth } from '../auth/AuthContext'
+import { normalizeRoleName } from '../auth/roles'
 import { dispatchProyectoCotizacionNotification } from './proyectoCotizacionEvents'
 import { NotificationToastStack } from '../components/NotificationToastStack.jsx'
 
@@ -19,9 +20,28 @@ const EmployeeNotificationContext = createContext(null)
 
 const RECONNECT_MS = 5_000
 const TOAST_TTL_MS = 12_000
-const POLL_UNREAD_MS = 45_000
+const POLL_UNREAD_MS = 20_000
 
-function canReceiveNotifications(ability) {
+const NOTIFICATION_ROLES = new Set([
+  'MASTER',
+  'SISTEMAS',
+  'ADMIN',
+  'ADMINISTRADOR',
+  'GERENCIA',
+  'ADMIN_PRODUCCION',
+  'VENTAS',
+  'ADMIN_VENTAS',
+])
+
+function employeeHasNotificationRole(employee) {
+  return (employee?.roles ?? []).some((role) =>
+    NOTIFICATION_ROLES.has(normalizeRoleName(role?.name)),
+  )
+}
+
+function canReceiveNotifications(ability, employee) {
+  if (!employee) return false
+  if (employeeHasNotificationRole(employee)) return true
   if (!ability) return false
   if (ability.can('manage', 'all')) return true
   return (
@@ -38,7 +58,7 @@ function normalizeNotificationList(res) {
 export function EmployeeNotificationProvider({ children }) {
   const { employee } = useAuth()
   const ability = useAppAbility()
-  const enabled = Boolean(employee) && canReceiveNotifications(ability)
+  const enabled = canReceiveNotifications(ability, employee)
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [toasts, setToasts] = useState([])
