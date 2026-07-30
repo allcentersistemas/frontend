@@ -109,7 +109,7 @@ function formFromHeader(header) {
   }
 }
 
-async function printPalletOrderSummary(header, details) {
+async function printPalletOrderSummary(header, details, { includePiezas = false } = {}) {
   const codigoPale = String(header.codigo ?? header.paleenvioid ?? '').trim()
   let qrBlock = ''
   if (codigoPale) {
@@ -126,7 +126,8 @@ async function printPalletOrderSummary(header, details) {
     }
   }
 
-  const rows = (Array.isArray(details) ? details : [])
+  const lines = Array.isArray(details) ? details : []
+  const rows = lines
     .map(
       (line) => `
     <tr>
@@ -137,6 +138,24 @@ async function printPalletOrderSummary(header, details) {
     </tr>`,
     )
     .join('')
+
+  const piezasTable = includePiezas
+    ? `
+  <table>
+    <caption>Detalle de piezas (${lines.length})</caption>
+    <thead>
+      <tr>
+        <th style="width:12%">Parte</th>
+        <th>Orden · Desc. · Med. (L×A)</th>
+        <th style="width:8%">Pza</th>
+        <th style="width:14%">Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
+    </tbody>
+  </table>`
+    : ''
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -213,6 +232,7 @@ async function printPalletOrderSummary(header, details) {
       border-collapse: collapse; 
       font-size: 9.5pt; 
       table-layout: fixed; 
+      margin-top: 8px;
     }
     
     th, td { 
@@ -284,20 +304,7 @@ async function printPalletOrderSummary(header, details) {
     <div><strong>Cierre</strong> ${esc(formatPrintShort(header.fechaCierre))}</div>
     <div style="grid-column: 1 / -1"><strong>Notas</strong> ${esc(header.notas)}</div>
   </div>
-  <!--- <table>
-    <caption>Detalle de piezas</caption>
-    <thead>
-      <tr>
-        <th style="width:12%">Parte</th>
-        <th>Orden · Desc. · Med. (L×A)</th>
-        <th style="width:8%">Pza</th>
-        <th style="width:14%">Fecha</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
-    </tbody>
-  </table>--->
+  ${piezasTable}
   <script>window.onload = function () { window.print(); };</script>
 </body>
 </html>`
@@ -360,6 +367,13 @@ export function PalesPage({ embedded = false }) {
   const [deletingId, setDeletingId] = useState(null)
   const [opMsg, setOpMsg] = useState(null)
   const [opErr, setOpErr] = useState(null)
+  const [printIncludePiezas, setPrintIncludePiezas] = useState(() => {
+    try {
+      return localStorage.getItem('pale-print-include-piezas') === '1'
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
     const fromUrl = searchParams.get('id')
@@ -782,13 +796,36 @@ export function PalesPage({ embedded = false }) {
                 ) : null}
 
                 {closed ? (
-                  <div className="form-actions">
+                  <div className="form-actions" style={{ flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                    <label
+                      className="muted small"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', margin: 0, cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={printIncludePiezas}
+                        onChange={(e) => {
+                          const on = e.target.checked
+                          setPrintIncludePiezas(on)
+                          try {
+                            localStorage.setItem('pale-print-include-piezas', on ? '1' : '0')
+                          } catch {
+                            /* ignore */
+                          }
+                        }}
+                      />
+                      Incluir detalle de piezas al imprimir
+                    </label>
                     <CanButton
                       I={ACTION.PRINT}
                       a={FEATURE.PALES_PRINT}
                       type="button"
                       className="btn btn--primary"
-                      onClick={() => void printPalletOrderSummary(header, details)}
+                      onClick={() =>
+                        void printPalletOrderSummary(header, details, {
+                          includePiezas: printIncludePiezas,
+                        })
+                      }
                     >
                       Imprimir resumen (orden de envío)
                     </CanButton>
