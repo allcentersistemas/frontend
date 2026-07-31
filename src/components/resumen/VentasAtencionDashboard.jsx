@@ -34,6 +34,7 @@ import {
   countByEstado,
   defaultVentasDateRange,
   employeePerformanceRows,
+  employeeRowMatchesVendedor,
   ESTADO_KEYS,
   filterVentasProyectos,
   formatVentasPeriodLabel,
@@ -73,6 +74,15 @@ const CHART_COLORS = {
 }
 
 const DEFAULT_RANGE = defaultVentasDateRange()
+
+const EMPLOYEE_SORT_COLS = [
+  { id: 'label', label: 'Vendedor', type: 'string' },
+  { id: 'total', label: 'Proyectos', type: 'number' },
+  { id: 'avgAtencionMs', label: 'Captura', type: 'ms' },
+  { id: 'avgCotizadoMs', label: 'Cotización', type: 'ms' },
+  { id: 'avgVendidoMs', label: 'Cierre', type: 'ms' },
+  { id: 'avgCicloTotalMs', label: 'Ciclo total', type: 'ms' },
+]
 
 function TrendBadge({ meta, invertGood }) {
   if (!meta) return null
@@ -147,6 +157,94 @@ function StageTabBar({ activeId, onChange, ariaLabel }) {
   )
 }
 
+function compareEmployeeRows(a, b, sortKey, sortDir) {
+  const col = EMPLOYEE_SORT_COLS.find((c) => c.id === sortKey)
+  const type = col?.type ?? 'ms'
+  const av = a[sortKey]
+  const bv = b[sortKey]
+  let cmp = 0
+  if (type === 'string') {
+    cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'es')
+  } else if (type === 'number') {
+    cmp = (av ?? 0) - (bv ?? 0)
+  } else {
+    if (av == null && bv == null) cmp = 0
+    else if (av == null) cmp = 1
+    else if (bv == null) cmp = -1
+    else cmp = av - bv
+  }
+  return sortDir === 'asc' ? cmp : -cmp
+}
+
+function EmployeePerformanceTable({ employees, vendedorKey }) {
+  const [sortKey, setSortKey] = useState('avgCicloTotalMs')
+  const [sortDir, setSortDir] = useState('asc')
+
+  const sorted = useMemo(() => {
+    const rows = [...employees]
+    rows.sort((a, b) => compareEmployeeRows(a, b, sortKey, sortDir))
+    return rows
+  }, [employees, sortKey, sortDir])
+
+  const onSort = (colId) => {
+    if (sortKey === colId) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(colId)
+      setSortDir(colId === 'label' ? 'asc' : 'asc')
+    }
+  }
+
+  if (employees.length === 0) {
+    return <p className="muted small">No hay proyectos con vendedor en el período seleccionado.</p>
+  }
+
+  return (
+    <div className="dash-ventas-employee-table-wrap">
+      <table className="dash-ventas-employee-table">
+        <thead>
+          <tr>
+            {EMPLOYEE_SORT_COLS.map((col) => {
+              const active = sortKey === col.id
+              return (
+                <th key={col.id} scope="col">
+                  <button
+                    type="button"
+                    className={`dash-ventas-employee-table__sort ${active ? 'dash-ventas-employee-table__sort--on' : ''}`}
+                    onClick={() => onSort(col.id)}
+                    aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    {col.label}
+                    {active ? <span aria-hidden>{sortDir === 'asc' ? ' ↑' : ' ↓'}</span> : null}
+                  </button>
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((emp) => {
+            const highlighted = employeeRowMatchesVendedor(emp, vendedorKey)
+            return (
+              <tr
+                key={emp.key}
+                className={highlighted ? 'dash-ventas-employee-table__row--active' : undefined}
+              >
+                <td className="dash-ventas-employee-table__name">{emp.label}</td>
+                <td className="dash-ventas-employee-table__num">{emp.total}</td>
+                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgAtencionMs)}</td>
+                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgCotizadoMs)}</td>
+                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgVendidoMs)}</td>
+                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgCicloTotalMs)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 /**
  * Dashboard de tiempos de atención / ventas (proyectos de optimización).
  */
@@ -179,15 +277,12 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
   )
 
   const periods = useMemo(
-    () => splitPeriods(proyectos, { fechaDesde, fechaHasta }),
-    [proyectos, fechaDesde, fechaHasta],
+    () => splitPeriods(proyectos, { fechaDesde, fechaHasta, vendedorKey }),
+    [proyectos, fechaDesde, fechaHasta, vendedorKey],
   )
 
-  const currentStats = useMemo(() => comparativeAverages(proyectos, periods.current), [proyectos, periods.current])
-  const previousStats = useMemo(
-    () => comparativeAverages(proyectos, periods.previous),
-    [proyectos, periods.previous],
-  )
+  const currentStats = useMemo(() => comparativeAverages(null, periods.current), [periods.current])
+  const previousStats = useMemo(() => comparativeAverages(null, periods.previous), [periods.previous])
 
   const estadoCounts = useMemo(() => countByEstado(filtered), [filtered])
 
@@ -204,6 +299,7 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
       atencion: trendDuration(currentStats.atencion, previousStats.atencion),
       cotizado: trendDuration(currentStats.cotizado, previousStats.cotizado),
       vendido: trendDuration(currentStats.vendido, previousStats.vendido),
+      cicloTotal: trendDuration(currentStats.cicloTotal, previousStats.cicloTotal),
     }),
     [currentStats, previousStats],
   )
@@ -240,7 +336,7 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
     const ctx = compareChartRef.current?.getContext('2d')
     if (!ctx) return
     compareChartInstance.current?.destroy()
-    const labels = ['A atención', 'A cotizado', 'A vendido']
+    const labels = VENTAS_STAGE_TABS.map((t) => t.label)
     const toHours = (ms) => (ms == null ? null : ms / 3600000)
     compareChartInstance.current = new ChartJS(ctx, {
       type: 'bar',
@@ -325,8 +421,9 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
             Ventas · tiempos de atención
           </h1>
           <p className="dash-header__lead">
-            Seguimiento de proyectos de optimización para <strong>{displayName}</strong>: desde el envío hasta
-            atención, cotización y venta. Los tiempos se muestran en segundos, horas o días según corresponda.
+            Seguimiento de proyectos de optimización para <strong>{displayName}</strong>: tiempos por etapa
+            (envío → atención → cotizado → vendido). Los tiempos se muestran en segundos, horas o días según
+            corresponda.
           </p>
         </div>
         <div className="dash-ventas-header-badges">
@@ -419,7 +516,7 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
               <BarChart3 size={20} aria-hidden />
               Comparativa de tiempos promedio
             </h3>
-            <span className="dash-chart__note">Actual vs período anterior</span>
+            <span className="dash-chart__note">Actual vs período anterior · por etapa</span>
           </div>
           <div className="dash-chart__canvas">
             <canvas ref={compareChartRef} aria-label="Comparativa de tiempos promedio" />
@@ -450,14 +547,19 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
               {avgTrends.atencion ? <TrendBadge meta={avgTrends.atencion} invertGood /> : null}
             </div>
             <div className="dash-ventas-avg">
-              <span className="small muted">Envío → cotizado</span>
+              <span className="small muted">Atención → cotizado</span>
               <strong>{formatDuration(currentStats.cotizado)}</strong>
               {avgTrends.cotizado ? <TrendBadge meta={avgTrends.cotizado} invertGood /> : null}
             </div>
             <div className="dash-ventas-avg">
-              <span className="small muted">Envío → vendido</span>
+              <span className="small muted">Cotizado → vendido</span>
               <strong>{formatDuration(currentStats.vendido)}</strong>
               {avgTrends.vendido ? <TrendBadge meta={avgTrends.vendido} invertGood /> : null}
+            </div>
+            <div className="dash-ventas-avg">
+              <span className="small muted">Ciclo total</span>
+              <strong>{formatDuration(currentStats.cicloTotal)}</strong>
+              {avgTrends.cicloTotal ? <TrendBadge meta={avgTrends.cicloTotal} invertGood /> : null}
             </div>
           </div>
           <div className="dash-chart__canvas dash-chart__canvas--compact">
@@ -499,33 +601,10 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
           <Users size={22} aria-hidden />
           Rendimiento por vendedor
         </h2>
-        <div className="dash-ventas-employee-grid">
-          {employees.length === 0 ? (
-            <p className="muted small">No hay proyectos con vendedor en el período seleccionado.</p>
-          ) : (
-            employees.map((emp) => (
-              <div key={emp.key} className="dash-ventas-employee card pad">
-                <p className="dash-ventas-employee__name">{emp.label}</p>
-                <div className="dash-ventas-employee__metric">
-                  <span className="muted small">Proyectos</span>
-                  <strong>{emp.total}</strong>
-                </div>
-                <div className="dash-ventas-employee__metric">
-                  <span className="muted small">Prom. a atención</span>
-                  <strong>{formatDuration(emp.avgAtencionMs)}</strong>
-                </div>
-                <div className="dash-ventas-employee__metric">
-                  <span className="muted small">Prom. a cotizado</span>
-                  <strong>{formatDuration(emp.avgCotizadoMs)}</strong>
-                </div>
-                <div className="dash-ventas-employee__metric">
-                  <span className="muted small">Prom. a vendido</span>
-                  <strong>{formatDuration(emp.avgVendidoMs)}</strong>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <p className="dash-ventas-employees__note muted small">
+          Promedios por etapa (solo proyectos con timestamps en ambos extremos)
+        </p>
+        <EmployeePerformanceTable employees={employees} vendedorKey={vendedorKey} />
       </section>
     </div>
   )
