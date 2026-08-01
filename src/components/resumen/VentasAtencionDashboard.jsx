@@ -78,11 +78,46 @@ const DEFAULT_RANGE = defaultVentasDateRange()
 const EMPLOYEE_SORT_COLS = [
   { id: 'label', label: 'Vendedor', type: 'string' },
   { id: 'total', label: 'Proyectos', type: 'number' },
-  { id: 'avgAtencionMs', label: 'Captura', type: 'ms' },
-  { id: 'avgCotizadoMs', label: 'Cotización', type: 'ms' },
-  { id: 'avgVendidoMs', label: 'Cierre', type: 'ms' },
-  { id: 'avgCicloTotalMs', label: 'Ciclo total', type: 'ms' },
+  {
+    id: 'avgAtencionMs',
+    label: 'Captura',
+    path: 'envío→atención',
+    countKey: 'nAtencion',
+    type: 'ms',
+  },
+  {
+    id: 'avgCotizadoMs',
+    label: 'Cotización',
+    path: 'atención→cotizado',
+    countKey: 'nCotizado',
+    type: 'ms',
+  },
+  {
+    id: 'avgVendidoMs',
+    label: 'Cierre',
+    path: 'cotizado→vendido',
+    countKey: 'nVendido',
+    type: 'ms',
+  },
+  {
+    id: 'avgCicloTotalMs',
+    label: 'Ciclo total',
+    path: 'envío→vendido',
+    countKey: 'nCicloTotal',
+    type: 'ms',
+  },
 ]
+
+/** Celda de promedio: duración + n; null → "—". */
+function AvgDurationCell({ ms, n }) {
+  if (ms == null) return '—'
+  return (
+    <span className="dash-ventas-employee-table__avg">
+      {formatDuration(ms)}
+      {n > 0 ? <span className="dash-ventas-employee-table__n"> · n={n}</span> : null}
+    </span>
+  )
+}
 
 function TrendBadge({ meta, invertGood }) {
   if (!meta) return null
@@ -206,16 +241,25 @@ function EmployeePerformanceTable({ employees, vendedorKey }) {
           <tr>
             {EMPLOYEE_SORT_COLS.map((col) => {
               const active = sortKey === col.id
+              const ariaLabel = col.path ? `${col.label} (${col.path})` : col.label
               return (
                 <th key={col.id} scope="col">
                   <button
                     type="button"
                     className={`dash-ventas-employee-table__sort ${active ? 'dash-ventas-employee-table__sort--on' : ''}`}
                     onClick={() => onSort(col.id)}
+                    aria-label={ariaLabel}
                     aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
-                    {col.label}
-                    {active ? <span aria-hidden>{sortDir === 'asc' ? ' ↑' : ' ↓'}</span> : null}
+                    <span className="dash-ventas-employee-table__sort-label">
+                      <span className="dash-ventas-employee-table__sort-main">
+                        {col.label}
+                        {active ? <span aria-hidden>{sortDir === 'asc' ? ' ↑' : ' ↓'}</span> : null}
+                      </span>
+                      {col.path ? (
+                        <span className="dash-ventas-employee-table__sort-path">({col.path})</span>
+                      ) : null}
+                    </span>
                   </button>
                 </th>
               )
@@ -232,10 +276,11 @@ function EmployeePerformanceTable({ employees, vendedorKey }) {
               >
                 <td className="dash-ventas-employee-table__name">{emp.label}</td>
                 <td className="dash-ventas-employee-table__num">{emp.total}</td>
-                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgAtencionMs)}</td>
-                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgCotizadoMs)}</td>
-                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgVendidoMs)}</td>
-                <td className="dash-ventas-employee-table__num">{formatDuration(emp.avgCicloTotalMs)}</td>
+                {EMPLOYEE_SORT_COLS.filter((c) => c.type === 'ms').map((col) => (
+                  <td key={col.id} className="dash-ventas-employee-table__num">
+                    <AvgDurationCell ms={emp[col.id]} n={emp[col.countKey]} />
+                  </td>
+                ))}
               </tr>
             )
           })}
@@ -602,7 +647,9 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
           Rendimiento por vendedor
         </h2>
         <p className="dash-ventas-employees__note muted small">
-          Promedios por etapa (solo proyectos con timestamps en ambos extremos)
+          Tiempo promedio en cada tramo del flujo. Solo cuenta proyectos con ambas fechas de esa etapa.
+          Menor es mejor. <span className="dash-ventas-employees__legend">n</span> = proyectos incluidos en
+          el promedio.
         </p>
         <EmployeePerformanceTable employees={employees} vendedorKey={vendedorKey} />
       </section>

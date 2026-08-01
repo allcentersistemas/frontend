@@ -170,6 +170,10 @@ export function employeePerformanceRows(proyectos) {
       avgCotizadoMs: averageDurationMs(r.cotizadoMs),
       avgVendidoMs: averageDurationMs(r.vendidoMs),
       avgCicloTotalMs: averageDurationMs(r.cicloTotalMs),
+      nAtencion: r.atencionMs.length,
+      nCotizado: r.cotizadoMs.length,
+      nVendido: r.vendidoMs.length,
+      nCicloTotal: r.cicloTotalMs.length,
     }))
     .sort((a, b) => {
       const byCiclo = compareMsAscNullsLast(a.avgCicloTotalMs, b.avgCicloTotalMs)
