@@ -216,6 +216,8 @@ export function ProyectoOptimizacionPage() {
   const [maquinaForm, setMaquinaForm] = useState({ codigo: '', nombre: '' })
   const cotizacionInputRef = useRef(null)
   const [cotizacionTargetId, setCotizacionTargetId] = useState(null)
+  const planosInputRef = useRef(null)
+  const [planosTargetId, setPlanosTargetId] = useState(null)
 
   const setTab = useCallback(
     (id) => {
@@ -483,6 +485,43 @@ export function ProyectoOptimizacionPage() {
     }
   }
 
+  function promptUploadPlanos(rowId) {
+    setPlanosTargetId(rowId)
+    planosInputRef.current?.click()
+  }
+
+  async function handlePlanosSelected(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    const rowId = planosTargetId
+    setPlanosTargetId(null)
+    if (!file || !rowId) return
+    setBusyId(rowId)
+    setActionMsg('')
+    try {
+      await systemApi.uploadProyectoPlanos(rowId, file)
+      setActionMsg('Planos subidos. El cliente podrá verlos en el portal (sin descarga).')
+      await load()
+      if (detailRow?.id === rowId) {
+        const tree = await systemApi.getProyectoOptimizacion(rowId)
+        setDetailTree(tree)
+        setDetailRow((prev) =>
+          prev
+            ? {
+                ...prev,
+                tienePlano: true,
+                planoArchivo: tree?.project?.planoArchivo || prev.planoArchivo,
+              }
+            : prev,
+        )
+      }
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudieron subir los planos.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handleAddMaquina(e) {
     e.preventDefault()
     if (!maquinaForm.codigo.trim() || !maquinaForm.nombre.trim()) return
@@ -518,6 +557,13 @@ export function ProyectoOptimizacionPage() {
         accept=".pdf,.xlsx,.xls,.doc,.docx,application/pdf"
         hidden
         onChange={(e) => void handleCotizacionSelected(e)}
+      />
+      <input
+        ref={planosInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        hidden
+        onChange={(e) => void handlePlanosSelected(e)}
       />
       <ModuleHeader
         title="Proyecto optimización"
@@ -662,6 +708,14 @@ export function ProyectoOptimizacionPage() {
                             >
                               {row.tieneCotizacion ? 'Actualizar cotización' : 'Subir cotización'}
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn--ghost"
+                              disabled={busyId === row.id}
+                              onClick={() => promptUploadPlanos(row.id)}
+                            >
+                              {row.tienePlano ? 'Actualizar planos' : 'Subir planos'}
+                            </button>
                             {canMarcarVendido(row) ? (
                               <button
                                 type="button"
@@ -755,6 +809,15 @@ export function ProyectoOptimizacionPage() {
                     onClick={() => promptUploadCotizacion(detailRow.id)}
                   >
                     Subir cotización
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => promptUploadPlanos(detailRow.id)}
+                  >
+                    {detailRow.tienePlano || detailTree?.project?.planoArchivo
+                      ? 'Actualizar planos'
+                      : 'Subir planos'}
                   </button>
                   {canMarcarVendido(detailRow) ? (
                     <button

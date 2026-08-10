@@ -338,6 +338,21 @@ export function cotizacionProyectoUrl(id) {
   return `${apiPath.replace(/\/+$/, '')}/api/order/proyectos/${id}/cotizacion`
 }
 
+export async function uploadProyectoPlanos(id, file) {
+  const form = new FormData()
+  form.append('file', file)
+  return systemJson(`/api/order/proyectos/${id}/planos`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
+export function planosProyectoUrl(id) {
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`
+  return `${apiPath.replace(/\/+$/, '')}/api/order/proyectos/${id}/planos`
+}
+
 /* ——— Órdenes / proyectos (legacy) ——— */
 
 export async function listProjects() {
