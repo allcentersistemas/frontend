@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import { ResumenDashboard } from '../components/resumen/ResumenDashboard'
 import { VentasAtencionDashboard } from '../components/resumen/VentasAtencionDashboard'
+import { SeguimientoBoard } from '../components/resumen/SeguimientoBoard'
 import { ModulePage, ModuleTabs } from '../components/module/ModuleChrome.jsx'
 import { roleDisplayName } from '../utils/adminAccess'
 
@@ -18,6 +19,7 @@ function buildResumenTabs(showOperacion, showVentas) {
   const tabs = []
   if (showOperacion) tabs.push({ id: 'operacion', label: 'Operación' })
   if (showVentas) tabs.push({ id: 'ventas', label: 'Ventas' })
+  if (showVentas || showOperacion) tabs.push({ id: 'seguimiento', label: 'Seguimiento' })
   return tabs
 }
 
@@ -39,6 +41,9 @@ export function ResumenPage() {
   const [guias, setGuias] = useState([])
   const [scanStats, setScanStats] = useState(null)
   const [proyectos, setProyectos] = useState([])
+  const [seguimiento, setSeguimiento] = useState([])
+  const [seguimientoLoading, setSeguimientoLoading] = useState(false)
+  const [seguimientoErr, setSeguimientoErr] = useState(null)
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -100,6 +105,24 @@ export function ResumenPage() {
       cancelled = true
     }
   }, [showPage, showVentas, activeTab])
+
+  const loadSeguimiento = useCallback(async () => {
+    setSeguimientoLoading(true)
+    setSeguimientoErr(null)
+    try {
+      const list = await systemApi.listProyectosSeguimiento()
+      setSeguimiento(Array.isArray(list) ? list : [])
+    } catch (e) {
+      setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
+    } finally {
+      setSeguimientoLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!showPage || activeTab !== 'seguimiento') return
+    void loadSeguimiento()
+  }, [showPage, activeTab, loadSeguimiento])
 
   if (!showPage) {
     return (
@@ -165,6 +188,24 @@ export function ResumenPage() {
             </div>
           ) : (
             <VentasAtencionDashboard proyectos={proyectos} basePath={base} employee={employee} />
+          )}
+        </>
+      ) : null}
+
+      {activeTab === 'seguimiento' ? (
+        <>
+          {seguimientoErr ? (
+            <p className="form-error pad" role="alert">
+              {seguimientoErr}
+            </p>
+          ) : null}
+          {seguimientoLoading ? (
+            <div className="app-loading" style={{ minHeight: '40vh' }}>
+              <div className="app-loading__spinner" aria-hidden />
+              <p className="text-sm">Cargando seguimiento…</p>
+            </div>
+          ) : (
+            <SeguimientoBoard proyectos={seguimiento} onRefresh={loadSeguimiento} />
           )}
         </>
       ) : null}

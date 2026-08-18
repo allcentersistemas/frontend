@@ -8,6 +8,7 @@ import { canViewBackupMenu, canViewGestionMenu, roleNamesFromEmployee } from '..
 import { AdminToolsPage } from './AdminToolsPage'
 import { GestionAuditoriaPanel } from './GestionAuditoriaPanel.jsx'
 import { GestionBackupPanel } from './GestionBackupPanel.jsx'
+import { GestionOdooWebhooksPanel } from './GestionOdooWebhooksPanel.jsx'
 import { GestionConfigPanel } from './GestionConfigPanel.jsx'
 import { GestionClientesPanel } from './GestionClientesPanel.jsx'
 import { GestionFlotaPanel } from './GestionFlotaPanel'
@@ -34,6 +35,7 @@ function resolveGestionTab(raw, allowedIds) {
     CLIENTE_PORTAL_TAB,
     'proyectos',
     'backups',
+    'odoo',
     'configuracion',
   ]
   if (tab && valid.includes(tab) && allowedIds.includes(tab)) return tab
@@ -73,6 +75,7 @@ export function GestionPage({ initialSection } = {}) {
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'backups', label: 'Backups', masterOnly: true },
+        { id: 'odoo', label: 'Odoo', masterOnly: true },
         { id: 'configuracion', label: 'Configuración', gestionOnly: true },
       ].filter((t) => {
         if (t.masterOnly) return canViewBackupMenu(roleNames)
@@ -210,6 +213,8 @@ export function GestionPage({ initialSection } = {}) {
         <GestionProyectosPanel />
       ) : section === 'backups' ? (
         <GestionBackupPanel />
+      ) : section === 'odoo' ? (
+        <GestionOdooWebhooksPanel />
       ) : section === 'configuracion' ? (
         <GestionConfigPanel />
       ) : isAdminPanel ? (

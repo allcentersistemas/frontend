@@ -280,6 +280,24 @@ export async function markProyectoVendido(id) {
   return systemJson(`/api/order/proyectos/${id}/vendido`, { method: 'POST' })
 }
 
+export async function listProyectosSeguimiento() {
+  return systemJson('/api/order/proyectos/seguimiento')
+}
+
+export async function markProyectoEntregado(id) {
+  return systemJson(`/api/order/proyectos/${id}/entregado`, { method: 'POST' })
+}
+
+export async function fetchAiUsageRankings() {
+  return systemJson('/api/admin/config/ai-usage/rankings')
+}
+
+export async function listOdooWebhooks({ tipo = '', page = 0, size = 20 } = {}) {
+  const q = new URLSearchParams({ page: String(page), size: String(size) })
+  if (tipo) q.set('tipo', tipo)
+  return systemJson(`/api/admin/odoo-webhooks?${q}`)
+}
+
 export async function cancelProyectoOptimizacion(id) {
   return systemJson(`/api/order/proyectos/${id}/cancelar`, { method: 'POST' })
 }

@@ -320,8 +320,61 @@
     @apply border-violet-500/35 bg-violet-500/15 font-semibold text-violet-800 dark:border-violet-400/35 dark:bg-violet-400/15 dark:text-violet-100;
   }
 
+  .tag--estado-produccion {
+    @apply border-orange-500/35 bg-orange-500/15 font-semibold text-orange-900 dark:border-orange-400/40 dark:bg-orange-400/15 dark:text-orange-100;
+  }
+
+  .tag--estado-despacho {
+    @apply border-cyan-500/35 bg-cyan-500/15 font-semibold text-cyan-900 dark:border-cyan-400/40 dark:bg-cyan-400/15 dark:text-cyan-100;
+  }
+
+  .tag--estado-listo {
+    @apply border-lime-500/35 bg-lime-500/15 font-semibold text-lime-900 dark:border-lime-400/40 dark:bg-lime-400/15 dark:text-lime-100;
+  }
+
+  .tag--estado-entregado {
+    @apply border-teal-500/35 bg-teal-500/15 font-semibold text-teal-900 dark:border-teal-400/40 dark:bg-teal-400/15 dark:text-teal-100;
+  }
+
   .tag--estado-cancelado {
     @apply border-slate-400/35 bg-slate-500/15 font-semibold text-slate-700 dark:border-slate-400/35 dark:bg-slate-400/15 dark:text-slate-200;
+  }
+
+  .seguimiento-board {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    align-items: start;
+  }
+  .seguimiento-col {
+    padding: 0.85rem;
+    min-height: 12rem;
+  }
+  .seguimiento-col__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  .seguimiento-col__hint {
+    margin: 0.4rem 0 0.75rem;
+  }
+  .seguimiento-col__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .seguimiento-card {
+    display: grid;
+    gap: 0.2rem;
+    border: 1px solid color-mix(in srgb, var(--border, #cbd5e1) 80%, transparent);
+    border-radius: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    background: color-mix(in srgb, var(--card, #fff) 92%, transparent);
   }
 
   .code-inline {

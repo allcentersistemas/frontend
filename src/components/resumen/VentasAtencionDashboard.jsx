@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { formatDuration } from '../../utils/durationFormat.js'
 import { estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
+import * as systemApi from '../../api/systemApi'
 import {
   comparativeAverages,
   countByEstado,
@@ -300,6 +301,7 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
   const [vendedorKey, setVendedorKey] = useState('')
   const [fastTab, setFastTab] = useState('atencion')
   const [slowTab, setSlowTab] = useState('atencion')
+  const [rankings, setRankings] = useState({ topTokenConsumers: [], topVendidoClientes: [] })
 
   const compareChartRef = useRef(null)
   const estadoChartRef = useRef(null)
@@ -359,6 +361,21 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
   )
 
   const employees = useMemo(() => employeePerformanceRows(filtered), [filtered])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await systemApi.fetchAiUsageRankings()
+        if (!cancelled && data) setRankings(data)
+      } catch {
+        if (!cancelled) setRankings({ topTokenConsumers: [], topVendidoClientes: [] })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const stageLabel = (id) => VENTAS_STAGE_TABS.find((t) => t.id === id)?.label ?? id
 
@@ -653,6 +670,83 @@ export function VentasAtencionDashboard({ proyectos = [], basePath, employee }) 
         </p>
         <EmployeePerformanceTable employees={employees} vendedorKey={vendedorKey} />
       </section>
+
+      <div className="dash-charts-row">
+        <section className="card pad">
+          <h2 className="card__title">Top 10 consumo de tokens (IA foto)</h2>
+          <p className="muted small">Clientes que más tokens de entrada+salida han usado.</p>
+          <div className="table-wrap" style={{ marginTop: '0.75rem' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Cliente</th>
+                  <th>Tokens</th>
+                  <th>In / Out</th>
+                  <th>Subidas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(rankings.topTokenConsumers ?? []).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="muted">
+                      Sin consumo registrado.
+                    </td>
+                  </tr>
+                ) : (
+                  (rankings.topTokenConsumers ?? []).map((row, i) => (
+                    <tr key={row.clientUserId ?? i}>
+                      <td>{i + 1}</td>
+                      <td>
+                        {row.cliente || '—'}
+                        {row.email ? <div className="muted small">{row.email}</div> : null}
+                      </td>
+                      <td>{Number(row.totalTokens ?? 0).toLocaleString('es-PE')}</td>
+                      <td>
+                        {Number(row.inputTokens ?? 0).toLocaleString('es-PE')} /{' '}
+                        {Number(row.outputTokens ?? 0).toLocaleString('es-PE')}
+                      </td>
+                      <td>{row.uploads ?? 0}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section className="card pad">
+          <h2 className="card__title">Clientes con más órdenes vendidas</h2>
+          <p className="muted small">Órdenes de proyectos en estado Vendido.</p>
+          <div className="table-wrap" style={{ marginTop: '0.75rem' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Cliente</th>
+                  <th>Órdenes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(rankings.topVendidoClientes ?? []).length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="muted">
+                      No hay órdenes en estado vendido.
+                    </td>
+                  </tr>
+                ) : (
+                  (rankings.topVendidoClientes ?? []).map((row, i) => (
+                    <tr key={`${row.clientUserId ?? row.cliente}-${i}`}>
+                      <td>{i + 1}</td>
+                      <td>{row.cliente || '—'}</td>
+                      <td>{row.ordenes ?? 0}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
