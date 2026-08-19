@@ -6,7 +6,7 @@ function formatOdooState(state) {
   const map = {
     draft: 'Borrador',
     sent: 'Enviado',
-    to approve: 'Por aprobar',
+    to_approve: 'Por aprobar',
     purchase: 'Orden de compra',
     done: 'Hecho',
     cancel: 'Cancelado',
