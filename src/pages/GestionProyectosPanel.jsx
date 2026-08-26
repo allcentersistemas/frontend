@@ -286,7 +286,15 @@ export function GestionProyectosPanel() {
   }
 
   function canEdit(row) {
-    return row.estado !== 'VENDIDO' && row.estado !== 'CANCELADO'
+    return (
+      row.estado !== 'VENDIDO' &&
+      row.estado !== 'OPTIMIZADO' &&
+      row.estado !== 'PRODUCCION' &&
+      row.estado !== 'DESPACHO' &&
+      row.estado !== 'LISTO_PARA_ENTREGAR' &&
+      row.estado !== 'ENTREGADO' &&
+      row.estado !== 'CANCELADO'
+    )
   }
 
   return (

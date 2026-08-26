@@ -346,6 +346,10 @@
     @apply border-violet-500/35 bg-violet-500/15 font-semibold text-violet-800 dark:border-violet-400/35 dark:bg-violet-400/15 dark:text-violet-100;
   }
 
+  .tag--estado-optimizado {
+    @apply border-indigo-500/35 bg-indigo-500/15 font-semibold text-indigo-900 dark:border-indigo-400/40 dark:bg-indigo-400/15 dark:text-indigo-100;
+  }
+
   .tag--estado-produccion {
     @apply border-orange-500/35 bg-orange-500/15 font-semibold text-orange-900 dark:border-orange-400/40 dark:bg-orange-400/15 dark:text-orange-100;
   }

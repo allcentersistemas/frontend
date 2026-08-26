@@ -6,6 +6,7 @@ export const ESTADOS_PROYECTO = [
   { value: 'EN_ATENCION', label: 'En atención' },
   { value: 'COTIZADO', label: 'Cotizado' },
   { value: 'VENDIDO', label: 'Vendido' },
+  { value: 'OPTIMIZADO', label: 'Optimizado' },
   { value: 'PRODUCCION', label: 'Producción' },
   { value: 'DESPACHO', label: 'Despacho' },
   { value: 'LISTO_PARA_ENTREGAR', label: 'Listo para entregar' },
@@ -14,7 +15,7 @@ export const ESTADOS_PROYECTO = [
 ]
 
 export const ESTADOS_SEGUIMIENTO = [
-  'VENDIDO',
+  'OPTIMIZADO',
   'PRODUCCION',
   'DESPACHO',
   'LISTO_PARA_ENTREGAR',
@@ -27,6 +28,7 @@ export function formatEstadoProyecto(value) {
     EN_ATENCION: 'En atención',
     COTIZADO: 'Cotizado',
     VENDIDO: 'Vendido',
+    OPTIMIZADO: 'Optimizado',
     PRODUCCION: 'Producción',
     DESPACHO: 'Despacho',
     LISTO_PARA_ENTREGAR: 'Listo para entregar',
@@ -42,6 +44,7 @@ export function estadoTagClass(estado) {
     EN_ATENCION: 'tag tag--estado-atencion',
     COTIZADO: 'tag tag--estado-cotizado',
     VENDIDO: 'tag tag--estado-vendido',
+    OPTIMIZADO: 'tag tag--estado-optimizado',
     PRODUCCION: 'tag tag--estado-produccion',
     DESPACHO: 'tag tag--estado-despacho',
     LISTO_PARA_ENTREGAR: 'tag tag--estado-listo',
@@ -54,7 +57,11 @@ export function estadoTagClass(estado) {
 export function canCapturarProyectoOptimizacion(row) {
   if (!row || row.vendedorId != null) return false
   const estado = row.estado
-  return estado !== 'CANCELADO' && !ESTADOS_SEGUIMIENTO.includes(estado)
+  return (
+    estado !== 'CANCELADO' &&
+    estado !== 'VENDIDO' &&
+    !ESTADOS_SEGUIMIENTO.includes(estado)
+  )
 }
 
 export function formatProyectoEstadoTiempo(estadoTiempos, estado) {
@@ -64,6 +71,7 @@ export function formatProyectoEstadoTiempo(estadoTiempos, estado) {
     EN_ATENCION: 'enAtencion',
     COTIZADO: 'cotizado',
     VENDIDO: 'vendido',
+    OPTIMIZADO: 'optimizado',
     PRODUCCION: 'produccion',
     DESPACHO: 'despacho',
     LISTO_PARA_ENTREGAR: 'listoParaEntregar',
