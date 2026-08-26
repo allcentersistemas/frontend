@@ -16,6 +16,7 @@ import { ACTION } from '../access/rolePermissions'
 import { BiesseStickerPrintButton } from '../components/BiesseStickerPrintButton'
 import { CanButton } from '../components/CanButton'
 import { OrderPartsDetail } from '../components/OrderPartsDetail'
+import { printBiesseOrderDetail } from '../utils/printBiesseOrderDetail'
 
 const PAGE_SIZE = 25
 
@@ -566,9 +567,18 @@ export function OrdersPage({ embedded = false }) {
                     <h3 id="order-parts-heading" className="card__title" style={{ margin: 0, fontSize: '1rem' }}>
                       Partes y piezas
                     </h3>
-                    <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
-                      <BiesseStickerPrintButton detail={detail} />
-                    </Can>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => printBiesseOrderDetail(detail)}
+                      >
+                        Imprimir detalle
+                      </button>
+                      <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
+                        <BiesseStickerPrintButton detail={detail} />
+                      </Can>
+                    </div>
                   </div>
                   <OrderPartsDetail partes={detail.partes ?? []} />
                 </section>

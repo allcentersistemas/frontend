@@ -142,8 +142,13 @@
     @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
   }
 
-  /* Impresión del detalle (modal): layout normal a la izquierda, no centrado en la página */
+  /* Fallback si se imprime el modal con Ctrl+P: vertical + izquierda.
+     Preferir el botón «Imprimir detalle» (ventana A4 portrait dedicada). */
   @media print {
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
     body:has(.detail-modal-backdrop) * {
       visibility: hidden !important;
     }
@@ -152,15 +157,15 @@
       visibility: visible !important;
     }
     .detail-modal-backdrop {
-      position: absolute !important;
-      inset: 0 auto auto 0 !important;
+      position: static !important;
+      inset: auto !important;
       display: block !important;
       min-height: 0 !important;
       height: auto !important;
       width: 100% !important;
       max-width: none !important;
       margin: 0 !important;
-      padding: 8mm !important;
+      padding: 0 !important;
       background: transparent !important;
       backdrop-filter: none !important;
       align-items: stretch !important;
@@ -186,8 +191,13 @@
     .detail-modal__head {
       border-bottom: 1px solid #ccc;
       padding: 0 0 0.5rem;
+      text-align: left !important;
     }
-    .detail-modal__close {
+    .detail-modal__close,
+    .order-parts-filters,
+    .form-section,
+    .form-actions,
+    .btn {
       display: none !important;
     }
     .detail-modal__body {
@@ -195,9 +205,17 @@
       padding: 0.75rem 0 0;
       text-align: left !important;
     }
+    .order-parts-list,
+    .order-part,
+    .order-part__meta,
+    .order-pieces-grid {
+      text-align: left !important;
+      justify-content: flex-start !important;
+    }
     body {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      text-align: left !important;
     }
   }
 
