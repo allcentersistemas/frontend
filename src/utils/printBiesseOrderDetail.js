@@ -38,6 +38,21 @@ export function printBiesseOrderDetail(detail) {
   const partes = Array.isArray(detail.partes) ? detail.partes : []
   const title = detail.orderName ? `Orden ${detail.orderName}` : `Orden #${detail.orderId ?? ''}`
 
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  const isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua) && !/OPR\//.test(ua)
+  const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua)
+
+  const orientHelp = isChrome
+    ? `<strong>Chrome:</strong> no muestra la pestaña «Diseño» como Safari. Abra
+      <strong>Más opciones</strong> (abajo) y elija <strong>Orientación → Vertical</strong>.
+      En Mac también puede usar <strong>Imprimir con el diálogo del sistema</strong>
+      (menú desplegable junto a «Cancelar») o <kbd>⌘⌥P</kbd> para ver Diseño / vertical.`
+    : isSafari
+      ? `<strong>Safari:</strong> en la ventana de impresión use la pestaña
+        <strong>Diseño</strong> → <strong>Orientación → Vertical</strong> (hoja parada).`
+      : `<strong>Importante:</strong> elija <strong>Orientación → Vertical</strong>
+        (Portrait / hoja parada), no Horizontal.`
+
   const partBlocks = partes
     .map((part) => {
       const code = part.partCode ?? part.partcode ?? `P${part.partNumber ?? part.partnumber ?? ''}`
@@ -83,6 +98,10 @@ export function printBiesseOrderDetail(detail) {
   <style>
     /* Hoja PARADA (vertical). Medidas explícitas 210×297 mm = A4 portrait.
        En el diálogo del navegador confirme Orientación = Vertical / Portrait. */
+    @page {
+      size: portrait;
+      margin: 12mm;
+    }
     @page {
       size: 210mm 297mm;
       margin: 12mm;
@@ -162,19 +181,24 @@ export function printBiesseOrderDetail(detail) {
     .chip--cut { background: #fef3c7; color: #92400e; border-color: #f59e0b; font-weight: 600; }
     .chip--ok { background: #d1fae5; color: #065f46; border-color: #10b981; font-weight: 600; }
     .muted { color: #666; }
+    .orient-banner kbd {
+      padding: 1px 4px;
+      border: 1px solid #d97706;
+      border-radius: 3px;
+      font-size: 8pt;
+      background: #fff;
+    }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .orient-banner { display: none !important; }
+      @page { size: portrait; margin: 12mm; }
       @page { size: 210mm 297mm; margin: 12mm; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <p class="orient-banner">
-      <strong>Importante:</strong> en el diálogo de impresión elija
-      <strong>Orientación → Vertical</strong> (Portrait / hoja parada), no Horizontal.
-    </p>
+    <p class="orient-banner">${orientHelp}</p>
     <h1>${esc(title)}</h1>
     <p class="sub">Producción Biesse · detalle de partes y piezas · A4 vertical</p>
     <div class="meta">
