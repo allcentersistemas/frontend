@@ -54,7 +54,7 @@ export const PORTAL_ACCESS_MODULES = [
   {
     id: 'monitor_biesse',
     label: 'Inventario · Monitor seccionadores',
-    description: 'Estado del agente OSI, tiempos de corte y eventos del seccionador',
+    description: 'Monitoreo en vivo: estados, tiempos, planchas, eventos y cortes (sin alta de máquinas)',
     features: [FEATURE.BIESSE_ORDERS],
     suggestedRoles: [ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
   },

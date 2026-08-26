@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as systemApi from '../api/systemApi'
-import { CanButton } from '../components/CanButton'
-import { FEATURE } from '../access/permissionCatalog'
-import { ACTION } from '../access/rolePermissions'
 
 function fmtTs(value) {
   if (!value) return '—'
@@ -91,12 +88,6 @@ export function BiesseMonitorPanel() {
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
   const [lastMachinesAt, setLastMachinesAt] = useState(null)
-
-  const [machineName, setMachineName] = useState('BIESSE-OSI')
-  const [plantName, setPlantName] = useState('')
-  const [createBusy, setCreateBusy] = useState(false)
-  const [newToken, setNewToken] = useState(null)
-  const [tokenMsg, setTokenMsg] = useState(null)
 
   const loadMachines = useCallback(async () => {
     try {
@@ -187,43 +178,6 @@ export function BiesseMonitorPanel() {
 
   void tick
 
-  async function handleCreateMachine(e) {
-    e.preventDefault()
-    setCreateBusy(true)
-    setTokenMsg(null)
-    setNewToken(null)
-    try {
-      const res = await systemApi.createAgentMachine({
-        machineName: machineName.trim() || 'BIESSE-OSI',
-        plantName: plantName.trim() || undefined,
-      })
-      setNewToken(res?.token ?? null)
-      setTokenMsg(res?.message ?? 'Token creado. Cópielo ahora.')
-      await load()
-    } catch (ex) {
-      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo crear el seccionador')
-    } finally {
-      setCreateBusy(false)
-    }
-  }
-
-  async function handleRotate(machineId) {
-    if (!window.confirm('¿Rotar el token? El agente deberá actualizar config.json.')) return
-    setCreateBusy(true)
-    setTokenMsg(null)
-    setNewToken(null)
-    try {
-      const res = await systemApi.rotateAgentMachineToken(machineId)
-      setNewToken(res?.token ?? null)
-      setTokenMsg(res?.message ?? 'Token rotado.')
-      await load()
-    } catch (ex) {
-      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo rotar el token')
-    } finally {
-      setCreateBusy(false)
-    }
-  }
-
   return (
     <div className="dash">
       <div className="card pad" style={{ marginBottom: '1rem' }}>
@@ -231,9 +185,9 @@ export function BiesseMonitorPanel() {
           <div>
             <h1 className="card__title">Seccionadores</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Máquinas cada{' '}
-              {MACHINES_POLL_MS / 1000}s; eventos/cortes cada {EVENTS_POLL_MS / 1000}s. Cree un token
-              aquí y póngalo en el agente con URL <code>http://IP-SERVIDOR:8080</code> (module-system).
+              Monitoreo en vivo del agente OSI (<code>agente_biesse_win10</code>): estados, tiempos,
+              planchas, eventos y cortes. Máquinas cada {MACHINES_POLL_MS / 1000}s; eventos/cortes cada{' '}
+              {EVENTS_POLL_MS / 1000}s. Para crear máquinas o rotar tokens use Gestión → Configuración.
             </p>
             {lastMachinesAt ? (
               <p className="small muted" style={{ marginTop: '0.25rem' }} role="status">
@@ -259,58 +213,6 @@ export function BiesseMonitorPanel() {
         ) : null}
       </div>
 
-      <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h2 className="card__title" style={{ fontSize: '1rem' }}>
-          Conectar agente (token)
-        </h2>
-        <p className="muted small">
-          En la PC del seccionador: abra el agente, configure API base <code>http://IP:8080</code> y
-          pegue el token (header <code>X-Agent-Token</code> / config.json). Solo roles admin pueden
-          crear o rotar tokens.
-        </p>
-        <form
-          onSubmit={(e) => void handleCreateMachine(e)}
-          style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end', marginTop: '0.75rem' }}
-        >
-          <label className="field">
-            <span className="small">Nombre seccionador</span>
-            <input value={machineName} onChange={(e) => setMachineName(e.target.value)} required />
-          </label>
-          <label className="field">
-            <span className="small">Planta (opcional)</span>
-            <input value={plantName} onChange={(e) => setPlantName(e.target.value)} placeholder="Planta 1" />
-          </label>
-          <CanButton
-            I={ACTION.UPDATE}
-            a={FEATURE.BIESSE_ORDERS}
-            type="submit"
-            className="btn btn--primary"
-            disabled={createBusy}
-          >
-            {createBusy ? 'Creando…' : 'Crear seccionador + token'}
-          </CanButton>
-        </form>
-        {tokenMsg ? (
-          <p className="small" style={{ marginTop: '0.75rem' }} role="status">
-            {tokenMsg}
-          </p>
-        ) : null}
-        {newToken ? (
-          <div className="pad surface-2" style={{ marginTop: '0.75rem', borderRadius: 8, wordBreak: 'break-all' }}>
-            <strong className="small">Token (cópielo ahora):</strong>
-            <code className="code-inline" style={{ display: 'block', marginTop: 6 }}>{newToken}</code>
-            <button
-              type="button"
-              className="btn btn--ghost"
-              style={{ marginTop: 8 }}
-              onClick={() => void navigator.clipboard?.writeText(newToken)}
-            >
-              Copiar token
-            </button>
-          </div>
-        ) : null}
-      </div>
-
       {loading && !machines.length && !err ? (
         <p className="muted pad">Cargando seccionadores…</p>
       ) : null}
@@ -327,7 +229,8 @@ export function BiesseMonitorPanel() {
         {!machines.length && !loading && !err ? (
           <div className="card pad">
             <p className="muted small">
-              No hay seccionadores. Cree uno arriba para generar el token del agente.
+              No hay seccionadores registrados. Agréguelos en Gestión → Configuración → Gestionar
+              seccionadoras.
             </p>
           </div>
         ) : null}
@@ -387,17 +290,6 @@ export function BiesseMonitorPanel() {
                   </dd>
                 </div>
               </dl>
-              <CanButton
-                I={ACTION.UPDATE}
-                a={FEATURE.BIESSE_ORDERS}
-                type="button"
-                className="btn btn--ghost"
-                style={{ marginTop: '0.5rem' }}
-                disabled={createBusy}
-                onClick={() => void handleRotate(id)}
-              >
-                Rotar token
-              </CanButton>
             </article>
           )
         })}

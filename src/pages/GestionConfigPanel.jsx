@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { canResetKardex, canViewGestionMenu, roleNamesFromEmployee } from '../auth/roles'
 import * as systemApi from '../api/systemApi'
+import { SeccionadorasConfigPanel } from './SeccionadorasConfigPanel.jsx'
 
 export function GestionConfigPanel() {
   const { employee } = useAuth()
@@ -244,12 +245,14 @@ export function GestionConfigPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Ajustes globales del portal: kardex, plantilla de planilla, importación por foto (IA) y correo SMTP.
+        Ajustes globales del portal: seccionadoras, kardex, plantilla de planilla, importación por foto (IA) y correo SMTP.
         Los cambios aplican de inmediato sin reiniciar el servidor.
       </p>
 
       {err ? <p className="form-inline-error" style={{ marginBottom: '0.75rem' }}>{err}</p> : null}
       {ok ? <p className="form-success" style={{ marginBottom: '0.75rem' }}>{ok}</p> : null}
+
+      <SeccionadorasConfigPanel />
 
       <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
         <h2>Kardex de inventario</h2>

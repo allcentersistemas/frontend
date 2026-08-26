@@ -317,7 +317,7 @@ const TABS = [
 
 const INVENTORY_AREAS = [
   { id: 'ordenes', label: 'Órdenes Biesse', feature: FEATURE.BIESSE_ORDERS },
-  { id: 'monitor', label: 'Seccionadores', feature: FEATURE.BIESSE_ORDERS },
+  { id: 'monitor', label: 'Seccionadores (monitor)', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
   { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
   { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
