@@ -14,6 +14,7 @@ import { FEATURE } from '../access/permissionCatalog'
 import { useAuth } from '../auth/AuthContext'
 import { ProyectoOrdenPiezasModal } from '../components/ProyectoOrdenPiezasModal.jsx'
 import { ClientDetailModal } from '../components/ClientDetailModal.jsx'
+import { OrdenBiesseObraAssign } from '../components/OrdenBiesseObraAssign.jsx'
 import { gestionClientePortalHref } from '../utils/gestionPaths'
 import {
   ESTADOS_PROYECTO,
@@ -39,7 +40,14 @@ function resolveProyectoTab(raw) {
   return raw === TAB_TODOS ? TAB_TODOS : TAB_MIS
 }
 
-function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, onDownloadOrderCsv }) {
+function ProyectoTreeSummary({
+  tree,
+  onDownloadOrderExcel,
+  onDownloadOrderText,
+  onDownloadOrderCsv,
+  onOrdenBiesseAssigned,
+  canAssignBiesse = false,
+}) {
   const { allowedDashboard } = useAuth()
   const ability = useAppAbility()
   const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
@@ -138,13 +146,20 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
           <ul className="stack gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {orders.map((o) => (
               <li key={o.id} className="card pad" style={{ margin: 0 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                     <strong>{o.codigo || `Orden ${o.id}`}</strong>
                     {o.descripcion ? <span className="muted small"> — {o.descripcion}</span> : null}
                     <p className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
                       {(o.detalles ?? []).length} pieza(s)
                     </p>
+                    {canAssignBiesse || o.biesseOrderId ? (
+                      <OrdenBiesseObraAssign
+                        orden={o}
+                        disabled={!canAssignBiesse}
+                        onAssigned={(updated) => onOrdenBiesseAssigned?.(o.id, updated)}
+                      />
+                    ) : null}
                   </div>
                   {(o.detalles ?? []).length ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -194,6 +209,10 @@ function ProyectoTreeSummary({ tree, onDownloadOrderExcel, onDownloadOrderText, 
 export function ProyectoOptimizacionPage() {
   const ability = useAppAbility()
   const isAdmin = ability.can('manage', 'all')
+  const canAssignBiesse =
+    ability.can('create', FEATURE.PROJECT_LIST) ||
+    ability.can('manage', FEATURE.PROJECT_LIST) ||
+    isAdmin
   const { markAllRead } = useEmployeeNotifications()
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTabState] = useState(() => resolveProyectoTab(searchParams.get('tab')))
@@ -764,9 +783,28 @@ export function ProyectoOptimizacionPage() {
           <>
             <ProyectoTreeSummary
               tree={detailTree}
+              canAssignBiesse={canAssignBiesse}
               onDownloadOrderExcel={handleDownloadOrderExcel}
               onDownloadOrderText={handleDownloadOrderText}
               onDownloadOrderCsv={handleDownloadOrderCsv}
+              onOrdenBiesseAssigned={(ordenId, updated) => {
+                setDetailTree((prev) => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    orders: (prev.orders ?? []).map((o) =>
+                      o.id === ordenId
+                        ? {
+                            ...o,
+                            biesseOrderId: updated?.biesseOrderId ?? null,
+                            biesseOrderName: updated?.biesseOrderName ?? null,
+                            opCodigo: updated?.opCodigo ?? null,
+                          }
+                        : o,
+                    ),
+                  }
+                })
+              }}
             />
 
             {!detailRow?.estado || detailRow.estado === 'ENVIADO' || detailRow.estado === 'EN_ATENCION' || detailRow.estado === 'COTIZADO' ? (

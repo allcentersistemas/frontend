@@ -102,6 +102,9 @@ export function OrdersPage({ embedded = false }) {
   const [orderDeleteBusy, setOrderDeleteBusy] = useState(false)
   const [trazabilidad, setTrazabilidad] = useState([])
   const [trazLoading, setTrazLoading] = useState(false)
+  const [cutSummary, setCutSummary] = useState(null)
+  const [cutEvents, setCutEvents] = useState([])
+  const [cutLoading, setCutLoading] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(searchInput), 350)
@@ -179,6 +182,8 @@ export function OrdersPage({ embedded = false }) {
       setDetail(null)
       setOrderPallets([])
       setTrazabilidad([])
+      setCutSummary(null)
+      setCutEvents([])
       return
     }
     let cancelled = false
@@ -217,18 +222,36 @@ export function OrdersPage({ embedded = false }) {
   useEffect(() => {
     if (selectedId == null) {
       setTrazabilidad([])
+      setCutSummary(null)
+      setCutEvents([])
       return
     }
     let cancelled = false
     ;(async () => {
       setTrazLoading(true)
+      setCutLoading(true)
       try {
-        const rows = await biesseApi.listOpTrazabilidad({ orderId: selectedId, limit: 80 })
-        if (!cancelled) setTrazabilidad(Array.isArray(rows) ? rows : [])
+        const [rows, summaries, events] = await Promise.all([
+          biesseApi.listOpTrazabilidad({ orderId: selectedId, limit: 80 }),
+          systemApi.listAgentCutTimesSummary({ orderId: selectedId, limit: 5 }).catch(() => []),
+          systemApi.listAgentCutTimes({ orderId: selectedId, limit: 40 }).catch(() => []),
+        ])
+        if (!cancelled) {
+          setTrazabilidad(Array.isArray(rows) ? rows : [])
+          setCutSummary(Array.isArray(summaries) && summaries.length ? summaries[0] : null)
+          setCutEvents(Array.isArray(events) ? events : [])
+        }
       } catch {
-        if (!cancelled) setTrazabilidad([])
+        if (!cancelled) {
+          setTrazabilidad([])
+          setCutSummary(null)
+          setCutEvents([])
+        }
       } finally {
-        if (!cancelled) setTrazLoading(false)
+        if (!cancelled) {
+          setTrazLoading(false)
+          setCutLoading(false)
+        }
       }
     })()
     return () => {
@@ -583,6 +606,68 @@ export function OrdersPage({ embedded = false }) {
                     </div>
                   ))}
                 </dl>
+
+                <h3 className="card__title" style={{ marginTop: '1.25rem', fontSize: '1rem' }}>
+                  Historial de corte
+                </h3>
+                {cutLoading ? <p className="muted small">Cargando tiempos de corte…</p> : null}
+                {!cutLoading && !cutSummary && !cutEvents.length ? (
+                  <p className="muted small">
+                    Sin CORTE_INICIO / CORTE_FIN aún para esta obra.
+                  </p>
+                ) : null}
+                {!cutLoading && cutSummary ? (
+                  <dl className="inv-dl" style={{ marginBottom: '0.75rem' }}>
+                    {[
+                      ['Duración total', cutSummary.total_duration_label || '0s'],
+                      ['Sesiones', cutSummary.sessions ?? 0],
+                      [
+                        'Seccionador(es)',
+                        Array.isArray(cutSummary.seccionadores) && cutSummary.seccionadores.length
+                          ? cutSummary.seccionadores.join(', ')
+                          : '—',
+                      ],
+                      ['Inicio', fmtTraceTs(cutSummary.first_start)],
+                      ['Fin', fmtTraceTs(cutSummary.last_end)],
+                    ].map(([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {!cutLoading && cutEvents.length > 0 ? (
+                  <div className="table-wrap" style={{ marginBottom: '1rem' }}>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Evento</th>
+                          <th>Seccionador</th>
+                          <th>Duración</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cutEvents.map((row) => (
+                          <tr key={row.id ?? `${row.accion}-${row.fecha}`}>
+                            <td className="small muted">{fmtTraceTs(row.fecha)}</td>
+                            <td>
+                              <span className="tag">{row.accion}</span>
+                            </td>
+                            <td className="small">{row.seccionador || '—'}</td>
+                            <td className="small">
+                              {row.duration_label ||
+                                (String(row.accion || '').toUpperCase() === 'CORTE_INICIO'
+                                  ? 'inicio'
+                                  : '—')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
 
                 <h3 className="card__title" style={{ marginTop: '1.25rem', fontSize: '1rem' }}>
                   Trazabilidad OP

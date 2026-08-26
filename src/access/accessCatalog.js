@@ -53,8 +53,8 @@ export const PORTAL_ACCESS_MODULES = [
   },
   {
     id: 'monitor_biesse',
-    label: 'Inventario · Monitor CNC Biesse',
-    description: 'Estado del agente OSI, job en corte y eventos de máquina',
+    label: 'Inventario · Monitor seccionadores',
+    description: 'Estado del agente OSI, tiempos de corte y eventos del seccionador',
     features: [FEATURE.BIESSE_ORDERS],
     suggestedRoles: [ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
   },

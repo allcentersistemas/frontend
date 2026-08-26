@@ -284,6 +284,41 @@ export async function listProyectosSeguimiento() {
   return systemJson('/api/order/proyectos/seguimiento')
 }
 
+export async function listSeguimientoOps() {
+  return systemJson('/api/order/proyectos/seguimiento/ops')
+}
+
+export async function listBiesseObrasForAssign({ q = '', limit = 30, offset = 0 } = {}) {
+  const params = new URLSearchParams()
+  if (q != null && String(q).trim() !== '') params.set('q', String(q).trim())
+  params.set('limit', String(limit))
+  params.set('offset', String(offset))
+  const raw = await systemJson(`/api/order/biesse/obras?${params}`)
+  const itemsRaw = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
+  const items = itemsRaw.map((row) => ({
+    orderId: Number(row.orderid ?? row.orderId) || null,
+    orderName: row.ordername ?? row.orderName ?? '',
+    bookingCode: row.bookingcode ?? row.bookingCode ?? null,
+    opCodigo: row.op_codigo ?? row.opCodigo ?? null,
+    porcentaje: row.porcentaje_completado ?? row.porcentaje ?? null,
+    estadoEscaneo: row.estado_escaneo ?? row.estadoEscaneo ?? null,
+  }))
+  const total =
+    typeof raw?.totalCount === 'number'
+      ? raw.totalCount
+      : typeof raw?.totalElements === 'number'
+        ? raw.totalElements
+        : items.length
+  return { items, totalCount: total }
+}
+
+export async function assignOrdenBiesseObra(ordenId, biesseOrderId) {
+  return systemJson(`/api/order/ordenes/${ordenId}/biesse-obra`, {
+    method: 'PUT',
+    body: JSON.stringify({ biesseOrderId: biesseOrderId ?? null }),
+  })
+}
+
 export async function markProyectoEntregado(id) {
   return systemJson(`/api/order/proyectos/${id}/entregado`, { method: 'POST' })
 }
@@ -1158,6 +1193,23 @@ export async function listAgentEvents(limit = 80) {
 export async function listAgentCutPieces(limit = 40) {
   const q = new URLSearchParams({ limit: String(limit) })
   return systemJson(`/api/biesse/monitor/cut-pieces?${q}`)
+}
+
+export async function listAgentCutTimes({ op, orderId, limit = 80 } = {}) {
+  const q = new URLSearchParams()
+  if (op) q.set('op', String(op))
+  if (orderId != null) q.set('orderId', String(orderId))
+  q.set('limit', String(limit))
+  return systemJson(`/api/biesse/monitor/cut-times?${q}`)
+}
+
+/** Historial agregado por obra: duración total, seccionadores, ventanas CORTE_FIN. */
+export async function listAgentCutTimesSummary({ op, orderId, limit = 40 } = {}) {
+  const q = new URLSearchParams()
+  if (op) q.set('op', String(op))
+  if (orderId != null) q.set('orderId', String(orderId))
+  q.set('limit', String(limit))
+  return systemJson(`/api/biesse/monitor/cut-times/summary?${q}`)
 }
 
 export async function listAgentTrazabilidad({ op, orderId, limit = 100 } = {}) {

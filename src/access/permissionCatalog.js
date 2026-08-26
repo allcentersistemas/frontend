@@ -63,6 +63,8 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/biesse/monitor/machines'],
       ['GET', '/api/biesse/monitor/events'],
       ['GET', '/api/biesse/monitor/cut-pieces'],
+      ['GET', '/api/biesse/monitor/cut-times'],
+      ['GET', '/api/biesse/monitor/cut-times/summary'],
       ['GET', '/api/biesse/monitor/trazabilidad'],
       ['POST', '/api/biesse/monitor/machines'],
       ['POST', '/api/biesse/monitor/machines/{id}/rotate-token'],

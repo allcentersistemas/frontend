@@ -42,6 +42,7 @@ export function ResumenPage() {
   const [scanStats, setScanStats] = useState(null)
   const [proyectos, setProyectos] = useState([])
   const [seguimiento, setSeguimiento] = useState([])
+  const [seguimientoOps, setSeguimientoOps] = useState([])
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
 
@@ -110,8 +111,12 @@ export function ResumenPage() {
     setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
-      const list = await systemApi.listProyectosSeguimiento()
+      const [list, ops] = await Promise.all([
+        systemApi.listProyectosSeguimiento(),
+        systemApi.listSeguimientoOps().catch(() => []),
+      ])
       setSeguimiento(Array.isArray(list) ? list : [])
+      setSeguimientoOps(Array.isArray(ops) ? ops : [])
     } catch (e) {
       setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
     } finally {
@@ -205,7 +210,11 @@ export function ResumenPage() {
               <p className="text-sm">Cargando seguimiento…</p>
             </div>
           ) : (
-            <SeguimientoBoard proyectos={seguimiento} onRefresh={loadSeguimiento} />
+            <SeguimientoBoard
+              proyectos={seguimiento}
+              ops={seguimientoOps}
+              onRefresh={loadSeguimiento}
+            />
           )}
         </>
       ) : null}

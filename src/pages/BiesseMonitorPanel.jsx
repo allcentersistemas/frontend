@@ -51,6 +51,8 @@ export function BiesseMonitorPanel() {
   const [machines, setMachines] = useState([])
   const [events, setEvents] = useState([])
   const [cuts, setCuts] = useState([])
+  const [cutTimes, setCutTimes] = useState([])
+  const [cutSummary, setCutSummary] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
@@ -64,20 +66,26 @@ export function BiesseMonitorPanel() {
   const load = useCallback(async () => {
     setErr(null)
     try {
-      const [m, e, c] = await Promise.all([
+      const [m, e, c, t, s] = await Promise.all([
         systemApi.listAgentMachines(),
         systemApi.listAgentEvents(100).catch(() => []),
         systemApi.listAgentCutPieces(40).catch(() => []),
+        systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
+        systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
       ])
       setMachines(Array.isArray(m) ? m : [])
       setEvents(Array.isArray(e) ? e : [])
       setCuts(Array.isArray(c) ? c : [])
+      setCutTimes(Array.isArray(t) ? t : [])
+      setCutSummary(Array.isArray(s) ? s : [])
     } catch (ex) {
       const msg = ex instanceof Error ? ex.message : 'No se pudo cargar el monitor'
       setErr(msg)
       setMachines([])
       setEvents([])
       setCuts([])
+      setCutTimes([])
+      setCutSummary([])
     } finally {
       setLoading(false)
     }
@@ -110,7 +118,7 @@ export function BiesseMonitorPanel() {
       setTokenMsg(res?.message ?? 'Token creado. Cópielo ahora.')
       await load()
     } catch (ex) {
-      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo crear la máquina')
+      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo crear el seccionador')
     } finally {
       setCreateBusy(false)
     }
@@ -138,7 +146,7 @@ export function BiesseMonitorPanel() {
       <div className="card pad" style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <h1 className="card__title">Monitor Biesse CNC</h1>
+            <h1 className="card__title">Seccionadores</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
               Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Cree un token aquí y
               póngalo en el agente con URL <code>http://IP-SERVIDOR:8080</code> (module-system).
@@ -167,16 +175,16 @@ export function BiesseMonitorPanel() {
           Conectar agente (token)
         </h2>
         <p className="muted small">
-          En la PC del CNC: abra el agente, configure API base <code>http://IP:8080</code> y pegue el
-          token (header <code>X-Agent-Token</code> / config.json). Solo roles admin pueden crear o
-          rotar tokens.
+          En la PC del seccionador: abra el agente, configure API base <code>http://IP:8080</code> y
+          pegue el token (header <code>X-Agent-Token</code> / config.json). Solo roles admin pueden
+          crear o rotar tokens.
         </p>
         <form
           onSubmit={(e) => void handleCreateMachine(e)}
           style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end', marginTop: '0.75rem' }}
         >
           <label className="field">
-            <span className="small">Nombre máquina</span>
+            <span className="small">Nombre seccionador</span>
             <input value={machineName} onChange={(e) => setMachineName(e.target.value)} required />
           </label>
           <label className="field">
@@ -190,7 +198,7 @@ export function BiesseMonitorPanel() {
             className="btn btn--primary"
             disabled={createBusy}
           >
-            {createBusy ? 'Creando…' : 'Crear máquina + token'}
+            {createBusy ? 'Creando…' : 'Crear seccionador + token'}
           </CanButton>
         </form>
         {tokenMsg ? (
@@ -215,7 +223,7 @@ export function BiesseMonitorPanel() {
       </div>
 
       {loading && !machines.length && !err ? (
-        <p className="muted pad">Cargando máquinas…</p>
+        <p className="muted pad">Cargando seccionadores…</p>
       ) : null}
 
       <div
@@ -230,7 +238,7 @@ export function BiesseMonitorPanel() {
         {!machines.length && !loading && !err ? (
           <div className="card pad">
             <p className="muted small">
-              No hay máquinas. Cree una arriba para generar el token del agente.
+              No hay seccionadores. Cree uno arriba para generar el token del agente.
             </p>
           </div>
         ) : null}
@@ -244,7 +252,7 @@ export function BiesseMonitorPanel() {
           return (
             <article key={id} className="card pad">
               <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                <strong>{m.machine_name ?? m.machineName ?? `Máquina #${id}`}</strong>
+                <strong>{m.machine_name ?? m.machineName ?? `Seccionador #${id}`}</strong>
                 <span className={online ? 'tag tag--ok' : 'tag'}>
                   {onlineLabel(online, m.last_heartbeat_at ?? m.lastHeartbeatAt)}
                 </span>
@@ -276,7 +284,7 @@ export function BiesseMonitorPanel() {
                 </div>
                 {dur ? (
                   <div>
-                    <dt>Tiempo de corte</dt>
+                    <dt>Tiempo de corte (vivo)</dt>
                     <dd>{dur}</dd>
                   </div>
                 ) : null}
@@ -311,7 +319,7 @@ export function BiesseMonitorPanel() {
               <thead>
                 <tr>
                   <th>Hora</th>
-                  <th>Máq.</th>
+                  <th>Seccionador</th>
                   <th>Tipo</th>
                   <th>Detalle</th>
                   <th>Acción</th>
@@ -348,6 +356,7 @@ export function BiesseMonitorPanel() {
                 <tr>
                   <th>Hora</th>
                   <th>Código</th>
+                  <th>Seccionador</th>
                   <th>Mapa</th>
                   <th>Print</th>
                 </tr>
@@ -358,8 +367,11 @@ export function BiesseMonitorPanel() {
                     <td className="small muted">{fmtTs(c.created_at)}</td>
                     <td className="small">
                       {c.unit_code || c.osi_part_id || '—'}
-                      {c.ordername ? <div className="muted">{c.ordername}</div> : null}
+                      {(c.order_name || c.ordername) ? (
+                        <div className="muted">{c.order_name || c.ordername}</div>
+                      ) : null}
                     </td>
+                    <td className="small">{c.machine_name ?? '—'}</td>
                     <td>
                       <span className="tag">{c.map_status ?? '—'}</span>
                     </td>
@@ -374,6 +386,91 @@ export function BiesseMonitorPanel() {
           </div>
         </section>
       </div>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h2 className="card__title pad" style={{ fontSize: '1rem', marginBottom: 0 }}>
+          Historial de corte por obra
+        </h2>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Obra / OP</th>
+                <th>Duración total</th>
+                <th>Sesiones</th>
+                <th>Seccionador(es)</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cutSummary.map((row) => (
+                <tr key={row.orderid ?? `${row.op_codigo}-${row.ordername}`}>
+                  <td className="small">
+                    {row.ordername || '—'}
+                    {row.orderid != null ? <div className="muted">#{row.orderid}</div> : null}
+                    {row.op_codigo ? <div className="muted">{row.op_codigo}</div> : null}
+                  </td>
+                  <td className="small">{row.total_duration_label || '0s'}</td>
+                  <td className="small">{row.sessions ?? 0}</td>
+                  <td className="small">
+                    {Array.isArray(row.seccionadores) && row.seccionadores.length
+                      ? row.seccionadores.join(', ')
+                      : '—'}
+                  </td>
+                  <td className="small muted">{fmtTs(row.first_start)}</td>
+                  <td className="small muted">{fmtTs(row.last_end)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!cutSummary.length ? (
+            <p className="muted pad small">Sin historial agregado aún (requiere CORTE_FIN en trazabilidad).</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h2 className="card__title pad" style={{ fontSize: '1rem', marginBottom: 0 }}>
+          Tiempos de corte (eventos)
+        </h2>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Obra / OP</th>
+                <th>Evento</th>
+                <th>Seccionador</th>
+                <th>Duración</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cutTimes.map((row) => (
+                <tr key={row.id ?? `${row.accion}-${row.fecha}`}>
+                  <td className="small muted">{fmtTs(row.fecha)}</td>
+                  <td className="small">
+                    {row.ordername || '—'}
+                    {row.op_codigo ? <div className="muted">{row.op_codigo}</div> : null}
+                  </td>
+                  <td>
+                    <span className="tag">{row.accion}</span>
+                  </td>
+                  <td className="small">{row.seccionador || '—'}</td>
+                  <td className="small">
+                    {row.duration_label || (row.accion === 'CORTE_INICIO' ? 'en curso / inicio' : '—')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!cutTimes.length ? (
+            <p className="muted pad small">
+              Sin CORTE_INICIO / CORTE_FIN aún. Aparecen al iniciar y pausar/fin de job en el seccionador.
+            </p>
+          ) : null}
+        </div>
+      </section>
     </div>
   )
 }
