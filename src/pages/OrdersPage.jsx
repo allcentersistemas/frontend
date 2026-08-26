@@ -19,23 +19,25 @@ import { OrderPartsDetail } from '../components/OrderPartsDetail'
 
 const PAGE_SIZE = 25
 
-function orderEstadoTagClass(estado) {
-  const e = String(estado ?? '').toUpperCase()
-  if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'tag tag--ok'
-  if (e === 'PRODUCCION') return 'tag tag--ok'
-  if (e === 'OPTIMIZADO') return 'tag'
-  if (e === 'EN_PROCESO') return 'tag'
-  return 'tag'
-}
-
 function formatOrderEstado(estado) {
   const e = String(estado ?? '').toUpperCase()
-  if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'Completada'
+  if (e === 'LISTO_PARA_ENTREGAR' || e === 'COMPLETADA' || e === 'COMPLETADO') return 'Listo para entregar'
+  if (e === 'ENTREGADO') return 'Entregado'
+  if (e === 'DESPACHO' || e === 'EN_PROCESO') return 'Despacho'
   if (e === 'PRODUCCION') return 'Producción'
   if (e === 'OPTIMIZADO') return 'Optimizado'
-  if (e === 'EN_PROCESO') return 'En proceso'
   if (e === 'PENDIENTE') return 'Pendiente'
   return estado ?? '—'
+}
+
+function orderEstadoTagClass(estado) {
+  const e = String(estado ?? '').toUpperCase()
+  if (e === 'ENTREGADO') return 'tag tag--estado-entregado'
+  if (e === 'LISTO_PARA_ENTREGAR' || e === 'COMPLETADA' || e === 'COMPLETADO') return 'tag tag--estado-listo'
+  if (e === 'DESPACHO' || e === 'EN_PROCESO') return 'tag tag--estado-despacho'
+  if (e === 'PRODUCCION') return 'tag tag--estado-produccion'
+  if (e === 'OPTIMIZADO') return 'tag tag--estado-optimizado'
+  return 'tag'
 }
 
 function fmtTraceTs(value) {
@@ -376,9 +378,10 @@ export function OrdersPage({ embedded = false }) {
           <option value="">Todos</option>
           <option value="OPTIMIZADO">Optimizado</option>
           <option value="PRODUCCION">Producción</option>
+          <option value="DESPACHO">Despacho</option>
+          <option value="LISTO_PARA_ENTREGAR">Listo para entregar</option>
+          <option value="ENTREGADO">Entregado</option>
           <option value="PENDIENTE">Pendiente</option>
-          <option value="EN_PROCESO">En proceso</option>
-          <option value="COMPLETADA">Completada</option>
         </select>
       </label>
       <label className="field">

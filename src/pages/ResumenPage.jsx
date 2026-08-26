@@ -110,7 +110,7 @@ export function ResumenPage() {
     setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
-      const list = await systemApi.listProyectosSeguimiento()
+      const list = await systemApi.listObrasSeguimiento()
       setSeguimiento(Array.isArray(list) ? list : [])
     } catch (e) {
       setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
@@ -200,7 +200,7 @@ export function ResumenPage() {
             </p>
           ) : null}
           <SeguimientoBoard
-            proyectos={seguimiento}
+            obras={seguimiento}
             loading={seguimientoLoading}
             onRefresh={loadSeguimiento}
           />

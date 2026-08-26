@@ -284,6 +284,11 @@ export async function listProyectosSeguimiento() {
   return systemJson('/api/order/proyectos/seguimiento')
 }
 
+/** Tablero Seguimiento por XML/obra Biesse (`estado_escaneo`). */
+export async function listObrasSeguimiento() {
+  return systemJson('/api/order/obras/seguimiento')
+}
+
 export async function listSeguimientoOps() {
   return systemJson('/api/order/proyectos/seguimiento/ops')
 }
@@ -321,6 +326,10 @@ export async function assignOrdenBiesseObra(ordenId, biesseOrderId) {
 
 export async function markProyectoEntregado(id) {
   return systemJson(`/api/order/proyectos/${id}/entregado`, { method: 'POST' })
+}
+
+export async function markObraEntregado(biesseOrderId) {
+  return systemJson(`/api/order/obras/${biesseOrderId}/entregado`, { method: 'POST' })
 }
 
 export async function fetchAiUsageRankings() {
