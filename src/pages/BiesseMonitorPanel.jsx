@@ -24,6 +24,28 @@ function heartbeatAgo(value) {
   return `hace ${Math.floor(m / 60)}h`
 }
 
+/** Alineado con backend ONLINE_STALE_SECONDS (agente late cada 5–10s). */
+const ONLINE_STALE_MS = 30_000
+
+function lastSeenAt(machine) {
+  const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
+  const st = machine?.last_status_at ?? machine?.lastStatusAt
+  const hbT = hb ? new Date(hb).getTime() : NaN
+  const stT = st ? new Date(st).getTime() : NaN
+  if (!Number.isNaN(hbT) && !Number.isNaN(stT)) return hbT >= stT ? hb : st
+  if (!Number.isNaN(hbT)) return hb
+  if (!Number.isNaN(stT)) return st
+  return null
+}
+
+function isEffectivelyOnline(machine) {
+  const seen = lastSeenAt(machine)
+  if (!seen) return false
+  const t = new Date(seen).getTime()
+  if (Number.isNaN(t)) return Boolean(machine?.online)
+  return Date.now() - t <= ONLINE_STALE_MS
+}
+
 function stateTag(state) {
   const s = String(state ?? '').toUpperCase()
   if (s === 'RUN') return 'tag tag--ok'
@@ -236,13 +258,13 @@ export function BiesseMonitorPanel() {
         ) : null}
         {machines.map((m) => {
           const id = m.machine_id ?? m.machineId
-          const online = Boolean(m.online)
+          const online = isEffectivelyOnline(m)
           const state = m.state ?? '—'
           const job = m.job_name ?? m.jobName
           const started = m.job_started_at ?? m.jobStartedAt
           const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
           const hbRel = heartbeatAgo(hbAt)
-          const dur = state === 'RUN' ? durationLive(started) : null
+          const dur = state === 'RUN' && online ? durationLive(started) : null
           return (
             <article key={id} className="card pad">
               <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
@@ -343,11 +365,13 @@ export function BiesseMonitorPanel() {
               </tr>
             </thead>
             <tbody>
-              {(boardsLive?.machines ?? []).map((row) => (
+              {(boardsLive?.machines ?? []).map((row) => {
+                const rowOnline = isEffectivelyOnline(row)
+                return (
                 <tr key={row.machine_id}>
                   <td className="small">
                     {row.machine_name || `#${row.machine_id}`}
-                    {row.online ? (
+                    {rowOnline ? (
                       <span className="tag tag--ok" style={{ marginLeft: 6 }}>
                         Online
                       </span>
@@ -366,7 +390,8 @@ export function BiesseMonitorPanel() {
                   </td>
                   <td className="small">{row.boards_today ?? 0}</td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
           {!(boardsLive?.machines?.length) ? (

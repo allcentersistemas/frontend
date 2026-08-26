@@ -102,12 +102,18 @@ export async function orderDetail(orderId) {
             numeroPieza: toNumber(z.numero_pieza ?? z.numeroPieza) || 1,
             escaneado: Boolean(z.escaneado),
             fechaEscaneo: z.fecha_escaneo ?? z.fechaEscaneo ?? null,
+            cortada: Boolean(z.cortada),
+            cortadaAt: z.cortada_at ?? z.cortadaAt ?? null,
+            cortadaPor: z.cortada_por ?? z.cortadaPor ?? null,
           }))
         : Array.from({ length: Math.max(scheduled, scanned, 1) }, (_, i) => ({
             piezaId: null,
             numeroPieza: i + 1,
             escaneado: false,
             fechaEscaneo: null,
+            cortada: false,
+            cortadaAt: null,
+            cortadaPor: null,
           }))
     return {
       partId: toNumber(part.partid ?? part.partId),

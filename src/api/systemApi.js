@@ -1265,3 +1265,9 @@ export async function rotateAgentMachineToken(machineId) {
   })
 }
 
+export async function deleteAgentMachine(machineId) {
+  return systemJson(`/api/biesse/monitor/machines/${machineId}`, {
+    method: 'DELETE',
+  })
+}
+

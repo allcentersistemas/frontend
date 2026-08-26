@@ -71,6 +71,7 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/biesse/monitor/trazabilidad'],
       ['POST', '/api/biesse/monitor/machines'],
       ['POST', '/api/biesse/monitor/machines/{id}/rotate-token'],
+      ['DELETE', '/api/biesse/monitor/machines/{id}'],
     ],
   },
   {

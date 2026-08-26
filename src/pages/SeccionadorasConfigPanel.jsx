@@ -4,6 +4,9 @@ import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 
+/** Alineado con backend ONLINE_STALE_SECONDS (agente late cada 5–10s). */
+const ONLINE_STALE_MS = 30_000
+
 function fmtTs(value) {
   if (!value) return '—'
   try {
@@ -13,6 +16,25 @@ function fmtTs(value) {
   } catch {
     return String(value)
   }
+}
+
+function lastSeenAt(machine) {
+  const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
+  const st = machine?.last_status_at ?? machine?.lastStatusAt
+  const hbT = hb ? new Date(hb).getTime() : NaN
+  const stT = st ? new Date(st).getTime() : NaN
+  if (!Number.isNaN(hbT) && !Number.isNaN(stT)) return hbT >= stT ? hb : st
+  if (!Number.isNaN(hbT)) return hb
+  if (!Number.isNaN(stT)) return st
+  return null
+}
+
+function isEffectivelyOnline(machine) {
+  const seen = lastSeenAt(machine)
+  if (!seen) return false
+  const t = new Date(seen).getTime()
+  if (Number.isNaN(t)) return Boolean(machine?.online)
+  return Date.now() - t <= ONLINE_STALE_MS
 }
 
 function onlineLabel(online, heartbeatAt) {
@@ -81,6 +103,29 @@ export function SeccionadorasConfigPanel() {
       await load()
     } catch (ex) {
       setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo rotar el token')
+    } finally {
+      setCreateBusy(false)
+    }
+  }
+
+  async function handleDelete(machineId, machineLabel) {
+    const label = machineLabel || `Seccionador #${machineId}`
+    if (
+      !window.confirm(
+        `¿Eliminar «${label}»? Se borrarán también sus eventos y planchas asociadas. Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return
+    }
+    setCreateBusy(true)
+    setTokenMsg(null)
+    setNewToken(null)
+    try {
+      await systemApi.deleteAgentMachine(machineId)
+      setTokenMsg(`Seccionador «${label}» eliminado.`)
+      await load()
+    } catch (ex) {
+      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo eliminar el seccionador')
     } finally {
       setCreateBusy(false)
     }
@@ -166,19 +211,20 @@ export function SeccionadorasConfigPanel() {
           <tbody>
             {machines.map((m) => {
               const id = m.machine_id ?? m.machineId
-              const online = Boolean(m.online)
+              const name = m.machine_name ?? m.machineName ?? `Seccionador #${id}`
+              const online = isEffectivelyOnline(m)
               const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
               return (
                 <tr key={id}>
                   <td className="small">
-                    <strong>{m.machine_name ?? m.machineName ?? `Seccionador #${id}`}</strong>
+                    <strong>{name}</strong>
                   </td>
                   <td className="small muted">{m.plant_name ?? m.plantName ?? '—'}</td>
                   <td>
                     <span className={online ? 'tag tag--ok' : 'tag'}>{onlineLabel(online, hbAt)}</span>
                   </td>
                   <td className="small muted">{fmtTs(hbAt)}</td>
-                  <td>
+                  <td style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                     <CanButton
                       I={ACTION.UPDATE}
                       a={FEATURE.BIESSE_ORDERS}
@@ -188,6 +234,16 @@ export function SeccionadorasConfigPanel() {
                       onClick={() => void handleRotate(id)}
                     >
                       Rotar token
+                    </CanButton>
+                    <CanButton
+                      I={ACTION.UPDATE}
+                      a={FEATURE.BIESSE_ORDERS}
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={createBusy}
+                      onClick={() => void handleDelete(id, name)}
+                    >
+                      Eliminar
                     </CanButton>
                   </td>
                 </tr>

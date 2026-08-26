@@ -7,6 +7,45 @@ const PART_FILTERS = [
   { id: 'done', label: 'Escaneadas' },
 ]
 
+/**
+ * Colores por corte (agente) × escaneo:
+ * - sin color: sin cortar ni escanear
+ * - naranja: cortada, aún no escaneada
+ * - celeste: escaneada sin corte
+ * - verde: cortada y escaneada
+ */
+function pieceVisualStatus({ cortada, escaneado }) {
+  const cut = Boolean(cortada)
+  const scanned = Boolean(escaneado)
+  if (cut && scanned) return 'ok'
+  if (cut && !scanned) return 'cut'
+  if (scanned && !cut) return 'scanned'
+  return 'pending'
+}
+
+function pieceClassName(status) {
+  if (status === 'cut') return 'order-piece order-piece--cut'
+  if (status === 'scanned') return 'order-piece order-piece--scanned'
+  if (status === 'ok') return 'order-piece order-piece--ok'
+  return 'order-piece'
+}
+
+function pieceTitle(z, status) {
+  if (status === 'cut') {
+    const por = z.cortadaPor ? ` (${z.cortadaPor})` : ''
+    return `Cortada${por} · pendiente de escaneo`
+  }
+  if (status === 'scanned') return 'Escaneada · sin corte registrado'
+  if (status === 'ok') return 'Cortada y escaneada'
+  return 'Pendiente (sin corte ni escaneo)'
+}
+
+function pieceMark(z, status) {
+  if (status === 'cut') return ' ✂'
+  if (status === 'scanned' || status === 'ok') return ' ✓'
+  return ''
+}
+
 function partScanStatus(part) {
   const scheduled = Math.max(Number(part.cantidad) || 0, 0)
   const scanned = Math.max(Number(part.cantidadEscaneada) || 0, 0)
@@ -70,6 +109,13 @@ export function OrderPartsDetail({ partes = [] }) {
         ))}
       </div>
 
+      <p className="order-pieces-legend small muted" aria-label="Leyenda de colores de piezas">
+        <span className="order-piece order-piece--legend">Pendiente</span>
+        <span className="order-piece order-piece--cut order-piece--legend">Cortada</span>
+        <span className="order-piece order-piece--scanned order-piece--legend">Escaneada sin corte</span>
+        <span className="order-piece order-piece--ok order-piece--legend">Cortada y escaneada</span>
+      </p>
+
       {!visible.length ? (
         <p className="muted small">
           No hay partes en estado «{PART_FILTERS.find((f) => f.id === filter)?.label ?? filter}».
@@ -121,31 +167,37 @@ export function OrderPartsDetail({ partes = [] }) {
 
                 {piezas.length > 0 ? (
                   <div className="order-pieces-grid" role="list" aria-label="Piezas de la parte">
-                    {piezas.map((z) => (
-                      <span
-                        key={z.piezaId ?? `n-${z.numeroPieza}`}
-                        role="listitem"
-                        className={`order-piece ${z.escaneado ? 'order-piece--ok' : ''}`}
-                        title={z.escaneado ? 'Pieza escaneada' : 'Pendiente'}
-                      >
-                        {z.numeroPieza}
-                        {z.escaneado ? ' ✓' : ''}
-                      </span>
-                    ))}
+                    {piezas.map((z) => {
+                      const visual = pieceVisualStatus(z)
+                      return (
+                        <span
+                          key={z.piezaId ?? `n-${z.numeroPieza}`}
+                          role="listitem"
+                          className={pieceClassName(visual)}
+                          title={pieceTitle(z, visual)}
+                        >
+                          {z.numeroPieza}
+                          {pieceMark(z, visual)}
+                        </span>
+                      )
+                    })}
                   </div>
                 ) : scheduled > 0 ? (
                   <div className="order-pieces-grid" role="list">
                     {Array.from({ length: scheduled }, (_, i) => {
                       const n = i + 1
-                      const ok = n <= scanned
+                      const escaneado = n <= scanned
+                      const z = { cortada: false, escaneado }
+                      const visual = pieceVisualStatus(z)
                       return (
                         <span
                           key={n}
                           role="listitem"
-                          className={`order-piece ${ok ? 'order-piece--ok' : ''}`}
+                          className={pieceClassName(visual)}
+                          title={pieceTitle(z, visual)}
                         >
                           {n}
-                          {ok ? ' ✓' : ''}
+                          {pieceMark(z, visual)}
                         </span>
                       )
                     })}
