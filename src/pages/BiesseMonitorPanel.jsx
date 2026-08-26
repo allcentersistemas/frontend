@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import * as biesseApi from '../api/biesseApi'
+import * as systemApi from '../api/systemApi'
 import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
@@ -65,9 +65,9 @@ export function BiesseMonitorPanel() {
     setErr(null)
     try {
       const [m, e, c] = await Promise.all([
-        biesseApi.listAgentMachines(),
-        biesseApi.listAgentEvents(100).catch(() => []),
-        biesseApi.listAgentCutPieces(40).catch(() => []),
+        systemApi.listAgentMachines(),
+        systemApi.listAgentEvents(100).catch(() => []),
+        systemApi.listAgentCutPieces(40).catch(() => []),
       ])
       setMachines(Array.isArray(m) ? m : [])
       setEvents(Array.isArray(e) ? e : [])
@@ -102,7 +102,7 @@ export function BiesseMonitorPanel() {
     setTokenMsg(null)
     setNewToken(null)
     try {
-      const res = await biesseApi.createAgentMachine({
+      const res = await systemApi.createAgentMachine({
         machineName: machineName.trim() || 'BIESSE-OSI',
         plantName: plantName.trim() || undefined,
       })
@@ -122,7 +122,7 @@ export function BiesseMonitorPanel() {
     setTokenMsg(null)
     setNewToken(null)
     try {
-      const res = await biesseApi.rotateAgentMachineToken(machineId)
+      const res = await systemApi.rotateAgentMachineToken(machineId)
       setNewToken(res?.token ?? null)
       setTokenMsg(res?.message ?? 'Token rotado.')
       await load()
@@ -141,7 +141,7 @@ export function BiesseMonitorPanel() {
             <h1 className="card__title">Monitor Biesse CNC</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
               Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Cree un token aquí y
-              póngalo en el agente con URL <code>http://IP-SERVIDOR:8086</code>.
+              póngalo en el agente con URL <code>http://IP-SERVIDOR:8080</code> (module-system).
             </p>
           </div>
           <button type="button" className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
@@ -154,7 +154,7 @@ export function BiesseMonitorPanel() {
             {isNotFoundError(err) ? (
               <p className="small" style={{ margin: '0.5rem 0 0' }}>
                 El backend aún no tiene estas rutas. Reinicie/redeploy{' '}
-                <strong>module-biesse</strong> (puerto 8086) con el código actual y vuelva a
+                <strong>module-system</strong> (puerto 8080) con el código actual y vuelva a
                 actualizar.
               </p>
             ) : null}
@@ -167,7 +167,7 @@ export function BiesseMonitorPanel() {
           Conectar agente (token)
         </h2>
         <p className="muted small">
-          En la PC del CNC: abra el agente, configure API base <code>http://IP:8086</code> y pegue el
+          En la PC del CNC: abra el agente, configure API base <code>http://IP:8080</code> y pegue el
           token (header <code>X-Agent-Token</code> / config.json). Solo roles admin pueden crear o
           rotar tokens.
         </p>

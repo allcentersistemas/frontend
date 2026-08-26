@@ -1144,3 +1144,44 @@ export async function markNotificationRead(id) {
 export async function markAllNotificationsRead() {
   return systemJson('/api/notifications/read-all', { method: 'POST' })
 }
+
+/** Monitor CNC (agente OSI) — module-system :8080 */
+export async function listAgentMachines() {
+  return systemJson('/api/biesse/monitor/machines')
+}
+
+export async function listAgentEvents(limit = 80) {
+  const q = new URLSearchParams({ limit: String(limit) })
+  return systemJson(`/api/biesse/monitor/events?${q}`)
+}
+
+export async function listAgentCutPieces(limit = 40) {
+  const q = new URLSearchParams({ limit: String(limit) })
+  return systemJson(`/api/biesse/monitor/cut-pieces?${q}`)
+}
+
+export async function listAgentTrazabilidad({ op, orderId, limit = 100 } = {}) {
+  const q = new URLSearchParams()
+  if (op) q.set('op', String(op))
+  if (orderId != null) q.set('orderId', String(orderId))
+  q.set('limit', String(limit))
+  return systemJson(`/api/biesse/monitor/trazabilidad?${q}`)
+}
+
+export async function createAgentMachine({ machineName, plantName } = {}) {
+  return systemJson('/api/biesse/monitor/machines', {
+    method: 'POST',
+    body: JSON.stringify({
+      machineName: machineName || 'BIESSE-OSI',
+      plantName: plantName || null,
+    }),
+  })
+}
+
+export async function rotateAgentMachineToken(machineId) {
+  return systemJson(`/api/biesse/monitor/machines/${machineId}/rotate-token`, {
+    method: 'POST',
+    body: '{}',
+  })
+}
+

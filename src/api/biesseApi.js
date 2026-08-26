@@ -240,44 +240,13 @@ export async function listBiesseAudit(params = {}) {
   return biesseJson(`/api/biesse/scan/audit${suffix}`)
 }
 
-/** Monitor CNC (agente OSI) — lectura JWT */
-export async function listAgentMachines() {
-  return biesseJson('/api/biesse/scan/agent/machines')
-}
-
-export async function listAgentEvents(limit = 80) {
-  const q = new URLSearchParams({ limit: String(limit) })
-  return biesseJson(`/api/biesse/scan/agent/events?${q}`)
-}
-
-export async function listAgentCutPieces(limit = 40) {
-  const q = new URLSearchParams({ limit: String(limit) })
-  return biesseJson(`/api/biesse/scan/agent/cut-pieces?${q}`)
-}
-
+/** Trazabilidad OP/obra (BD obras) */
 export async function listOpTrazabilidad({ op, orderId, limit = 100 } = {}) {
   const q = new URLSearchParams()
   if (op) q.set('op', String(op))
   if (orderId != null) q.set('orderId', String(orderId))
   q.set('limit', String(limit))
-  return biesseJson(`/api/biesse/scan/agent/trazabilidad?${q}`)
-}
-
-export async function createAgentMachine({ machineName, plantName } = {}) {
-  return biesseJson('/api/biesse/scan/agent/machines', {
-    method: 'POST',
-    body: JSON.stringify({
-      machineName: machineName || 'BIESSE-OSI',
-      plantName: plantName || null,
-    }),
-  })
-}
-
-export async function rotateAgentMachineToken(machineId) {
-  return biesseJson(`/api/biesse/scan/agent/machines/${machineId}/rotate-token`, {
-    method: 'POST',
-    body: '{}',
-  })
+  return biesseJson(`/api/biesse/scan/trazabilidad?${q}`)
 }
 
 /** Agrupación por OP (S14531, 31174, …) con obras/XML y % avance */
@@ -296,4 +265,5 @@ export async function listOpsPage({ q, limit = 20, offset = 0 } = {}) {
         : items.length
   return { items, totalCount: total }
 }
+
 
