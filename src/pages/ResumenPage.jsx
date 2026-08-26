@@ -45,6 +45,8 @@ export function ResumenPage() {
   const [seguimientoOps, setSeguimientoOps] = useState([])
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
+  const [seguimientoMachines, setSeguimientoMachines] = useState([])
+  const [seguimientoCutSummary, setSeguimientoCutSummary] = useState([])
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -111,12 +113,14 @@ export function ResumenPage() {
     setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
-      const [list, ops] = await Promise.all([
+      const [list, ops, cuts] = await Promise.all([
         systemApi.listProyectosSeguimiento(),
         systemApi.listSeguimientoOps().catch(() => []),
+        systemApi.listAgentCutTimesSummary({ limit: 80 }).catch(() => []),
       ])
       setSeguimiento(Array.isArray(list) ? list : [])
       setSeguimientoOps(Array.isArray(ops) ? ops : [])
+      setSeguimientoCutSummary(Array.isArray(cuts) ? cuts : [])
     } catch (e) {
       setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
     } finally {
@@ -124,10 +128,26 @@ export function ResumenPage() {
     }
   }, [])
 
+  const loadSeguimientoMachines = useCallback(async () => {
+    try {
+      const m = await systemApi.listAgentMachines()
+      setSeguimientoMachines(Array.isArray(m) ? m : [])
+    } catch {
+      setSeguimientoMachines([])
+    }
+  }, [])
+
   useEffect(() => {
     if (!showPage || activeTab !== 'seguimiento') return
     void loadSeguimiento()
   }, [showPage, activeTab, loadSeguimiento])
+
+  useEffect(() => {
+    if (!showPage || activeTab !== 'seguimiento') return
+    void loadSeguimientoMachines()
+    const poll = window.setInterval(() => void loadSeguimientoMachines(), 3000)
+    return () => window.clearInterval(poll)
+  }, [showPage, activeTab, loadSeguimientoMachines])
 
   if (!showPage) {
     return (
@@ -204,18 +224,14 @@ export function ResumenPage() {
               {seguimientoErr}
             </p>
           ) : null}
-          {seguimientoLoading ? (
-            <div className="app-loading" style={{ minHeight: '40vh' }}>
-              <div className="app-loading__spinner" aria-hidden />
-              <p className="text-sm">Cargando seguimiento…</p>
-            </div>
-          ) : (
-            <SeguimientoBoard
-              proyectos={seguimiento}
-              ops={seguimientoOps}
-              onRefresh={loadSeguimiento}
-            />
-          )}
+          <SeguimientoBoard
+            proyectos={seguimiento}
+            ops={seguimientoOps}
+            machines={seguimientoMachines}
+            cutSummary={seguimientoCutSummary}
+            loading={seguimientoLoading}
+            onRefresh={loadSeguimiento}
+          />
         </>
       ) : null}
     </ModulePage>

@@ -15,6 +15,18 @@ function fmtTs(value) {
   }
 }
 
+function heartbeatAgo(value) {
+  if (!value) return null
+  const t = new Date(value).getTime()
+  if (Number.isNaN(t)) return null
+  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (sec < 3) return 'ahora'
+  if (sec < 60) return `hace ${sec}s`
+  const m = Math.floor(sec / 60)
+  if (m < 60) return `hace ${m}m`
+  return `hace ${Math.floor(m / 60)}h`
+}
+
 function stateTag(state) {
   const s = String(state ?? '').toUpperCase()
   if (s === 'RUN') return 'tag tag--ok'
@@ -47,6 +59,9 @@ function isNotFoundError(message) {
   return m.includes('not found') || m.includes('404')
 }
 
+const MACHINES_POLL_MS = 2000
+const EVENTS_POLL_MS = 10000
+
 export function BiesseMonitorPanel() {
   const [machines, setMachines] = useState([])
   const [events, setEvents] = useState([])
@@ -56,6 +71,7 @@ export function BiesseMonitorPanel() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
+  const [lastMachinesAt, setLastMachinesAt] = useState(null)
 
   const [machineName, setMachineName] = useState('BIESSE-OSI')
   const [plantName, setPlantName] = useState('')
@@ -63,39 +79,54 @@ export function BiesseMonitorPanel() {
   const [newToken, setNewToken] = useState(null)
   const [tokenMsg, setTokenMsg] = useState(null)
 
-  const load = useCallback(async () => {
-    setErr(null)
+  const loadMachines = useCallback(async () => {
     try {
-      const [m, e, c, t, s] = await Promise.all([
-        systemApi.listAgentMachines(),
-        systemApi.listAgentEvents(100).catch(() => []),
-        systemApi.listAgentCutPieces(40).catch(() => []),
-        systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
-        systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
-      ])
+      const m = await systemApi.listAgentMachines()
       setMachines(Array.isArray(m) ? m : [])
-      setEvents(Array.isArray(e) ? e : [])
-      setCuts(Array.isArray(c) ? c : [])
-      setCutTimes(Array.isArray(t) ? t : [])
-      setCutSummary(Array.isArray(s) ? s : [])
+      setLastMachinesAt(Date.now())
+      setErr(null)
     } catch (ex) {
       const msg = ex instanceof Error ? ex.message : 'No se pudo cargar el monitor'
       setErr(msg)
       setMachines([])
-      setEvents([])
-      setCuts([])
-      setCutTimes([])
-      setCutSummary([])
     } finally {
       setLoading(false)
     }
   }, [])
 
+  const loadEvents = useCallback(async () => {
+    try {
+      const [e, c, t, s] = await Promise.all([
+        systemApi.listAgentEvents(100).catch(() => []),
+        systemApi.listAgentCutPieces(40).catch(() => []),
+        systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
+        systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
+      ])
+      setEvents(Array.isArray(e) ? e : [])
+      setCuts(Array.isArray(c) ? c : [])
+      setCutTimes(Array.isArray(t) ? t : [])
+      setCutSummary(Array.isArray(s) ? s : [])
+    } catch {
+      setEvents([])
+      setCuts([])
+      setCutTimes([])
+      setCutSummary([])
+    }
+  }, [])
+
+  const load = useCallback(async () => {
+    await Promise.all([loadMachines(), loadEvents()])
+  }, [loadMachines, loadEvents])
+
   useEffect(() => {
     void load()
-    const poll = window.setInterval(() => void load(), 8000)
-    return () => window.clearInterval(poll)
-  }, [load])
+    const machinesPoll = window.setInterval(() => void loadMachines(), MACHINES_POLL_MS)
+    const eventsPoll = window.setInterval(() => void loadEvents(), EVENTS_POLL_MS)
+    return () => {
+      window.clearInterval(machinesPoll)
+      window.clearInterval(eventsPoll)
+    }
+  }, [load, loadMachines, loadEvents])
 
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 1000)
@@ -148,9 +179,15 @@ export function BiesseMonitorPanel() {
           <div>
             <h1 className="card__title">Seccionadores</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Cree un token aquí y
-              póngalo en el agente con URL <code>http://IP-SERVIDOR:8080</code> (module-system).
+              Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Máquinas cada{' '}
+              {MACHINES_POLL_MS / 1000}s; eventos/cortes cada {EVENTS_POLL_MS / 1000}s. Cree un token
+              aquí y póngalo en el agente con URL <code>http://IP-SERVIDOR:8080</code> (module-system).
             </p>
+            {lastMachinesAt ? (
+              <p className="small muted" style={{ marginTop: '0.25rem' }} role="status">
+                Monitor actualizado {heartbeatAgo(lastMachinesAt) || 'ahora'}
+              </p>
+            ) : null}
           </div>
           <button type="button" className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
             Actualizar
@@ -248,13 +285,15 @@ export function BiesseMonitorPanel() {
           const state = m.state ?? '—'
           const job = m.job_name ?? m.jobName
           const started = m.job_started_at ?? m.jobStartedAt
+          const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
+          const hbRel = heartbeatAgo(hbAt)
           const dur = state === 'RUN' ? durationLive(started) : null
           return (
             <article key={id} className="card pad">
               <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
                 <strong>{m.machine_name ?? m.machineName ?? `Seccionador #${id}`}</strong>
                 <span className={online ? 'tag tag--ok' : 'tag'}>
-                  {onlineLabel(online, m.last_heartbeat_at ?? m.lastHeartbeatAt)}
+                  {onlineLabel(online, hbAt)}
                 </span>
               </header>
               <dl className="inv-dl" style={{ marginTop: '0.75rem' }}>
@@ -290,7 +329,10 @@ export function BiesseMonitorPanel() {
                 ) : null}
                 <div>
                   <dt>Heartbeat</dt>
-                  <dd className="small muted">{fmtTs(m.last_heartbeat_at ?? m.lastHeartbeatAt)}</dd>
+                  <dd className="small">
+                    {hbRel ? <strong>{hbRel}</strong> : '—'}
+                    {hbAt ? <span className="muted"> · {fmtTs(hbAt)}</span> : null}
+                  </dd>
                 </div>
               </dl>
               <CanButton
