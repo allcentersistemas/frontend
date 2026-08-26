@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Fragment } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
@@ -76,6 +76,7 @@ export function OrdersPage({ embedded = false }) {
   }, [searchParams, navigate, gestionAuditoriaHref])
 
   const [list, setList] = useState([])
+  const [ops, setOps] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [searchInput, setSearchInput] = useState('')
@@ -91,6 +92,8 @@ export function OrdersPage({ embedded = false }) {
   const [palletsLoading, setPalletsLoading] = useState(false)
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
+  const [expandedOps, setExpandedOps] = useState(() => new Set())
+  const [viewMode, setViewMode] = useState('ops') // 'ops' | 'flat'
 
   const [toolErr, setToolErr] = useState(null)
   const [toolMsg, setToolMsg] = useState(null)
@@ -107,7 +110,7 @@ export function OrdersPage({ embedded = false }) {
 
   useEffect(() => {
     setPage(0)
-  }, [q, orderIdFilter, stateFilter, fromDateFilter, toDateFilter])
+  }, [q, orderIdFilter, stateFilter, fromDateFilter, toDateFilter, viewMode])
 
   useEffect(() => {
     let cancelled = false
@@ -115,18 +118,41 @@ export function OrdersPage({ embedded = false }) {
       setLoading(true)
       setErr(null)
       try {
-        const res = await biesseApi.listOrdersPage({
-          orderId: orderIdFilter.trim() || undefined,
-          estado: stateFilter || undefined,
-          q: q.trim() || undefined,
-          fromDate: fromDateFilter || undefined,
-          toDate: toDateFilter || undefined,
-          limit: PAGE_SIZE,
-          offset: page * PAGE_SIZE,
-        })
-        if (!cancelled) {
-          setList(Array.isArray(res.items) ? res.items : [])
-          setTotal(typeof res.totalCount === 'number' ? res.totalCount : 0)
+        if (viewMode === 'ops' && !orderIdFilter.trim() && !stateFilter && !fromDateFilter && !toDateFilter) {
+          const res = await biesseApi.listOpsPage({
+            q: q.trim() || undefined,
+            limit: PAGE_SIZE,
+            offset: page * PAGE_SIZE,
+          })
+          if (!cancelled) {
+            const items = Array.isArray(res.items) ? res.items : []
+            setOps(items)
+            setList([])
+            setTotal(typeof res.totalCount === 'number' ? res.totalCount : 0)
+            setExpandedOps((prev) => {
+              const next = new Set(prev)
+              for (const op of items) {
+                const code = op.op_codigo ?? op.opCodigo
+                if (code) next.add(String(code))
+              }
+              return next
+            })
+          }
+        } else {
+          const res = await biesseApi.listOrdersPage({
+            orderId: orderIdFilter.trim() || undefined,
+            estado: stateFilter || undefined,
+            q: q.trim() || undefined,
+            fromDate: fromDateFilter || undefined,
+            toDate: toDateFilter || undefined,
+            limit: PAGE_SIZE,
+            offset: page * PAGE_SIZE,
+          })
+          if (!cancelled) {
+            setList(Array.isArray(res.items) ? res.items : [])
+            setOps([])
+            setTotal(typeof res.totalCount === 'number' ? res.totalCount : 0)
+          }
         }
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Error al cargar órdenes')
@@ -137,7 +163,16 @@ export function OrdersPage({ embedded = false }) {
     return () => {
       cancelled = true
     }
-  }, [q, orderIdFilter, stateFilter, fromDateFilter, toDateFilter, page])
+  }, [q, orderIdFilter, stateFilter, fromDateFilter, toDateFilter, page, viewMode])
+
+  function toggleOp(code) {
+    setExpandedOps((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
 
   useEffect(() => {
     if (selectedId == null) {
@@ -288,12 +323,19 @@ export function OrdersPage({ embedded = false }) {
   const filterToolbar = (
     <ModuleFilterGrid>
       <label className="field">
+        <span className="small">Vista</span>
+        <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+          <option value="ops">Por OP (agrupado)</option>
+          <option value="flat">Lista plana</option>
+        </select>
+      </label>
+      <label className="field">
         <span className="small">Buscar general</span>
         <input
           type="search"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Orden, booking…"
+          placeholder="OP, orden, booking…"
         />
       </label>
       <label className="field">
@@ -359,7 +401,7 @@ export function OrdersPage({ embedded = false }) {
       )}
 
       <ModuleListCard
-            title="Órdenes"
+            title={viewMode === 'ops' ? 'Órdenes por OP' : 'Órdenes'}
             error={err}
             loading={loading}
             toolbar={filterToolbar}
@@ -369,7 +411,7 @@ export function OrdersPage({ embedded = false }) {
                   page={page}
                   totalPages={totalPages}
                   disabled={loading}
-                  info={`${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total}`}
+                  info={`${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total} ${viewMode === 'ops' ? 'OPs' : ''}`}
                   onPrev={() => setPage((p) => Math.max(0, p - 1))}
                   onNext={() => setPage((p) => p + 1)}
                 />
@@ -379,44 +421,131 @@ export function OrdersPage({ embedded = false }) {
             {!loading ? (
               <>
                 <p className="pad small muted" style={{ paddingTop: 0, margin: 0 }}>
-                  {total} registro{total !== 1 ? 's' : ''}
+                  {total} {viewMode === 'ops' ? 'OP' : 'registro'}
+                  {total !== 1 ? 's' : ''}
+                  {viewMode === 'ops' ? ' · XMLs agrupados por número de OP' : ''}
                 </p>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Orden</th>
-                        <th>Nombre</th>
-                        <th>Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map((row) => (
-                        <tr
-                          key={row.orderId}
-                          className={selectedId === row.orderId ? 'inv-row-selected' : undefined}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedId(row.orderId)}
-                        >
-                          <td>
-                            <button type="button" className="linkish" onClick={() => setSelectedId(row.orderId)}>
-                              {row.orderId}
-                            </button>
-                          </td>
-                          <td>{row.orderName}</td>
-                          <td>
-                            <span className={orderEstadoTagClass(row.estadoEscaneo)}>
-                              {formatOrderEstado(row.estadoEscaneo)}
-                            </span>
-                          </td>
+                {viewMode === 'ops' ? (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 36 }} />
+                          <th>OP / Obra</th>
+                          <th>Avance</th>
+                          <th>Estado</th>
+                          <th>Obras</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!list.length ? (
-                  <p className="muted pad">Sin resultados. Prueba otros filtros o amplía el rango de fechas.</p>
-                ) : null}
+                      </thead>
+                      <tbody>
+                        {ops.map((op) => {
+                          const code = String(op.op_codigo ?? op.opCodigo ?? '—')
+                          const open = expandedOps.has(code)
+                          const obras = Array.isArray(op.obras) ? op.obras : []
+                          return (
+                            <Fragment key={code}>
+                              <tr style={{ background: 'var(--surface-2, #f8f8f8)' }}>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="linkish"
+                                    aria-label={open ? 'Colapsar' : 'Expandir'}
+                                    onClick={() => toggleOp(code)}
+                                  >
+                                    {open ? '▾' : '▸'}
+                                  </button>
+                                </td>
+                                <td>
+                                  <strong>OP {code}</strong>
+                                </td>
+                                <td>
+                                  {op.porcentaje ?? 0}% ({op.avance_label ?? op.avanceLabel ?? '0/0'})
+                                </td>
+                                <td>—</td>
+                                <td>{op.total_obras ?? op.totalObras ?? obras.length}</td>
+                              </tr>
+                              {open
+                                ? obras.map((obra) => {
+                                    const oid = Number(obra.orderid ?? obra.orderId)
+                                    return (
+                                      <tr
+                                        key={oid}
+                                        className={selectedId === oid ? 'inv-row-selected' : undefined}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => setSelectedId(oid)}
+                                      >
+                                        <td />
+                                        <td style={{ paddingLeft: '1.5rem' }}>
+                                          <button
+                                            type="button"
+                                            className="linkish"
+                                            onClick={() => setSelectedId(oid)}
+                                          >
+                                            #{oid}
+                                          </button>{' '}
+                                          {obra.ordername ?? obra.orderName}
+                                        </td>
+                                        <td>
+                                          {obra.porcentaje ?? 0}% (
+                                          {obra.avance_label ?? obra.avanceLabel ?? '0/0'})
+                                        </td>
+                                        <td>
+                                          <span className={orderEstadoTagClass(obra.estado_escaneo ?? obra.estadoEscaneo)}>
+                                            {formatOrderEstado(obra.estado_escaneo ?? obra.estadoEscaneo)}
+                                          </span>
+                                        </td>
+                                        <td />
+                                      </tr>
+                                    )
+                                  })
+                                : null}
+                            </Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {!ops.length ? (
+                      <p className="muted pad">Sin OPs. Prueba otra búsqueda o la vista plana.</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Orden</th>
+                          <th>Nombre</th>
+                          <th>Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map((row) => (
+                          <tr
+                            key={row.orderId}
+                            className={selectedId === row.orderId ? 'inv-row-selected' : undefined}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedId(row.orderId)}
+                          >
+                            <td>
+                              <button type="button" className="linkish" onClick={() => setSelectedId(row.orderId)}>
+                                {row.orderId}
+                              </button>
+                            </td>
+                            <td>{row.orderName}</td>
+                            <td>
+                              <span className={orderEstadoTagClass(row.estadoEscaneo)}>
+                                {formatOrderEstado(row.estadoEscaneo)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!list.length ? (
+                      <p className="muted pad">Sin resultados. Prueba otros filtros o amplía el rango de fechas.</p>
+                    ) : null}
+                  </div>
+                )}
               </>
             ) : null}
           </ModuleListCard>

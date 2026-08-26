@@ -56,6 +56,9 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/biesse/scan/agent/events'],
       ['GET', '/api/biesse/scan/agent/cut-pieces'],
       ['GET', '/api/biesse/scan/agent/trazabilidad'],
+      ['POST', '/api/biesse/scan/agent/machines'],
+      ['POST', '/api/biesse/scan/agent/machines/{id}/rotate-token'],
+      ['GET', '/api/biesse/scan/ops'],
     ],
   },
   {

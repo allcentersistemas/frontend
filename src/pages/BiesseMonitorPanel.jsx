@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as biesseApi from '../api/biesseApi'
+import { CanButton } from '../components/CanButton'
+import { FEATURE } from '../access/permissionCatalog'
+import { ACTION } from '../access/rolePermissions'
 
 function fmtTs(value) {
   if (!value) return '—'
@@ -39,6 +42,11 @@ function durationLive(startedAt) {
   return `${s}s`
 }
 
+function isNotFoundError(message) {
+  const m = String(message ?? '').toLowerCase()
+  return m.includes('not found') || m.includes('404')
+}
+
 export function BiesseMonitorPanel() {
   const [machines, setMachines] = useState([])
   const [events, setEvents] = useState([])
@@ -47,19 +55,29 @@ export function BiesseMonitorPanel() {
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
 
+  const [machineName, setMachineName] = useState('BIESSE-OSI')
+  const [plantName, setPlantName] = useState('')
+  const [createBusy, setCreateBusy] = useState(false)
+  const [newToken, setNewToken] = useState(null)
+  const [tokenMsg, setTokenMsg] = useState(null)
+
   const load = useCallback(async () => {
     setErr(null)
     try {
       const [m, e, c] = await Promise.all([
         biesseApi.listAgentMachines(),
-        biesseApi.listAgentEvents(100),
-        biesseApi.listAgentCutPieces(40),
+        biesseApi.listAgentEvents(100).catch(() => []),
+        biesseApi.listAgentCutPieces(40).catch(() => []),
       ])
       setMachines(Array.isArray(m) ? m : [])
       setEvents(Array.isArray(e) ? e : [])
       setCuts(Array.isArray(c) ? c : [])
     } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : 'No se pudo cargar el monitor')
+      const msg = ex instanceof Error ? ex.message : 'No se pudo cargar el monitor'
+      setErr(msg)
+      setMachines([])
+      setEvents([])
+      setCuts([])
     } finally {
       setLoading(false)
     }
@@ -78,6 +96,43 @@ export function BiesseMonitorPanel() {
 
   void tick
 
+  async function handleCreateMachine(e) {
+    e.preventDefault()
+    setCreateBusy(true)
+    setTokenMsg(null)
+    setNewToken(null)
+    try {
+      const res = await biesseApi.createAgentMachine({
+        machineName: machineName.trim() || 'BIESSE-OSI',
+        plantName: plantName.trim() || undefined,
+      })
+      setNewToken(res?.token ?? null)
+      setTokenMsg(res?.message ?? 'Token creado. Cópielo ahora.')
+      await load()
+    } catch (ex) {
+      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo crear la máquina')
+    } finally {
+      setCreateBusy(false)
+    }
+  }
+
+  async function handleRotate(machineId) {
+    if (!window.confirm('¿Rotar el token? El agente deberá actualizar config.json.')) return
+    setCreateBusy(true)
+    setTokenMsg(null)
+    setNewToken(null)
+    try {
+      const res = await biesseApi.rotateAgentMachineToken(machineId)
+      setNewToken(res?.token ?? null)
+      setTokenMsg(res?.message ?? 'Token rotado.')
+      await load()
+    } catch (ex) {
+      setTokenMsg(ex instanceof Error ? ex.message : 'No se pudo rotar el token')
+    } finally {
+      setCreateBusy(false)
+    }
+  }
+
   return (
     <div className="dash">
       <div className="card pad" style={{ marginBottom: '1rem' }}>
@@ -85,8 +140,8 @@ export function BiesseMonitorPanel() {
           <div>
             <h1 className="card__title">Monitor Biesse CNC</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              Estado en vivo del agente OSI (Event.log). Al iniciar un programa la obra pasa a{' '}
-              <strong>Producción</strong> y se registra trazabilidad de tiempos.
+              Estado en vivo del agente OSI (<code>agente_biesse_win10</code>). Cree un token aquí y
+              póngalo en el agente con URL <code>http://IP-SERVIDOR:8086</code>.
             </p>
           </div>
           <button type="button" className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
@@ -94,22 +149,96 @@ export function BiesseMonitorPanel() {
           </button>
         </div>
         {err ? (
-          <p className="form-error" style={{ marginTop: '0.75rem' }} role="alert">
-            {err}
-          </p>
+          <div className="form-error" style={{ marginTop: '0.75rem' }} role="alert">
+            <p style={{ margin: 0 }}>{err}</p>
+            {isNotFoundError(err) ? (
+              <p className="small" style={{ margin: '0.5rem 0 0' }}>
+                El backend aún no tiene estas rutas. Reinicie/redeploy{' '}
+                <strong>module-biesse</strong> (puerto 8086) con el código actual y vuelva a
+                actualizar.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
-      {loading && !machines.length ? (
+      <div className="card pad" style={{ marginBottom: '1rem' }}>
+        <h2 className="card__title" style={{ fontSize: '1rem' }}>
+          Conectar agente (token)
+        </h2>
+        <p className="muted small">
+          En la PC del CNC: abra el agente, configure API base <code>http://IP:8086</code> y pegue el
+          token (header <code>X-Agent-Token</code> / config.json). Solo roles admin pueden crear o
+          rotar tokens.
+        </p>
+        <form
+          onSubmit={(e) => void handleCreateMachine(e)}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end', marginTop: '0.75rem' }}
+        >
+          <label className="field">
+            <span className="small">Nombre máquina</span>
+            <input value={machineName} onChange={(e) => setMachineName(e.target.value)} required />
+          </label>
+          <label className="field">
+            <span className="small">Planta (opcional)</span>
+            <input value={plantName} onChange={(e) => setPlantName(e.target.value)} placeholder="Planta 1" />
+          </label>
+          <CanButton
+            I={ACTION.UPDATE}
+            a={FEATURE.BIESSE_ORDERS}
+            type="submit"
+            className="btn btn--primary"
+            disabled={createBusy}
+          >
+            {createBusy ? 'Creando…' : 'Crear máquina + token'}
+          </CanButton>
+        </form>
+        {tokenMsg ? (
+          <p className="small" style={{ marginTop: '0.75rem' }} role="status">
+            {tokenMsg}
+          </p>
+        ) : null}
+        {newToken ? (
+          <div
+            className="pad"
+            style={{
+              marginTop: '0.75rem',
+              background: 'var(--surface-2, #f4f4f5)',
+              borderRadius: 8,
+              wordBreak: 'break-all',
+            }}
+          >
+            <strong className="small">Token (cópielo ahora):</strong>
+            <code style={{ display: 'block', marginTop: 6 }}>{newToken}</code>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              style={{ marginTop: 8 }}
+              onClick={() => void navigator.clipboard?.writeText(newToken)}
+            >
+              Copiar token
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {loading && !machines.length && !err ? (
         <p className="muted pad">Cargando máquinas…</p>
       ) : null}
 
-      <div className="module-grid" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', marginBottom: '1rem' }}>
-        {!machines.length && !loading ? (
+      <div
+        className="module-grid"
+        style={{
+          display: 'grid',
+          gap: '1rem',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          marginBottom: '1rem',
+        }}
+      >
+        {!machines.length && !loading && !err ? (
           <div className="card pad">
             <p className="muted small">
-              No hay máquinas registradas. Arranca <code>module-biesse</code> (bootstrap crea una) y
-              configura el agente Win10 con URL <code>:8086</code> y el token.
+              No hay máquinas. Cree una arriba para generar el token del agente.
             </p>
           </div>
         ) : null}
@@ -163,13 +292,18 @@ export function BiesseMonitorPanel() {
                   <dt>Heartbeat</dt>
                   <dd className="small muted">{fmtTs(m.last_heartbeat_at ?? m.lastHeartbeatAt)}</dd>
                 </div>
-                {(m.health_status || m.healthStatus) && (m.health_status ?? m.healthStatus) !== 'OK' ? (
-                  <div>
-                    <dt>Salud</dt>
-                    <dd>{m.health_status ?? m.healthStatus}</dd>
-                  </div>
-                ) : null}
               </dl>
+              <CanButton
+                I={ACTION.UPDATE}
+                a={FEATURE.BIESSE_ORDERS}
+                type="button"
+                className="btn btn--ghost"
+                style={{ marginTop: '0.5rem' }}
+                disabled={createBusy}
+                onClick={() => void handleRotate(id)}
+              >
+                Rotar token
+              </CanButton>
             </article>
           )
         })}
@@ -199,9 +333,7 @@ export function BiesseMonitorPanel() {
                     <td className="small">{ev.event_type}</td>
                     <td className="small">
                       {(ev.description || ev.code || '').slice(0, 60)}
-                      {ev.ordername ? (
-                        <span className="muted"> · {ev.ordername}</span>
-                      ) : null}
+                      {ev.ordername ? <span className="muted"> · {ev.ordername}</span> : null}
                     </td>
                     <td>
                       <span className="tag">{ev.processed_action ?? '—'}</span>
@@ -240,11 +372,7 @@ export function BiesseMonitorPanel() {
                       <span className="tag">{c.map_status ?? '—'}</span>
                     </td>
                     <td>
-                      {c.printed ? (
-                        <span className="tag tag--ok">OK</span>
-                      ) : (
-                        <span className="tag">Pend.</span>
-                      )}
+                      {c.printed ? <span className="tag tag--ok">OK</span> : <span className="tag">Pend.</span>}
                     </td>
                   </tr>
                 ))}

@@ -263,3 +263,37 @@ export async function listOpTrazabilidad({ op, orderId, limit = 100 } = {}) {
   return biesseJson(`/api/biesse/scan/agent/trazabilidad?${q}`)
 }
 
+export async function createAgentMachine({ machineName, plantName } = {}) {
+  return biesseJson('/api/biesse/scan/agent/machines', {
+    method: 'POST',
+    body: JSON.stringify({
+      machineName: machineName || 'BIESSE-OSI',
+      plantName: plantName || null,
+    }),
+  })
+}
+
+export async function rotateAgentMachineToken(machineId) {
+  return biesseJson(`/api/biesse/scan/agent/machines/${machineId}/rotate-token`, {
+    method: 'POST',
+    body: '{}',
+  })
+}
+
+/** Agrupación por OP (S14531, 31174, …) con obras/XML y % avance */
+export async function listOpsPage({ q, limit = 20, offset = 0 } = {}) {
+  const params = new URLSearchParams()
+  if (q != null && String(q).trim() !== '') params.set('q', String(q).trim())
+  params.set('limit', String(limit))
+  params.set('offset', String(offset))
+  const raw = await biesseJson(`/api/biesse/scan/ops?${params}`)
+  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
+  const total =
+    typeof raw?.totalCount === 'number'
+      ? raw.totalCount
+      : typeof raw?.totalElements === 'number'
+        ? raw.totalElements
+        : items.length
+  return { items, totalCount: total }
+}
+
