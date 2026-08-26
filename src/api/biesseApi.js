@@ -9,6 +9,14 @@ function toNumber(value) {
   return 0
 }
 
+/** Acepta boolean nativo o flags PG/JDBC (`t`/`f`, `true`/`false`, 1/0). */
+function toBool(value) {
+  if (value === true || value === 1) return true
+  if (value === false || value === 0 || value == null) return false
+  const s = String(value).trim().toLowerCase()
+  return s === 't' || s === 'true' || s === '1' || s === 'yes'
+}
+
 function toOrderRow(raw) {
   return {
     orderId: toNumber(raw.orderid ?? raw.orderId),
@@ -100,9 +108,9 @@ export async function orderDetail(orderId) {
         ? nested.map((z) => ({
             piezaId: toNumber(z.piezaid ?? z.piezaId) || null,
             numeroPieza: toNumber(z.numero_pieza ?? z.numeroPieza) || 1,
-            escaneado: Boolean(z.escaneado),
+            escaneado: toBool(z.escaneado),
             fechaEscaneo: z.fecha_escaneo ?? z.fechaEscaneo ?? null,
-            cortada: Boolean(z.cortada),
+            cortada: toBool(z.cortada),
             cortadaAt: z.cortada_at ?? z.cortadaAt ?? null,
             cortadaPor: z.cortada_por ?? z.cortadaPor ?? null,
           }))
@@ -130,7 +138,7 @@ export async function orderDetail(orderId) {
       ancho: toDimNumber(part.ancho),
       cantidad: scheduled,
       cantidadEscaneada: scanned,
-      escaneado: Boolean(part.escaneado),
+      escaneado: toBool(part.escaneado),
       piezas,
     }
   })

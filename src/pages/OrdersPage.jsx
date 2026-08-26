@@ -610,105 +610,125 @@ export function OrdersPage({ embedded = false }) {
                   ))}
                 </dl>
 
-                <h3 className="card__title" style={{ marginTop: '1.25rem', fontSize: '1rem' }}>
-                  Historial de corte
-                </h3>
-                {cutLoading ? <p className="muted small">Cargando tiempos de corte…</p> : null}
-                {!cutLoading && !cutSummary && !cutEvents.length ? (
-                  <p className="muted small">
-                    Sin CORTE_INICIO / CORTE_FIN aún para esta obra.
-                  </p>
-                ) : null}
-                {!cutLoading && cutSummary ? (
-                  <dl className="inv-dl" style={{ marginBottom: '0.75rem' }}>
-                    {[
-                      ['Duración total', cutSummary.total_duration_label || '0s'],
-                      ['Sesiones', cutSummary.sessions ?? 0],
-                      [
-                        'Seccionador(es)',
-                        Array.isArray(cutSummary.seccionadores) && cutSummary.seccionadores.length
-                          ? cutSummary.seccionadores.join(', ')
-                          : '—',
-                      ],
-                      ['Inicio', fmtTraceTs(cutSummary.first_start)],
-                      ['Fin', fmtTraceTs(cutSummary.last_end)],
-                    ].map(([k, v]) => (
-                      <div key={k}>
-                        <dt>{k}</dt>
-                        <dd>{v}</dd>
+                <section className="order-detail-block" aria-labelledby="order-parts-heading">
+                  <div
+                    className="detail__h"
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      marginTop: '1.25rem',
+                    }}
+                  >
+                    <h3 id="order-parts-heading" className="card__title" style={{ margin: 0, fontSize: '1rem' }}>
+                      Partes y piezas
+                    </h3>
+                    <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
+                      <BiesseStickerPrintButton detail={detail} />
+                    </Can>
+                  </div>
+                  <OrderPartsDetail partes={detail.partes ?? []} />
+
+                  <div className="order-detail-trace" aria-label="Seguimiento de producción">
+                    <h4 className="order-detail-trace__title">Historial de corte</h4>
+                    {cutLoading ? <p className="muted small">Cargando tiempos de corte…</p> : null}
+                    {!cutLoading && !cutSummary && !cutEvents.length ? (
+                      <p className="muted small">Sin CORTE_INICIO / CORTE_FIN aún para esta obra.</p>
+                    ) : null}
+                    {!cutLoading && cutSummary ? (
+                      <dl className="inv-dl" style={{ marginBottom: '0.75rem' }}>
+                        {[
+                          ['Duración total', cutSummary.total_duration_label || '0s'],
+                          ['Sesiones', cutSummary.sessions ?? 0],
+                          [
+                            'Seccionador(es)',
+                            Array.isArray(cutSummary.seccionadores) && cutSummary.seccionadores.length
+                              ? cutSummary.seccionadores.join(', ')
+                              : '—',
+                          ],
+                          ['Inicio', fmtTraceTs(cutSummary.first_start)],
+                          ['Fin', fmtTraceTs(cutSummary.last_end)],
+                        ].map(([k, v]) => (
+                          <div key={k}>
+                            <dt>{k}</dt>
+                            <dd>{v}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : null}
+                    {!cutLoading && cutEvents.length > 0 ? (
+                      <div className="table-wrap" style={{ marginBottom: '0.75rem' }}>
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Fecha</th>
+                              <th>Evento</th>
+                              <th>Seccionador</th>
+                              <th>Duración</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cutEvents.map((row) => (
+                              <tr key={row.id ?? `${row.accion}-${row.fecha}`}>
+                                <td className="small muted">{fmtTraceTs(row.fecha)}</td>
+                                <td>
+                                  <span className="tag">{row.accion}</span>
+                                </td>
+                                <td className="small">{row.seccionador || '—'}</td>
+                                <td className="small">
+                                  {row.duration_label ||
+                                    (String(row.accion || '').toUpperCase() === 'CORTE_INICIO'
+                                      ? 'inicio'
+                                      : '—')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
-                  </dl>
-                ) : null}
-                {!cutLoading && cutEvents.length > 0 ? (
-                  <div className="table-wrap" style={{ marginBottom: '1rem' }}>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Evento</th>
-                          <th>Seccionador</th>
-                          <th>Duración</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cutEvents.map((row) => (
-                          <tr key={row.id ?? `${row.accion}-${row.fecha}`}>
-                            <td className="small muted">{fmtTraceTs(row.fecha)}</td>
-                            <td>
-                              <span className="tag">{row.accion}</span>
-                            </td>
-                            <td className="small">{row.seccionador || '—'}</td>
-                            <td className="small">
-                              {row.duration_label ||
-                                (String(row.accion || '').toUpperCase() === 'CORTE_INICIO'
-                                  ? 'inicio'
-                                  : '—')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
+                    ) : null}
 
-                <h3 className="card__title" style={{ marginTop: '1.25rem', fontSize: '1rem' }}>
-                  Trazabilidad OP
-                </h3>
-                {trazLoading ? <p className="muted small">Cargando trazabilidad…</p> : null}
-                {!trazLoading && !trazabilidad.length ? (
-                  <p className="muted small">
-                    Sin eventos aún (XML subido, inicio/fin de corte, piezas OSI).
-                  </p>
-                ) : null}
-                {!trazLoading && trazabilidad.length > 0 ? (
-                  <div className="table-wrap" style={{ marginBottom: '1rem' }}>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Estado</th>
-                          <th>Acción</th>
-                          <th>Detalle</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trazabilidad.map((t) => (
-                          <tr key={t.id}>
-                            <td className="small muted">{fmtTraceTs(t.fecha)}</td>
-                            <td>
-                              <span className={orderEstadoTagClass(t.estado)}>{formatOrderEstado(t.estado)}</span>
-                            </td>
-                            <td className="small">{t.accion}</td>
-                            <td className="small">{(t.detalle || '').slice(0, 120)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <h4 className="order-detail-trace__title">Trazabilidad OP</h4>
+                    {trazLoading ? <p className="muted small">Cargando trazabilidad…</p> : null}
+                    {!trazLoading && !trazabilidad.length ? (
+                      <p className="muted small">
+                        Sin eventos aún (XML subido, inicio/fin de corte, piezas OSI).
+                      </p>
+                    ) : null}
+                    {!trazLoading && trazabilidad.length > 0 ? (
+                      <div className="table-wrap">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Fecha</th>
+                              <th>Estado</th>
+                              <th>Acción</th>
+                              <th>Detalle</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {trazabilidad.map((t) => (
+                              <tr key={t.id}>
+                                <td className="small muted">{fmtTraceTs(t.fecha)}</td>
+                                <td>
+                                  <span className={orderEstadoTagClass(t.estado)}>
+                                    {formatOrderEstado(t.estado)}
+                                  </span>
+                                </td>
+                                <td className="small">{t.accion}</td>
+                                <td className="small">{(t.detalle || '').slice(0, 120)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                </section>
 
-                <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
+                <form className="form-section" style={{ marginTop: '1.25rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
                   <h3 className="card__title" style={{ fontSize: '1rem' }}>
                     Editar orden
                   </h3>
@@ -766,17 +786,6 @@ export function OrdersPage({ embedded = false }) {
                     ))}
                   </ul>
                 ) : null}
-
-                <div
-                  className="detail__h"
-                  style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: '1rem' }}
-                >
-                  <span>Partes</span>
-                  <Can I={ACTION.PRINT} a={FEATURE.BIESSE_STICKERS}>
-                    <BiesseStickerPrintButton detail={detail} />
-                  </Can>
-                </div>
-                <OrderPartsDetail partes={detail.partes ?? []} />
 
                 <Can I="view" a={FEATURE.BIESSE_TOOLS}>
                   {toolErr ? <p className="form-error">{toolErr}</p> : null}

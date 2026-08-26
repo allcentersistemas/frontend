@@ -790,6 +790,15 @@
   }
 
   /* ——— Detalle órdenes Biesse (partes / piezas) ——— */
+  .order-detail-block {
+    @apply flex flex-col gap-3;
+  }
+  .order-detail-trace {
+    @apply mt-1 rounded-xl border border-slate-200/90 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/[0.02];
+  }
+  .order-detail-trace__title {
+    @apply mb-2 mt-3 text-sm font-semibold text-slate-800 first:mt-0 dark:text-slate-100;
+  }
   .order-parts-panel {
     @apply flex flex-col gap-3;
   }
@@ -830,19 +839,19 @@
     @apply min-w-0 px-2 py-0.5 text-[0.7rem] font-medium;
   }
   .order-piece {
-    @apply inline-flex min-w-[2.5rem] items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 dark:border-white/15 dark:bg-slate-900/50 dark:text-slate-300;
+    @apply inline-flex min-w-[2.5rem] items-center justify-center rounded-lg border px-2.5 py-1.5 text-sm font-medium tabular-nums;
   }
-  /* Cortada y escaneada */
+  /* Pendiente / no cortada / no escaneada */
+  .order-piece--pending {
+    @apply border-slate-200/80 bg-slate-100/70 font-normal text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400;
+  }
+  /* Escaneada (verde) */
   .order-piece--ok {
     @apply border-emerald-500/50 bg-emerald-100 font-semibold text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-100;
   }
-  /* Cortada por el agente, aún no escaneada */
+  /* Cortada por el agente, aún no escaneada (ámbar) */
   .order-piece--cut {
-    @apply border-orange-500/55 bg-orange-100 font-semibold text-orange-950 dark:border-orange-400/45 dark:bg-orange-500/20 dark:text-orange-100;
-  }
-  /* Escaneada sin corte registrado (celeste) */
-  .order-piece--scanned {
-    @apply border-sky-400/60 bg-sky-100 font-semibold text-sky-950 dark:border-sky-400/45 dark:bg-sky-500/20 dark:text-sky-100;
+    @apply border-amber-500/55 bg-amber-100 font-semibold text-amber-950 dark:border-amber-400/45 dark:bg-amber-500/20 dark:text-amber-100;
   }
 
   .employee-access-picker__templates {

@@ -8,26 +8,21 @@ const PART_FILTERS = [
 ]
 
 /**
- * Colores por corte (agente) × escaneo:
- * - sin color: sin cortar ni escanear
- * - naranja: cortada, aún no escaneada
- * - celeste: escaneada sin corte
- * - verde: cortada y escaneada
+ * Prioridad visual del número de pieza:
+ * - pendiente: sin cortar ni escanear (gris)
+ * - cortada: agente marcó corte, aún no escaneada (ámbar)
+ * - escaneada: escaneado (verde), con o sin corte
  */
 function pieceVisualStatus({ cortada, escaneado }) {
-  const cut = Boolean(cortada)
-  const scanned = Boolean(escaneado)
-  if (cut && scanned) return 'ok'
-  if (cut && !scanned) return 'cut'
-  if (scanned && !cut) return 'scanned'
+  if (Boolean(escaneado)) return 'scanned'
+  if (Boolean(cortada)) return 'cut'
   return 'pending'
 }
 
 function pieceClassName(status) {
   if (status === 'cut') return 'order-piece order-piece--cut'
-  if (status === 'scanned') return 'order-piece order-piece--scanned'
-  if (status === 'ok') return 'order-piece order-piece--ok'
-  return 'order-piece'
+  if (status === 'scanned') return 'order-piece order-piece--ok'
+  return 'order-piece order-piece--pending'
 }
 
 function pieceTitle(z, status) {
@@ -35,15 +30,24 @@ function pieceTitle(z, status) {
     const por = z.cortadaPor ? ` (${z.cortadaPor})` : ''
     return `Cortada${por} · pendiente de escaneo`
   }
-  if (status === 'scanned') return 'Escaneada · sin corte registrado'
-  if (status === 'ok') return 'Cortada y escaneada'
+  if (status === 'scanned') {
+    return z.cortada ? 'Cortada y escaneada' : 'Escaneada'
+  }
   return 'Pendiente (sin corte ni escaneo)'
 }
 
-function pieceMark(z, status) {
-  if (status === 'cut') return ' ✂'
-  if (status === 'scanned' || status === 'ok') return ' ✓'
-  return ''
+function partTagClass(status) {
+  if (status === 'done') return 'tag tag--ok'
+  if (status === 'cut') return 'tag tag--estado-produccion'
+  if (status === 'partial') return 'tag tag--estado-atencion'
+  return 'tag'
+}
+
+function partTagLabel(status) {
+  if (status === 'done') return 'Escaneada'
+  if (status === 'cut') return 'Cortada'
+  if (status === 'partial') return 'En proceso'
+  return 'Pendiente'
 }
 
 function partScanStatus(part) {
@@ -52,19 +56,26 @@ function partScanStatus(part) {
   const piezas = Array.isArray(part.piezas) ? part.piezas : []
   const piezasTot = piezas.length > 0 ? piezas.length : scheduled
   const piezasDone = piezas.length > 0 ? piezas.filter((z) => z.escaneado).length : scanned
-  const done = Boolean(part.escaneado) || (scheduled > 0 && scanned >= scheduled)
-  const partial = !done && (scanned > 0 || piezasDone > 0)
+  const piezasCut = piezas.length > 0 ? piezas.filter((z) => z.cortada).length : 0
+  const done = Boolean(part.escaneado) || (scheduled > 0 && scanned >= scheduled) || (piezasTot > 0 && piezasDone >= piezasTot)
+  const allCutNotDone = !done && piezasTot > 0 && piezasCut >= piezasTot
+  const partial = !done && !allCutNotDone && (scanned > 0 || piezasDone > 0 || piezasCut > 0)
+  let status = 'pending'
+  if (done) status = 'done'
+  else if (allCutNotDone) status = 'cut'
+  else if (partial) status = 'partial'
   return {
     scheduled,
     scanned,
     piezas,
     piezasTot,
     piezasDone,
-    status: done ? 'done' : partial ? 'partial' : 'pending',
+    piezasCut,
+    status,
   }
 }
 
-/** Detalle de partes/piezas de una orden Biesse (medidas, avance 1/2, colores). */
+/** Detalle de partes/piezas de una orden Biesse (medidas, avance, colores por estado). */
 export function OrderPartsDetail({ partes = [] }) {
   const [filter, setFilter] = useState('all')
 
@@ -79,12 +90,19 @@ export function OrderPartsDetail({ partes = [] }) {
 
   const counts = useMemo(() => {
     const next = { all: enriched.length, pending: 0, partial: 0, done: 0 }
-    for (const row of enriched) next[row.status] += 1
+    for (const row of enriched) {
+      if (row.status === 'done') next.done += 1
+      else if (row.status === 'pending') next.pending += 1
+      else next.partial += 1 // partial + cut → «En proceso»
+    }
     return next
   }, [enriched])
 
   const visible = useMemo(() => {
     if (filter === 'all') return enriched
+    if (filter === 'partial') {
+      return enriched.filter((row) => row.status === 'partial' || row.status === 'cut')
+    }
     return enriched.filter((row) => row.status === filter)
   }, [enriched, filter])
 
@@ -110,10 +128,9 @@ export function OrderPartsDetail({ partes = [] }) {
       </div>
 
       <p className="order-pieces-legend small muted" aria-label="Leyenda de colores de piezas">
-        <span className="order-piece order-piece--legend">Pendiente</span>
+        <span className="order-piece order-piece--pending order-piece--legend">Pendiente</span>
         <span className="order-piece order-piece--cut order-piece--legend">Cortada</span>
-        <span className="order-piece order-piece--scanned order-piece--legend">Escaneada sin corte</span>
-        <span className="order-piece order-piece--ok order-piece--legend">Cortada y escaneada</span>
+        <span className="order-piece order-piece--ok order-piece--legend">Escaneada</span>
       </p>
 
       {!visible.length ? (
@@ -124,7 +141,7 @@ export function OrderPartsDetail({ partes = [] }) {
         <ul className="order-parts-list">
           {visible.map(({ part: p, scheduled, scanned, piezas, piezasTot, piezasDone, status }) => {
             const partDone = status === 'done'
-            const partPartial = status === 'partial'
+            const partPartial = status === 'partial' || status === 'cut'
             const longitud = p.longitud
             const ancho = p.ancho
             const hasMeasures =
@@ -137,9 +154,7 @@ export function OrderPartsDetail({ partes = [] }) {
               >
                 <div className="order-part__head">
                   <span className="order-part__code">{p.partCode ?? `Parte ${p.partId}`}</span>
-                  <span className={partDone ? 'tag tag--ok' : partPartial ? 'tag' : 'tag'}>
-                    {partDone ? 'Escaneada' : partPartial ? 'En proceso' : 'Pendiente'}
-                  </span>
+                  <span className={partTagClass(status)}>{partTagLabel(status)}</span>
                 </div>
 
                 {(p.descripcion || p.descripcion1) && (
@@ -177,7 +192,6 @@ export function OrderPartsDetail({ partes = [] }) {
                           title={pieceTitle(z, visual)}
                         >
                           {z.numeroPieza}
-                          {pieceMark(z, visual)}
                         </span>
                       )
                     })}
@@ -186,8 +200,7 @@ export function OrderPartsDetail({ partes = [] }) {
                   <div className="order-pieces-grid" role="list">
                     {Array.from({ length: scheduled }, (_, i) => {
                       const n = i + 1
-                      const escaneado = n <= scanned
-                      const z = { cortada: false, escaneado }
+                      const z = { cortada: false, escaneado: n <= scanned }
                       const visual = pieceVisualStatus(z)
                       return (
                         <span
@@ -197,7 +210,6 @@ export function OrderPartsDetail({ partes = [] }) {
                           title={pieceTitle(z, visual)}
                         >
                           {n}
-                          {pieceMark(z, visual)}
                         </span>
                       )
                     })}
