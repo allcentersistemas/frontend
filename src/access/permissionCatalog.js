@@ -52,6 +52,10 @@ export const ENDPOINT_CATALOG = [
       ['GET', '/api/biesse/scan/pieces/resolve'],
       ['GET', '/api/biesse/scan/pieces/{pieceId}'],
       ['GET', '/api/biesse/scan/audit'],
+      ['GET', '/api/biesse/scan/agent/machines'],
+      ['GET', '/api/biesse/scan/agent/events'],
+      ['GET', '/api/biesse/scan/agent/cut-pieces'],
+      ['GET', '/api/biesse/scan/agent/trazabilidad'],
     ],
   },
   {

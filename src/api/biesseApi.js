@@ -239,3 +239,27 @@ export async function listBiesseAudit(params = {}) {
   const suffix = q.toString() ? `?${q}` : ''
   return biesseJson(`/api/biesse/scan/audit${suffix}`)
 }
+
+/** Monitor CNC (agente OSI) — lectura JWT */
+export async function listAgentMachines() {
+  return biesseJson('/api/biesse/scan/agent/machines')
+}
+
+export async function listAgentEvents(limit = 80) {
+  const q = new URLSearchParams({ limit: String(limit) })
+  return biesseJson(`/api/biesse/scan/agent/events?${q}`)
+}
+
+export async function listAgentCutPieces(limit = 40) {
+  const q = new URLSearchParams({ limit: String(limit) })
+  return biesseJson(`/api/biesse/scan/agent/cut-pieces?${q}`)
+}
+
+export async function listOpTrazabilidad({ op, orderId, limit = 100 } = {}) {
+  const q = new URLSearchParams()
+  if (op) q.set('op', String(op))
+  if (orderId != null) q.set('orderId', String(orderId))
+  q.set('limit', String(limit))
+  return biesseJson(`/api/biesse/scan/agent/trazabilidad?${q}`)
+}
+

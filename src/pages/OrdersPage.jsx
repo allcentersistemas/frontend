@@ -22,6 +22,8 @@ const PAGE_SIZE = 25
 function orderEstadoTagClass(estado) {
   const e = String(estado ?? '').toUpperCase()
   if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'tag tag--ok'
+  if (e === 'PRODUCCION') return 'tag tag--ok'
+  if (e === 'OPTIMIZADO') return 'tag'
   if (e === 'EN_PROCESO') return 'tag'
   return 'tag'
 }
@@ -29,9 +31,22 @@ function orderEstadoTagClass(estado) {
 function formatOrderEstado(estado) {
   const e = String(estado ?? '').toUpperCase()
   if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'Completada'
+  if (e === 'PRODUCCION') return 'Producción'
+  if (e === 'OPTIMIZADO') return 'Optimizado'
   if (e === 'EN_PROCESO') return 'En proceso'
   if (e === 'PENDIENTE') return 'Pendiente'
   return estado ?? '—'
+}
+
+function fmtTraceTs(value) {
+  if (!value) return '—'
+  try {
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return String(value)
+    return d.toLocaleString()
+  } catch {
+    return String(value)
+  }
 }
 
 /**
@@ -82,6 +97,8 @@ export function OrdersPage({ embedded = false }) {
   const [orderEditNotes, setOrderEditNotes] = useState('')
   const [orderEditBusy, setOrderEditBusy] = useState(false)
   const [orderDeleteBusy, setOrderDeleteBusy] = useState(false)
+  const [trazabilidad, setTrazabilidad] = useState([])
+  const [trazLoading, setTrazLoading] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(searchInput), 350)
@@ -126,6 +143,7 @@ export function OrdersPage({ embedded = false }) {
     if (selectedId == null) {
       setDetail(null)
       setOrderPallets([])
+      setTrazabilidad([])
       return
     }
     let cancelled = false
@@ -154,6 +172,28 @@ export function OrdersPage({ embedded = false }) {
         if (!cancelled) setDetail(null)
       } finally {
         if (!cancelled) setDetailLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId])
+
+  useEffect(() => {
+    if (selectedId == null) {
+      setTrazabilidad([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setTrazLoading(true)
+      try {
+        const rows = await biesseApi.listOpTrazabilidad({ orderId: selectedId, limit: 80 })
+        if (!cancelled) setTrazabilidad(Array.isArray(rows) ? rows : [])
+      } catch {
+        if (!cancelled) setTrazabilidad([])
+      } finally {
+        if (!cancelled) setTrazLoading(false)
       }
     })()
     return () => {
@@ -269,6 +309,8 @@ export function OrdersPage({ embedded = false }) {
         <span className="small">Estado</span>
         <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
           <option value="">Todos</option>
+          <option value="OPTIMIZADO">Optimizado</option>
+          <option value="PRODUCCION">Producción</option>
           <option value="PENDIENTE">Pendiente</option>
           <option value="EN_PROCESO">En proceso</option>
           <option value="COMPLETADA">Completada</option>
@@ -402,10 +444,52 @@ export function OrdersPage({ embedded = false }) {
                   ].map(([k, v]) => (
                     <div key={k}>
                       <dt>{k}</dt>
-                      <dd>{v}</dd>
+                      <dd>
+                        {k === 'Estado' ? (
+                          <span className={orderEstadoTagClass(detail.estadoEscaneo)}>{v}</span>
+                        ) : (
+                          v
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>
+
+                <h3 className="card__title" style={{ marginTop: '1.25rem', fontSize: '1rem' }}>
+                  Trazabilidad OP
+                </h3>
+                {trazLoading ? <p className="muted small">Cargando trazabilidad…</p> : null}
+                {!trazLoading && !trazabilidad.length ? (
+                  <p className="muted small">
+                    Sin eventos aún (XML subido, inicio/fin de corte, piezas OSI).
+                  </p>
+                ) : null}
+                {!trazLoading && trazabilidad.length > 0 ? (
+                  <div className="table-wrap" style={{ marginBottom: '1rem' }}>
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Estado</th>
+                          <th>Acción</th>
+                          <th>Detalle</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trazabilidad.map((t) => (
+                          <tr key={t.id}>
+                            <td className="small muted">{fmtTraceTs(t.fecha)}</td>
+                            <td>
+                              <span className={orderEstadoTagClass(t.estado)}>{formatOrderEstado(t.estado)}</span>
+                            </td>
+                            <td className="small">{t.accion}</td>
+                            <td className="small">{(t.detalle || '').slice(0, 120)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
 
                 <form className="form-section" style={{ marginTop: '1rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
                   <h3 className="card__title" style={{ fontSize: '1rem' }}>

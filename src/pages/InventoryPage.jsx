@@ -9,6 +9,7 @@ import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 import { useAppAbility } from '../access/useAppAbility'
 import { OrdersPage } from './OrdersPage'
+import { BiesseMonitorPanel } from './BiesseMonitorPanel.jsx'
 import { PalesPage } from './PalesPage'
 import {
   buildRmGuiaMap,
@@ -317,6 +318,7 @@ const TABS = [
 
 const INVENTORY_AREAS = [
   { id: 'ordenes', label: 'Órdenes Biesse', feature: FEATURE.BIESSE_ORDERS },
+  { id: 'monitor', label: 'Monitor CNC', feature: FEATURE.BIESSE_ORDERS },
   { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
   { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
   { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
@@ -659,6 +661,8 @@ export function InventoryPage() {
 
       {areaTab === 'ordenes' && canViewOrders ? (
         <OrdersPage embedded />
+      ) : areaTab === 'monitor' && canViewOrders ? (
+        <BiesseMonitorPanel />
       ) : areaTab === 'pales' && canViewPales ? (
         <PalesPage embedded />
       ) : areaTab === 'guias' && canViewGuias ? (

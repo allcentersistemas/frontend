@@ -52,6 +52,13 @@ export const PORTAL_ACCESS_MODULES = [
     suggestedRoles: [ROLE_PRODUCCION, ROLE_DESPACHO, ROLE_ADMIN_PRODUCCION],
   },
   {
+    id: 'monitor_biesse',
+    label: 'Inventario · Monitor CNC Biesse',
+    description: 'Estado del agente OSI, job en corte y eventos de máquina',
+    features: [FEATURE.BIESSE_ORDERS],
+    suggestedRoles: [ROLE_PRODUCCION, ROLE_ADMIN_PRODUCCION],
+  },
+  {
     id: 'pales',
     label: 'Inventario · Palés',
     description: 'Listado, escaneo, edición y eliminación de palés',
