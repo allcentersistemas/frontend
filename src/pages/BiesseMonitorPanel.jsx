@@ -12,11 +12,17 @@ function fmtTs(value) {
   }
 }
 
-function heartbeatAgo(value) {
+function heartbeatAgo(value, { coarse = false } = {}) {
   if (!value) return null
   const t = new Date(value).getTime()
   if (Number.isNaN(t)) return null
   const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (coarse) {
+    if (sec < 60) return 'hace <1 min'
+    const m = Math.floor(sec / 60)
+    if (m < 60) return `hace ${m} min`
+    return `hace ${Math.floor(m / 60)} h`
+  }
   if (sec < 3) return 'ahora'
   if (sec < 60) return `hace ${sec}s`
   const m = Math.floor(sec / 60)
@@ -52,6 +58,17 @@ function stateTag(state) {
   if (s === 'IDLE') return 'tag'
   if (s === 'EMERGENCY') return 'tag tag--danger'
   return 'tag'
+}
+
+function formatMachineState(state, online) {
+  const raw = state == null || state === '' ? '' : String(state).trim()
+  const upper = raw.toUpperCase()
+  if (!online) {
+    if (!raw || upper === 'UNKNOWN' || upper === '—') return 'Sin señal'
+    return `${upper} (último)`
+  }
+  if (!raw || upper === 'UNKNOWN') return 'Sin estado OSI'
+  return upper
 }
 
 function onlineLabel(online, heartbeatAt) {
@@ -259,12 +276,13 @@ export function BiesseMonitorPanel() {
         {machines.map((m) => {
           const id = m.machine_id ?? m.machineId
           const online = isEffectivelyOnline(m)
-          const state = m.state ?? '—'
+          const stateRaw = m.state ?? ''
+          const stateLabel = formatMachineState(stateRaw, online)
           const job = m.job_name ?? m.jobName
           const started = m.job_started_at ?? m.jobStartedAt
           const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
-          const hbRel = heartbeatAgo(hbAt)
-          const dur = state === 'RUN' && online ? durationLive(started) : null
+          const hbRel = heartbeatAgo(hbAt, { coarse: !online })
+          const dur = String(stateRaw).toUpperCase() === 'RUN' && online ? durationLive(started) : null
           return (
             <article key={id} className="card pad">
               <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
@@ -277,7 +295,7 @@ export function BiesseMonitorPanel() {
                 <div>
                   <dt>Estado</dt>
                   <dd>
-                    <span className={stateTag(state)}>{state}</span>
+                    <span className={stateTag(online ? stateRaw : '')}>{stateLabel}</span>
                   </dd>
                 </div>
                 <div>
@@ -305,7 +323,7 @@ export function BiesseMonitorPanel() {
                   </div>
                 ) : null}
                 <div>
-                  <dt>Heartbeat</dt>
+                  <dt>{online ? 'Último heartbeat' : 'Última señal'}</dt>
                   <dd className="small">
                     {hbRel ? <strong>{hbRel}</strong> : '—'}
                     {hbAt ? <span className="muted"> · {fmtTs(hbAt)}</span> : null}
@@ -382,7 +400,7 @@ export function BiesseMonitorPanel() {
                     )}
                   </td>
                   <td>
-                    <span className={stateTag(row.state)}>{row.state || '—'}</span>
+                    <span className={stateTag(row.state)}>{formatMachineState(row.state, isEffectivelyOnline(row))}</span>
                   </td>
                   <td className="small">{row.job_name || '—'}</td>
                   <td className="small">
