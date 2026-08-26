@@ -81,12 +81,18 @@ export function printBiesseOrderDetail(detail) {
   <meta charset="utf-8" />
   <title>${esc(title)}</title>
   <style>
-    /* Vertical por defecto; el diálogo del navegador permite cambiar a horizontal */
-    @page { size: A4 portrait; margin: 12mm; }
+    /* Hoja PARADA (vertical). Medidas explícitas 210×297 mm = A4 portrait.
+       En el diálogo del navegador confirme Orientación = Vertical / Portrait. */
+    @page {
+      size: 210mm 297mm;
+      margin: 12mm;
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
+      width: 210mm;
+      max-width: 210mm;
       color: #111;
       font: 10pt/1.35 system-ui, "Segoe UI", sans-serif;
       text-align: left;
@@ -94,13 +100,22 @@ export function printBiesseOrderDetail(detail) {
     }
     .wrap {
       width: 100%;
-      max-width: none;
+      max-width: 186mm;
       margin: 0;
       padding: 0;
       text-align: left;
     }
     h1 { font-size: 14pt; margin: 0 0 4px; font-weight: 700; text-align: left; }
     .sub { margin: 0 0 12px; color: #444; font-size: 9pt; }
+    .orient-banner {
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 1px solid #f59e0b;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 9pt;
+      text-align: left;
+    }
     .meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -116,6 +131,7 @@ export function printBiesseOrderDetail(detail) {
     h2 { font-size: 11pt; margin: 16px 0 8px; border-bottom: 1px solid #bbb; padding-bottom: 4px; text-align: left; }
     .part {
       break-inside: avoid;
+      page-break-inside: avoid;
       margin: 0 0 10px;
       padding: 8px 10px;
       border: 1px solid #ddd;
@@ -146,23 +162,21 @@ export function printBiesseOrderDetail(detail) {
     .chip--cut { background: #fef3c7; color: #92400e; border-color: #f59e0b; font-weight: 600; }
     .chip--ok { background: #d1fae5; color: #065f46; border-color: #10b981; font-weight: 600; }
     .muted { color: #666; }
-    .hint {
-      margin: 12px 0 0;
-      font-size: 8pt;
-      color: #666;
-      border-top: 1px dashed #ccc;
-      padding-top: 8px;
-    }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .hint { display: none; }
+      .orient-banner { display: none !important; }
+      @page { size: 210mm 297mm; margin: 12mm; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <p class="orient-banner">
+      <strong>Importante:</strong> en el diálogo de impresión elija
+      <strong>Orientación → Vertical</strong> (Portrait / hoja parada), no Horizontal.
+    </p>
     <h1>${esc(title)}</h1>
-    <p class="sub">Producción Biesse · detalle de partes y piezas</p>
+    <p class="sub">Producción Biesse · detalle de partes y piezas · A4 vertical</p>
     <div class="meta">
       <div><span class="lbl">ID</span> ${esc(detail.orderId)}</div>
       <div><span class="lbl">Estado</span> ${esc(formatEstado(detail.estadoEscaneo))}</div>
@@ -173,18 +187,17 @@ export function printBiesseOrderDetail(detail) {
     </div>
     <h2>Partes y piezas</h2>
     ${partBlocks || '<p class="muted">Sin partes.</p>'}
-    <p class="hint">En el diálogo de impresión del navegador puede cambiar orientación (vertical/horizontal) y márgenes. Por defecto: A4 vertical.</p>
   </div>
   <script>
     window.onload = function () {
       window.focus();
-      window.print();
+      setTimeout(function () { window.print(); }, 200);
     };
   </script>
 </body>
 </html>`
 
-  const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1000')
+  const w = window.open('', '_blank', 'noopener,noreferrer,width=794,height=1123')
   if (!w) {
     window.alert('Permita ventanas emergentes para imprimir el detalle.')
     return

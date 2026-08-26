@@ -134,7 +134,13 @@ export function BiesseMonitorPanel() {
         systemApi.listAgentMachines(),
         systemApi.listAgentBoardsLive().catch(() => null),
       ])
-      setMachines(Array.isArray(m) ? m : [])
+      const list = Array.isArray(m) ? [...m] : []
+      list.sort((a, b) => {
+        const idA = Number(a.machine_id ?? a.machineId ?? 0)
+        const idB = Number(b.machine_id ?? b.machineId ?? 0)
+        return idA - idB
+      })
+      setMachines(list)
       setBoardsLive(live && typeof live === 'object' ? live : null)
       setLastMachinesAt(Date.now())
       setErr(null)
@@ -177,7 +183,7 @@ export function BiesseMonitorPanel() {
     try {
       const [e, c, t, s] = await Promise.all([
         systemApi.listAgentEvents(100).catch(() => []),
-        systemApi.listAgentCutPieces(40).catch(() => []),
+        systemApi.listAgentCutPieces({ limit: 40 }).catch(() => []),
         systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
         systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
       ])

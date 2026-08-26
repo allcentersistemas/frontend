@@ -57,7 +57,9 @@ export function SeccionadorasConfigPanel() {
   const load = useCallback(async () => {
     try {
       const m = await systemApi.listAgentMachines()
-      setMachines(Array.isArray(m) ? m : [])
+      const list = Array.isArray(m) ? [...m] : []
+      list.sort((a, b) => Number(a.machine_id ?? a.machineId ?? 0) - Number(b.machine_id ?? b.machineId ?? 0))
+      setMachines(list)
       setErr(null)
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : 'No se pudo cargar las seccionadoras')

@@ -1195,8 +1195,9 @@ export async function listAgentEvents(limit = 80) {
   return systemJson(`/api/biesse/monitor/events?${q}`)
 }
 
-export async function listAgentCutPieces(limit = 40) {
+export async function listAgentCutPieces({ limit = 40, orderId } = {}) {
   const q = new URLSearchParams({ limit: String(limit) })
+  if (orderId != null && orderId !== '') q.set('orderId', String(orderId))
   return systemJson(`/api/biesse/monitor/cut-pieces?${q}`)
 }
 
