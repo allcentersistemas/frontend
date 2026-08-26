@@ -59,11 +59,30 @@ function isNotFoundError(message) {
   return m.includes('not found') || m.includes('404')
 }
 
+function toLocalISODate(d = new Date()) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function daysAgoLocalISO(days) {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return toLocalISODate(d)
+}
+
 const MACHINES_POLL_MS = 2000
 const EVENTS_POLL_MS = 10000
 
 export function BiesseMonitorPanel() {
   const [machines, setMachines] = useState([])
+  const [boardsLive, setBoardsLive] = useState(null)
+  const [boardsHistory, setBoardsHistory] = useState([])
+  const [boardsSummary, setBoardsSummary] = useState(null)
+  const [boardsFrom, setBoardsFrom] = useState(() => daysAgoLocalISO(7))
+  const [boardsTo, setBoardsTo] = useState(() => toLocalISODate())
+  const [boardsMachineId, setBoardsMachineId] = useState('')
   const [events, setEvents] = useState([])
   const [cuts, setCuts] = useState([])
   const [cutTimes, setCutTimes] = useState([])
@@ -81,8 +100,12 @@ export function BiesseMonitorPanel() {
 
   const loadMachines = useCallback(async () => {
     try {
-      const m = await systemApi.listAgentMachines()
+      const [m, live] = await Promise.all([
+        systemApi.listAgentMachines(),
+        systemApi.listAgentBoardsLive().catch(() => null),
+      ])
       setMachines(Array.isArray(m) ? m : [])
+      setBoardsLive(live && typeof live === 'object' ? live : null)
       setLastMachinesAt(Date.now())
       setErr(null)
     } catch (ex) {
@@ -93,6 +116,32 @@ export function BiesseMonitorPanel() {
       setLoading(false)
     }
   }, [])
+
+  const loadBoardsHistory = useCallback(async () => {
+    try {
+      const [hist, sum] = await Promise.all([
+        systemApi
+          .listAgentBoardsHistory({
+            from: boardsFrom || undefined,
+            to: boardsTo || undefined,
+            machineId: boardsMachineId || undefined,
+            limit: 120,
+          })
+          .catch(() => null),
+        systemApi
+          .listAgentBoardsSummary({
+            from: boardsFrom || undefined,
+            to: boardsTo || undefined,
+          })
+          .catch(() => null),
+      ])
+      setBoardsHistory(Array.isArray(hist?.items) ? hist.items : [])
+      setBoardsSummary(sum && typeof sum === 'object' ? sum : null)
+    } catch {
+      setBoardsHistory([])
+      setBoardsSummary(null)
+    }
+  }, [boardsFrom, boardsTo, boardsMachineId])
 
   const loadEvents = useCallback(async () => {
     try {
@@ -115,18 +164,21 @@ export function BiesseMonitorPanel() {
   }, [])
 
   const load = useCallback(async () => {
-    await Promise.all([loadMachines(), loadEvents()])
-  }, [loadMachines, loadEvents])
+    await Promise.all([loadMachines(), loadEvents(), loadBoardsHistory()])
+  }, [loadMachines, loadEvents, loadBoardsHistory])
 
   useEffect(() => {
     void load()
     const machinesPoll = window.setInterval(() => void loadMachines(), MACHINES_POLL_MS)
-    const eventsPoll = window.setInterval(() => void loadEvents(), EVENTS_POLL_MS)
+    const eventsPoll = window.setInterval(() => {
+      void loadEvents()
+      void loadBoardsHistory()
+    }, EVENTS_POLL_MS)
     return () => {
       window.clearInterval(machinesPoll)
       window.clearInterval(eventsPoll)
     }
-  }, [load, loadMachines, loadEvents])
+  }, [load, loadMachines, loadEvents, loadBoardsHistory])
 
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 1000)
@@ -316,7 +368,7 @@ export function BiesseMonitorPanel() {
                   <dd>{m.last_part ?? m.lastPart ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt>Tableros / piezas</dt>
+                  <dt>Planchas / piezas (sesión)</dt>
                   <dd>
                     {m.boards_done ?? m.boardsDone ?? 0} / {m.pieces_produced ?? m.piecesProduced ?? 0}
                   </dd>
@@ -350,6 +402,209 @@ export function BiesseMonitorPanel() {
           )
         })}
       </div>
+
+      <section className="card pad" style={{ marginBottom: '1rem' }}>
+        <h2 className="card__title" style={{ fontSize: '1rem' }}>
+          Planchas en tiempo real
+        </h2>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Una plancha = board OSI (<code>Boards done</code> / <code>boards_done</code>), no una pieza
+          individual. Por máquina: sesión/job actual. Totales: en RUN (vivo), online y del día.
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginTop: '0.75rem',
+            alignItems: 'stretch',
+          }}
+        >
+          <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 140 }}>
+            <div className="small muted">Total en RUN (vivo)</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
+              {boardsLive?.total_live ?? 0}
+            </div>
+          </div>
+          <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 140 }}>
+            <div className="small muted">Total online</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
+              {boardsLive?.total_online ?? 0}
+            </div>
+          </div>
+          <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 140 }}>
+            <div className="small muted">Planchas hoy</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
+              {boardsLive?.total_today ?? 0}
+            </div>
+          </div>
+        </div>
+        <div className="table-wrap" style={{ marginTop: '0.75rem' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Seccionador</th>
+                <th>Estado</th>
+                <th>Job</th>
+                <th>Planchas sesión</th>
+                <th>Planchas hoy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(boardsLive?.machines ?? []).map((row) => (
+                <tr key={row.machine_id}>
+                  <td className="small">
+                    {row.machine_name || `#${row.machine_id}`}
+                    {row.online ? (
+                      <span className="tag tag--ok" style={{ marginLeft: 6 }}>
+                        Online
+                      </span>
+                    ) : (
+                      <span className="tag" style={{ marginLeft: 6 }}>
+                        Offline
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={stateTag(row.state)}>{row.state || '—'}</span>
+                  </td>
+                  <td className="small">{row.job_name || '—'}</td>
+                  <td className="small">
+                    <strong>{row.boards_done ?? 0}</strong>
+                  </td>
+                  <td className="small">{row.boards_today ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!(boardsLive?.machines?.length) ? (
+            <p className="muted pad small">Sin datos de planchas en vivo aún.</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="card pad" style={{ marginBottom: '1rem' }}>
+        <h2 className="card__title" style={{ fontSize: '1rem' }}>
+          Historial de planchas
+        </h2>
+        <p className="muted small" style={{ marginTop: '0.35rem' }}>
+          Registros persistidos al cortar planchas (evento <code>Boards done</code> o incremento de
+          status). Filtre por fechas y seccionador.
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            alignItems: 'flex-end',
+            marginTop: '0.75rem',
+          }}
+        >
+          <label className="field">
+            <span className="small">Desde</span>
+            <input
+              type="date"
+              value={boardsFrom}
+              onChange={(e) => setBoardsFrom(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span className="small">Hasta</span>
+            <input type="date" value={boardsTo} onChange={(e) => setBoardsTo(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="small">Seccionador</span>
+            <select
+              value={boardsMachineId}
+              onChange={(e) => setBoardsMachineId(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {machines.map((m) => {
+                const id = m.machine_id ?? m.machineId
+                return (
+                  <option key={id} value={String(id)}>
+                    {m.machine_name ?? m.machineName ?? `Seccionador #${id}`}
+                  </option>
+                )
+              })}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => void loadBoardsHistory()}
+          >
+            Aplicar filtro
+          </button>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginTop: '0.75rem',
+          }}
+        >
+          <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 160 }}>
+            <div className="small muted">Total en rango</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+              {boardsSummary?.grand_total
+                ?? boardsHistory.reduce((acc, r) => acc + (Number(r.boards_delta) || 0), 0)}
+            </div>
+          </div>
+          {(boardsSummary?.by_machine ?? []).map((row) => (
+            <div
+              key={row.machine_id}
+              className="pad surface-2"
+              style={{ borderRadius: 8, minWidth: 140 }}
+            >
+              <div className="small muted">{row.machine_name || `#${row.machine_id}`}</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{row.boards_total ?? 0}</div>
+              <div className="small muted">{row.cut_events ?? 0} eventos</div>
+            </div>
+          ))}
+        </div>
+        <div className="table-wrap" style={{ marginTop: '0.75rem' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Seccionador</th>
+                <th>Job / obra</th>
+                <th>Δ Planchas</th>
+                <th>Total tras corte</th>
+                <th>Origen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {boardsHistory.map((row) => (
+                <tr key={row.id ?? row.event_uid}>
+                  <td className="small muted">{fmtTs(row.event_time ?? row.created_at)}</td>
+                  <td className="small">{row.machine_name ?? row.machine_id ?? '—'}</td>
+                  <td className="small">
+                    {row.job_name || '—'}
+                    {row.order_id != null ? <div className="muted">#{row.order_id}</div> : null}
+                  </td>
+                  <td className="small">
+                    <strong>{row.boards_delta ?? 0}</strong>
+                  </td>
+                  <td className="small">{row.boards_total_after ?? '—'}</td>
+                  <td>
+                    <span className="tag">
+                      {row.source === 'STATUS_DELTA' ? 'Status' : row.source === 'EVENT' ? 'Evento' : row.source || '—'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!boardsHistory.length ? (
+            <p className="muted pad small">
+              Sin planchas en este rango. Aparecen al cortar tableros en el seccionador.
+            </p>
+          ) : null}
+        </div>
+      </section>
 
       <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         <section className="card">

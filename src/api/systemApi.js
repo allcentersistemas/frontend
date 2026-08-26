@@ -328,10 +328,6 @@ export async function markProyectoEntregado(id) {
   return systemJson(`/api/order/proyectos/${id}/entregado`, { method: 'POST' })
 }
 
-export async function markObraEntregado(biesseOrderId) {
-  return systemJson(`/api/order/obras/${biesseOrderId}/entregado`, { method: 'POST' })
-}
-
 export async function fetchAiUsageRankings() {
   return systemJson('/api/admin/config/ai-usage/rankings')
 }
@@ -1219,6 +1215,29 @@ export async function listAgentCutTimesSummary({ op, orderId, limit = 40 } = {})
   if (orderId != null) q.set('orderId', String(orderId))
   q.set('limit', String(limit))
   return systemJson(`/api/biesse/monitor/cut-times/summary?${q}`)
+}
+
+/** Planchas en vivo: por máquina + total_live / total_today. */
+export async function listAgentBoardsLive() {
+  return systemJson('/api/biesse/monitor/boards/live')
+}
+
+/** Historial de planchas cortadas (from/to = yyyy-MM-dd). */
+export async function listAgentBoardsHistory({ from, to, machineId, limit = 100 } = {}) {
+  const q = new URLSearchParams()
+  if (from) q.set('from', String(from))
+  if (to) q.set('to', String(to))
+  if (machineId != null && machineId !== '') q.set('machineId', String(machineId))
+  q.set('limit', String(limit))
+  return systemJson(`/api/biesse/monitor/boards/history?${q}`)
+}
+
+/** Resumen de planchas por máquina en rango de fechas. */
+export async function listAgentBoardsSummary({ from, to } = {}) {
+  const q = new URLSearchParams()
+  if (from) q.set('from', String(from))
+  if (to) q.set('to', String(to))
+  return systemJson(`/api/biesse/monitor/boards/summary?${q}`)
 }
 
 export async function listAgentTrazabilidad({ op, orderId, limit = 100 } = {}) {

@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react'
-import * as systemApi from '../../api/systemApi'
+import { useMemo } from 'react'
 import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 const COLUMN_HINTS = {
@@ -7,7 +6,7 @@ const COLUMN_HINTS = {
   PRODUCCION: 'Cuando el agente CNC detecta el nombre del XML',
   DESPACHO: 'Cuando se empieza a escanear piezas en Android',
   LISTO_PARA_ENTREGAR: 'Cuando el escaneo llega al 100%',
-  ENTREGADO: 'Cuando se marca como entregado (app o portal)',
+  ENTREGADO: 'Cuando se marca en la app',
 }
 
 const COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({
@@ -33,9 +32,6 @@ function normalizeObraEstado(raw) {
  * }} props
  */
 export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
-  const [busyId, setBusyId] = useState(null)
-  const [msg, setMsg] = useState('')
-
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(ESTADOS_SEGUIMIENTO.map((e) => [e, []]))
     for (const o of obras) {
@@ -44,20 +40,6 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
     }
     return map
   }, [obras])
-
-  async function markEntregado(orderId) {
-    setBusyId(orderId)
-    setMsg('')
-    try {
-      await systemApi.markObraEntregado(orderId)
-      setMsg('Obra marcada como entregada.')
-      await onRefresh?.()
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'No se pudo marcar como entregada.')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   return (
     <div className="dash">
@@ -75,12 +57,6 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
           </button>
         ) : null}
       </header>
-
-      {msg ? (
-        <p className="muted small pad" role="status" style={{ paddingTop: 0 }}>
-          {msg}
-        </p>
-      ) : null}
 
       {loading && !obras.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
@@ -123,16 +99,6 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
                         ) : null}
                         {seccionador ? (
                           <span className="muted small">Seccionador: {seccionador}</span>
-                        ) : null}
-                        {col.id === 'LISTO_PARA_ENTREGAR' ? (
-                          <button
-                            type="button"
-                            className="btn btn--sm btn--primary"
-                            disabled={busyId === id}
-                            onClick={() => void markEntregado(id)}
-                          >
-                            {busyId === id ? '…' : 'Marcar entregado'}
-                          </button>
                         ) : null}
                       </li>
                     )
