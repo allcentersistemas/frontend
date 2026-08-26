@@ -142,6 +142,65 @@
     @apply min-h-0 flex-1 overflow-y-auto px-5 py-4;
   }
 
+  /* Impresión del detalle (modal): layout normal a la izquierda, no centrado en la página */
+  @media print {
+    body:has(.detail-modal-backdrop) * {
+      visibility: hidden !important;
+    }
+    body:has(.detail-modal-backdrop) .detail-modal-backdrop,
+    body:has(.detail-modal-backdrop) .detail-modal-backdrop * {
+      visibility: visible !important;
+    }
+    .detail-modal-backdrop {
+      position: absolute !important;
+      inset: 0 auto auto 0 !important;
+      display: block !important;
+      min-height: 0 !important;
+      height: auto !important;
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 8mm !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      text-align: left !important;
+    }
+    .detail-modal,
+    .detail-modal--wide {
+      position: static !important;
+      display: block !important;
+      max-height: none !important;
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: #fff !important;
+      text-align: left !important;
+    }
+    .detail-modal__head {
+      border-bottom: 1px solid #ccc;
+      padding: 0 0 0.5rem;
+    }
+    .detail-modal__close {
+      display: none !important;
+    }
+    .detail-modal__body {
+      overflow: visible !important;
+      padding: 0.75rem 0 0;
+      text-align: left !important;
+    }
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+
   .detail-dl {
     @apply m-0 grid gap-4 sm:grid-cols-2;
   }
@@ -792,12 +851,6 @@
   /* ——— Detalle órdenes Biesse (partes / piezas) ——— */
   .order-detail-block {
     @apply flex flex-col gap-3;
-  }
-  .order-detail-trace {
-    @apply mt-1 rounded-xl border border-slate-200/90 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/[0.02];
-  }
-  .order-detail-trace__title {
-    @apply mb-2 mt-3 text-sm font-semibold text-slate-800 first:mt-0 dark:text-slate-100;
   }
   .order-parts-panel {
     @apply flex flex-col gap-3;

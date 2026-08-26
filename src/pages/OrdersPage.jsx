@@ -40,17 +40,6 @@ function orderEstadoTagClass(estado) {
   return 'tag'
 }
 
-function fmtTraceTs(value) {
-  if (!value) return '—'
-  try {
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleString()
-  } catch {
-    return String(value)
-  }
-}
-
 /**
  * @param {{ embedded?: boolean }} props — dentro de Inventario (sin cabecera duplicada)
  */
@@ -102,11 +91,6 @@ export function OrdersPage({ embedded = false }) {
   const [orderEditNotes, setOrderEditNotes] = useState('')
   const [orderEditBusy, setOrderEditBusy] = useState(false)
   const [orderDeleteBusy, setOrderDeleteBusy] = useState(false)
-  const [trazabilidad, setTrazabilidad] = useState([])
-  const [trazLoading, setTrazLoading] = useState(false)
-  const [cutSummary, setCutSummary] = useState(null)
-  const [cutEvents, setCutEvents] = useState([])
-  const [cutLoading, setCutLoading] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setQ(searchInput), 350)
@@ -183,9 +167,6 @@ export function OrdersPage({ embedded = false }) {
     if (selectedId == null) {
       setDetail(null)
       setOrderPallets([])
-      setTrazabilidad([])
-      setCutSummary(null)
-      setCutEvents([])
       return
     }
     let cancelled = false
@@ -214,46 +195,6 @@ export function OrdersPage({ embedded = false }) {
         if (!cancelled) setDetail(null)
       } finally {
         if (!cancelled) setDetailLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [selectedId])
-
-  useEffect(() => {
-    if (selectedId == null) {
-      setTrazabilidad([])
-      setCutSummary(null)
-      setCutEvents([])
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      setTrazLoading(true)
-      setCutLoading(true)
-      try {
-        const [rows, summaries, events] = await Promise.all([
-          biesseApi.listOpTrazabilidad({ orderId: selectedId, limit: 80 }),
-          systemApi.listAgentCutTimesSummary({ orderId: selectedId, limit: 5 }).catch(() => []),
-          systemApi.listAgentCutTimes({ orderId: selectedId, limit: 40 }).catch(() => []),
-        ])
-        if (!cancelled) {
-          setTrazabilidad(Array.isArray(rows) ? rows : [])
-          setCutSummary(Array.isArray(summaries) && summaries.length ? summaries[0] : null)
-          setCutEvents(Array.isArray(events) ? events : [])
-        }
-      } catch {
-        if (!cancelled) {
-          setTrazabilidad([])
-          setCutSummary(null)
-          setCutEvents([])
-        }
-      } finally {
-        if (!cancelled) {
-          setTrazLoading(false)
-          setCutLoading(false)
-        }
       }
     })()
     return () => {
@@ -630,102 +571,6 @@ export function OrdersPage({ embedded = false }) {
                     </Can>
                   </div>
                   <OrderPartsDetail partes={detail.partes ?? []} />
-
-                  <div className="order-detail-trace" aria-label="Seguimiento de producción">
-                    <h4 className="order-detail-trace__title">Historial de corte</h4>
-                    {cutLoading ? <p className="muted small">Cargando tiempos de corte…</p> : null}
-                    {!cutLoading && !cutSummary && !cutEvents.length ? (
-                      <p className="muted small">Sin CORTE_INICIO / CORTE_FIN aún para esta obra.</p>
-                    ) : null}
-                    {!cutLoading && cutSummary ? (
-                      <dl className="inv-dl" style={{ marginBottom: '0.75rem' }}>
-                        {[
-                          ['Duración total', cutSummary.total_duration_label || '0s'],
-                          ['Sesiones', cutSummary.sessions ?? 0],
-                          [
-                            'Seccionador(es)',
-                            Array.isArray(cutSummary.seccionadores) && cutSummary.seccionadores.length
-                              ? cutSummary.seccionadores.join(', ')
-                              : '—',
-                          ],
-                          ['Inicio', fmtTraceTs(cutSummary.first_start)],
-                          ['Fin', fmtTraceTs(cutSummary.last_end)],
-                        ].map(([k, v]) => (
-                          <div key={k}>
-                            <dt>{k}</dt>
-                            <dd>{v}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : null}
-                    {!cutLoading && cutEvents.length > 0 ? (
-                      <div className="table-wrap" style={{ marginBottom: '0.75rem' }}>
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>Fecha</th>
-                              <th>Evento</th>
-                              <th>Seccionador</th>
-                              <th>Duración</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {cutEvents.map((row) => (
-                              <tr key={row.id ?? `${row.accion}-${row.fecha}`}>
-                                <td className="small muted">{fmtTraceTs(row.fecha)}</td>
-                                <td>
-                                  <span className="tag">{row.accion}</span>
-                                </td>
-                                <td className="small">{row.seccionador || '—'}</td>
-                                <td className="small">
-                                  {row.duration_label ||
-                                    (String(row.accion || '').toUpperCase() === 'CORTE_INICIO'
-                                      ? 'inicio'
-                                      : '—')}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-
-                    <h4 className="order-detail-trace__title">Trazabilidad OP</h4>
-                    {trazLoading ? <p className="muted small">Cargando trazabilidad…</p> : null}
-                    {!trazLoading && !trazabilidad.length ? (
-                      <p className="muted small">
-                        Sin eventos aún (XML subido, inicio/fin de corte, piezas OSI).
-                      </p>
-                    ) : null}
-                    {!trazLoading && trazabilidad.length > 0 ? (
-                      <div className="table-wrap">
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>Fecha</th>
-                              <th>Estado</th>
-                              <th>Acción</th>
-                              <th>Detalle</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {trazabilidad.map((t) => (
-                              <tr key={t.id}>
-                                <td className="small muted">{fmtTraceTs(t.fecha)}</td>
-                                <td>
-                                  <span className={orderEstadoTagClass(t.estado)}>
-                                    {formatOrderEstado(t.estado)}
-                                  </span>
-                                </td>
-                                <td className="small">{t.accion}</td>
-                                <td className="small">{(t.detalle || '').slice(0, 120)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
-                  </div>
                 </section>
 
                 <form className="form-section" style={{ marginTop: '1.25rem' }} onSubmit={(e) => void handleSaveOrder(e)}>
