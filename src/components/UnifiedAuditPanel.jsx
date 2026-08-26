@@ -315,7 +315,7 @@ export function UnifiedAuditPanel() {
       </div>
       {!audit?.length && !loading ? <p className="muted pad">Sin eventos para el filtro actual.</p> : null}
       {selectedRow ? (
-        <div className="card pad" style={{ marginTop: '1rem', background: 'var(--surface-2, #f7f7f8)' }}>
+        <div className="card pad surface-2" style={{ marginTop: '1rem' }}>
           <h3 className="card__title">
             Detalle · {SOURCE_LABELS[selectedRow.source] ?? selectedRow.source} #{selectedRow.id}
           </h3>

@@ -95,12 +95,11 @@ function RmCancelAuditBlock({ tab, data }) {
   if (!data || (!rmRecordCancelled(tab, data) && !rmHasCancelAudit(data))) return null
   return (
     <div
-      className="card"
+      className="card surface-2"
       style={{
         marginTop: '1rem',
         padding: '0.85rem 1rem',
-        borderLeft: '4px solid var(--danger, #b00020)',
-        background: 'var(--surface-2, rgba(0,0,0,0.03))',
+        borderLeft: '4px solid #dc2626',
       }}
     >
       <p className="small" style={{ margin: '0 0 0.65rem', fontWeight: 600 }}>

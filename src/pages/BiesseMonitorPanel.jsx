@@ -199,17 +199,9 @@ export function BiesseMonitorPanel() {
           </p>
         ) : null}
         {newToken ? (
-          <div
-            className="pad"
-            style={{
-              marginTop: '0.75rem',
-              background: 'var(--surface-2, #f4f4f5)',
-              borderRadius: 8,
-              wordBreak: 'break-all',
-            }}
-          >
+          <div className="pad surface-2" style={{ marginTop: '0.75rem', borderRadius: 8, wordBreak: 'break-all' }}>
             <strong className="small">Token (cópielo ahora):</strong>
-            <code style={{ display: 'block', marginTop: 6 }}>{newToken}</code>
+            <code className="code-inline" style={{ display: 'block', marginTop: 6 }}>{newToken}</code>
             <button
               type="button"
               className="btn btn--ghost"

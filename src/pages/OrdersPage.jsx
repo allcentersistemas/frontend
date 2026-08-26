@@ -444,7 +444,7 @@ export function OrdersPage({ embedded = false }) {
                           const obras = Array.isArray(op.obras) ? op.obras : []
                           return (
                             <Fragment key={code}>
-                              <tr style={{ background: 'var(--surface-2, #f8f8f8)' }}>
+                              <tr className="table__row--group">
                                 <td>
                                   <button
                                     type="button"

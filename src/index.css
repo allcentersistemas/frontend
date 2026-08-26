@@ -7,6 +7,22 @@
 }
 
 @layer base {
+  :root {
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --card: #ffffff;
+    --border: #cbd5e1;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  html.dark {
+    --surface: #0f172a;
+    --surface-2: rgba(255, 255, 255, 0.06);
+    --card: #0f172a;
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
   html {
     @apply antialiased;
   }
@@ -262,6 +278,16 @@
   .table__row--active {
     @apply bg-amber-400/10 hover:bg-amber-400/12;
   }
+  .table__row--group {
+    @apply bg-slate-100/90 dark:bg-white/[0.06];
+  }
+  .table__row--group:hover {
+    @apply bg-slate-100 dark:bg-white/[0.08];
+  }
+
+  .surface-2 {
+    @apply bg-slate-100 dark:bg-white/[0.06];
+  }
 
   .btn {
     @apply rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-45 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800;
@@ -371,10 +397,10 @@
   .seguimiento-card {
     display: grid;
     gap: 0.2rem;
-    border: 1px solid color-mix(in srgb, var(--border, #cbd5e1) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     border-radius: 0.65rem;
     padding: 0.65rem 0.75rem;
-    background: color-mix(in srgb, var(--card, #fff) 92%, transparent);
+    background: color-mix(in srgb, var(--card) 92%, transparent);
   }
 
   .code-inline {
@@ -388,7 +414,7 @@
     @apply flex flex-wrap items-center gap-2;
   }
   .pager__info {
-    @apply text-xs text-slate-500;
+    @apply text-xs text-slate-500 dark:text-slate-400;
   }
 
   .grid {
