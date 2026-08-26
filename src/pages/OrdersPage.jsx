@@ -17,6 +17,7 @@ import { BiesseStickerPrintButton } from '../components/BiesseStickerPrintButton
 import { CanButton } from '../components/CanButton'
 import { OrderPartsDetail } from '../components/OrderPartsDetail'
 import { printBiesseOrderDetail } from '../utils/printBiesseOrderDetail'
+import { applyAgentCutsToOrderDetail } from '../utils/applyAgentCutsToOrderDetail'
 
 const PAGE_SIZE = 25
 
@@ -39,63 +40,6 @@ function orderEstadoTagClass(estado) {
   if (e === 'PRODUCCION') return 'tag tag--estado-produccion'
   if (e === 'OPTIMIZADO') return 'tag tag--estado-optimizado'
   return 'tag'
-}
-
-/** Une cortes del monitor (agente) al detalle de orden para pintar piezas ya cortadas. */
-function applyAgentCutsToOrderDetail(detail, cuts) {
-  if (!detail || !Array.isArray(cuts) || !cuts.length) return detail
-  const byPart = new Map()
-  for (const cut of cuts) {
-    const mapStatus = String(cut.map_status ?? cut.mapStatus ?? '').toUpperCase()
-    // Pintar MAPPED y también cortes con part_id aunque el map_status venga vacío/legacy.
-    const partId = Number(cut.part_id ?? cut.partId)
-    if (!Number.isFinite(partId) || partId <= 0) continue
-    if (mapStatus === 'UNMAPPED') continue
-    const unit = String(cut.unit_code ?? cut.unitCode ?? '')
-    const m = /-(\d+)\s*$/.exec(unit)
-    const pieceNum = m ? Number(m[1]) : null
-    if (!Number.isFinite(pieceNum) || pieceNum <= 0) continue
-    if (!byPart.has(partId)) byPart.set(partId, new Set())
-    byPart.get(partId).add(pieceNum)
-  }
-  if (!byPart.size) return detail
-
-  const partes = (detail.partes ?? []).map((part) => {
-    const cutNums = byPart.get(Number(part.partId))
-    if (!cutNums || !cutNums.size) return part
-    const scheduled = Math.max(Number(part.cantidad) || 0, 0)
-    let piezas = Array.isArray(part.piezas) ? [...part.piezas] : []
-    if (!piezas.length && scheduled > 0) {
-      piezas = Array.from({ length: scheduled }, (_, i) => ({
-        piezaId: null,
-        numeroPieza: i + 1,
-        escaneado: false,
-        fechaEscaneo: null,
-        cortada: false,
-        cortadaAt: null,
-        cortadaPor: null,
-      }))
-    }
-    const maxNeeded = Math.max(...cutNums, piezas.length, scheduled)
-    while (piezas.length < maxNeeded) {
-      piezas.push({
-        piezaId: null,
-        numeroPieza: piezas.length + 1,
-        escaneado: false,
-        fechaEscaneo: null,
-        cortada: false,
-        cortadaAt: null,
-        cortadaPor: null,
-      })
-    }
-    return {
-      ...part,
-      piezas: piezas.map((z) =>
-        cutNums.has(Number(z.numeroPieza)) ? { ...z, cortada: true } : z,
-      ),
-    }
-  })
-  return { ...detail, partes }
 }
 
 /**
