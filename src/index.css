@@ -449,9 +449,11 @@
 
   .seguimiento-board {
     display: grid;
+    grid-template-columns: repeat(5, minmax(220px, 1fr));
     gap: 0.75rem;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     align-items: start;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
   }
   .seguimiento-filters {
     display: flex;
@@ -464,25 +466,16 @@
     flex: 1 1 12rem;
     margin: 0;
   }
-  .seguimiento-legend {
-    margin-bottom: 1rem;
-  }
-  .seguimiento-legend__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.45rem;
-  }
-  .seguimiento-legend__list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem 0.75rem;
-  }
   .seguimiento-col {
+    min-width: 0;
     padding: 0.85rem;
-    min-height: 12rem;
+    max-height: min(70vh, 52rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    isolation: isolate;
+    position: relative;
+    z-index: 0;
   }
   .seguimiento-col__title {
     display: flex;
@@ -491,9 +484,7 @@
     gap: 0.5rem;
     margin: 0;
     font-size: 0.95rem;
-  }
-  .seguimiento-col__hint {
-    margin: 0.4rem 0 0.75rem;
+    flex-shrink: 0;
   }
   .seguimiento-col__list {
     list-style: none;
@@ -501,6 +492,8 @@
     padding: 0;
     display: grid;
     gap: 0.5rem;
+    overflow-y: auto;
+    min-height: 0;
   }
   .seguimiento-card {
     display: grid;

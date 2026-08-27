@@ -1,39 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
-/** Estados del tablero y cuándo se alcanza cada uno. */
-const SEGUIMIENTO_COLUMN_META = [
-  {
-    id: 'OPTIMIZADO',
-    title: 'Optimizado',
-    trigger: 'Sync Appscanner sube el XML',
-    meaning: 'Obra importada; aún no cortada en seccionadora.',
-  },
-  {
-    id: 'PRODUCCION',
-    title: 'Producción',
-    trigger: 'Agente CNC detecta el job / XML',
-    meaning: 'Seccionadora trabajando o ya cortó esta obra.',
-  },
-  {
-    id: 'DESPACHO',
-    title: 'Despacho',
-    trigger: 'Primer escaneo de piezas (Android / palé)',
-    meaning: 'Hay piezas escaneadas; faltan por completar.',
-  },
-  {
-    id: 'LISTO_PARA_ENTREGAR',
-    title: 'Listo para entrega',
-    trigger: 'Escaneo al 100%',
-    meaning: 'Todas las piezas/partes escaneadas.',
-  },
-  {
-    id: 'ENTREGADO',
-    title: 'Entregado',
-    trigger: 'Marcado entregado en la app',
-    meaning: 'Obra cerrada / entregada al cliente.',
-  },
-]
+const SEGUIMIENTO_COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({ id }))
 
 const DEFAULT_SINCE = '2026-08-26'
 
@@ -124,22 +92,6 @@ export function SeguimientoBoard({
         </p>
       </form>
 
-      <div className="seguimiento-legend card pad">
-        <p className="small" style={{ margin: '0 0 0.5rem' }}>
-          <strong>Qué significa cada estado</strong>
-        </p>
-        <ul className="seguimiento-legend__list">
-          {SEGUIMIENTO_COLUMN_META.map((col) => (
-            <li key={col.id}>
-              <span className={estadoTagClass(col.id)}>{col.title}</span>
-              <span className="muted small">
-                {col.trigger} — {col.meaning}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
       {loading && !obras.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
           <div className="app-loading__spinner" aria-hidden />
@@ -149,16 +101,12 @@ export function SeguimientoBoard({
 
       {!loading || obras.length ? (
         <div className="seguimiento-board">
-          {SEGUIMIENTO_COLUMN_META.map((col) => (
+          {SEGUIMIENTO_COLUMNS.map((col) => (
             <section key={col.id} className="seguimiento-col card">
               <h2 className="seguimiento-col__title">
                 <span className={estadoTagClass(col.id)}>{formatEstadoProyecto(col.id)}</span>
                 <span className="muted small">{byEstado[col.id]?.length ?? 0}</span>
               </h2>
-              <p className="muted small seguimiento-col__hint">
-                <strong>Cuándo:</strong> {col.trigger}
-              </p>
-              <p className="muted small seguimiento-col__hint">{col.meaning}</p>
               <ul className="seguimiento-col__list">
                 {(byEstado[col.id] ?? []).length === 0 ? (
                   <li className="muted small">Sin obras</li>
