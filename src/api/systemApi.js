@@ -284,9 +284,12 @@ export async function listProyectosSeguimiento() {
   return systemJson('/api/order/proyectos/seguimiento')
 }
 
-/** Tablero Seguimiento por XML/obra Biesse (`estado_escaneo`). */
-export async function listObrasSeguimiento() {
-  return systemJson('/api/order/obras/seguimiento')
+/** Tablero Seguimiento por XML/obra Biesse (`estado_escaneo`). @param {{ since?: string }} */
+export async function listObrasSeguimiento({ since } = {}) {
+  const q = new URLSearchParams()
+  if (since) q.set('since', String(since).trim())
+  const suffix = q.toString() ? `?${q}` : ''
+  return systemJson(`/api/order/obras/seguimiento${suffix}`)
 }
 
 export async function listSeguimientoOps() {

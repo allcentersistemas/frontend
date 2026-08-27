@@ -1,18 +1,41 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
-const COLUMN_HINTS = {
-  OPTIMIZADO: 'Cuando el sync sube el XML (import Appscanner)',
-  PRODUCCION: 'Cuando el agente CNC detecta el nombre del XML',
-  DESPACHO: 'Cuando se empieza a escanear piezas en Android',
-  LISTO_PARA_ENTREGAR: 'Cuando el escaneo llega al 100%',
-  ENTREGADO: 'Cuando se marca en la app',
-}
+/** Estados del tablero y cuándo se alcanza cada uno. */
+export const SEGUIMIENTO_COLUMN_META = [
+  {
+    id: 'OPTIMIZADO',
+    title: 'Optimizado',
+    trigger: 'Sync Appscanner sube el XML',
+    meaning: 'Obra importada; aún no cortada en seccionadora.',
+  },
+  {
+    id: 'PRODUCCION',
+    title: 'Producción',
+    trigger: 'Agente CNC detecta el job / XML',
+    meaning: 'Seccionadora trabajando o ya cortó esta obra.',
+  },
+  {
+    id: 'DESPACHO',
+    title: 'Despacho',
+    trigger: 'Primer escaneo de piezas (Android / palé)',
+    meaning: 'Hay piezas escaneadas; faltan por completar.',
+  },
+  {
+    id: 'LISTO_PARA_ENTREGAR',
+    title: 'Listo para entrega',
+    trigger: 'Escaneo al 100%',
+    meaning: 'Todas las piezas/partes escaneadas.',
+  },
+  {
+    id: 'ENTREGADO',
+    title: 'Entregado',
+    trigger: 'Marcado entregado en la app',
+    meaning: 'Obra cerrada / entregada al cliente.',
+  },
+]
 
-const COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({
-  id,
-  hint: COLUMN_HINTS[id] ?? '',
-}))
+const DEFAULT_SINCE = '2026-08-26'
 
 function normalizeObraEstado(raw) {
   const e = String(raw ?? '')
@@ -28,10 +51,24 @@ function normalizeObraEstado(raw) {
  * @param {{
  *   obras?: Array<object>,
  *   loading?: boolean,
+ *   since?: string,
+ *   onSinceChange?: (yyyyMmDd: string) => void,
  *   onRefresh?: () => Promise<void>|void,
  * }} props
  */
-export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
+export function SeguimientoBoard({
+  obras = [],
+  loading = false,
+  since = DEFAULT_SINCE,
+  onSinceChange,
+  onRefresh,
+}) {
+  const [sinceDraft, setSinceDraft] = useState(since || DEFAULT_SINCE)
+
+  useEffect(() => {
+    setSinceDraft(since || DEFAULT_SINCE)
+  }, [since])
+
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(ESTADOS_SEGUIMIENTO.map((e) => [e, []]))
     for (const o of obras) {
@@ -41,14 +78,22 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
     return map
   }, [obras])
 
+  function applySince(e) {
+    e?.preventDefault?.()
+    const value = String(sinceDraft || '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return
+    onSinceChange?.(value)
+  }
+
   return (
     <div className="dash">
       <header className="dash-header">
         <div>
           <h1 className="dash-header__title">Seguimiento por XML</h1>
           <p className="dash-header__lead">
-            Trazabilidad de obra Biesse:{' '}
-            <strong>Optimizado</strong> → Producción → Despacho → Listo para entrega → Entregado.
+            Flujo de cada obra (XML):{' '}
+            <strong>Optimizado</strong> → <strong>Producción</strong> → <strong>Despacho</strong> →{' '}
+            <strong>Listo</strong> → <strong>Entregado</strong>.
           </p>
         </div>
         {onRefresh ? (
@@ -57,6 +102,41 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
           </button>
         ) : null}
       </header>
+
+      <form className="seguimiento-filters" onSubmit={applySince}>
+        <label className="field">
+          <span className="field__label">Desde</span>
+          <input
+            type="date"
+            className="input"
+            value={sinceDraft}
+            onChange={(ev) => setSinceDraft(ev.target.value)}
+            disabled={loading}
+          />
+        </label>
+        <button type="submit" className="btn btn--primary btn--sm" disabled={loading}>
+          Filtrar
+        </button>
+        <p className="muted small seguimiento-filters__hint">
+          Solo obras creadas o actualizadas desde esta fecha (p. ej. al pasar a Producción).
+        </p>
+      </form>
+
+      <div className="seguimiento-legend card pad">
+        <p className="small" style={{ margin: '0 0 0.5rem' }}>
+          <strong>Qué significa cada estado</strong>
+        </p>
+        <ul className="seguimiento-legend__list">
+          {SEGUIMIENTO_COLUMN_META.map((col) => (
+            <li key={col.id}>
+              <span className={estadoTagClass(col.id)}>{col.title}</span>
+              <span className="muted small">
+                {col.trigger} — {col.meaning}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {loading && !obras.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
@@ -67,13 +147,16 @@ export function SeguimientoBoard({ obras = [], loading = false, onRefresh }) {
 
       {!loading || obras.length ? (
         <div className="seguimiento-board">
-          {COLUMNS.map((col) => (
+          {SEGUIMIENTO_COLUMN_META.map((col) => (
             <section key={col.id} className="seguimiento-col card">
               <h2 className="seguimiento-col__title">
                 <span className={estadoTagClass(col.id)}>{formatEstadoProyecto(col.id)}</span>
                 <span className="muted small">{byEstado[col.id]?.length ?? 0}</span>
               </h2>
-              <p className="muted small seguimiento-col__hint">{col.hint}</p>
+              <p className="muted small seguimiento-col__hint">
+                <strong>Cuándo:</strong> {col.trigger}
+              </p>
+              <p className="muted small seguimiento-col__hint">{col.meaning}</p>
               <ul className="seguimiento-col__list">
                 {(byEstado[col.id] ?? []).length === 0 ? (
                   <li className="muted small">Sin obras</li>

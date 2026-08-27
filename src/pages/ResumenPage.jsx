@@ -44,6 +44,7 @@ export function ResumenPage() {
   const [seguimiento, setSeguimiento] = useState([])
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
+  const [seguimientoSince, setSeguimientoSince] = useState('2026-08-26')
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -110,14 +111,14 @@ export function ResumenPage() {
     setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
-      const list = await systemApi.listObrasSeguimiento()
+      const list = await systemApi.listObrasSeguimiento({ since: seguimientoSince })
       setSeguimiento(Array.isArray(list) ? list : [])
     } catch (e) {
       setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
     } finally {
       setSeguimientoLoading(false)
     }
-  }, [])
+  }, [seguimientoSince])
 
   useEffect(() => {
     if (!showPage || activeTab !== 'seguimiento') return
@@ -202,6 +203,8 @@ export function ResumenPage() {
           <SeguimientoBoard
             obras={seguimiento}
             loading={seguimientoLoading}
+            since={seguimientoSince}
+            onSinceChange={setSeguimientoSince}
             onRefresh={loadSeguimiento}
           />
         </>

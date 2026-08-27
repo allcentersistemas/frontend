@@ -12,6 +12,10 @@ import {
   ModuleListCard,
   ModulePage,
 } from '../components/module/ModuleChrome.jsx'
+import {
+  downloadPalletOrderSummaryPdf,
+  printPalletOrderSummary,
+} from '../utils/printPaleSummary.js'
 
 const PALE_ESTADOS = ['ABIERTO', 'CERRADO', 'EN_TRANSITO', 'ENTREGADO', 'CANCELADO']
 
@@ -25,25 +29,8 @@ function formatDateTime(value) {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString()
 }
 
-function formatPrintShort(value) {
-  if (!value) return '—'
-  const d = new Date(value)
-  return Number.isNaN(d.getTime())
-    ? String(value)
-    : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
-}
-
 function isPalletClosed(estado) {
   return String(estado ?? '').trim().toUpperCase() === 'CERRADO'
-}
-
-function esc(s) {
-  if (s == null || s === '') return '—'
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function partDescripcion0(line) {
@@ -74,23 +61,6 @@ function partMedida(line) {
   return line.medida ?? null
 }
 
-function orderCellHtml(line) {
-  const name = line.orderName ?? line.orderId
-  const d0 = partDescripcion0(line)
-  const d1 = partDescripcion1(line)
-  const m = partMedida(line)
-  const bits = []
-  if (name != null && String(name).trim() !== '') {
-    bits.push(`<div><strong>${esc(String(name))}</strong></div>`)
-  }
-  if (d0 != null && String(d0).trim() !== '') bits.push(`<div class="ord-desc">${esc(String(d0))}</div>`)
-  if (d1 != null && String(d1).trim() !== '') bits.push(`<div class="ord-desc">${esc(String(d1))}</div>`)
-  if (m != null && String(m).trim() !== '') {
-    bits.push(`<div class="ord-med"><span class="ord-med__lbl">Med.</span> ${esc(String(m))}</div>`)
-  }
-  return bits.length ? bits.join('') : '—'
-}
-
 function pieceFractionText(line) {
   const n = line.numeroPieza
   const total = piezasPlanParte(line)
@@ -107,216 +77,6 @@ function formFromHeader(header) {
     estado: header?.estado ?? 'ABIERTO',
     notes: header?.notas ?? '',
   }
-}
-
-async function printPalletOrderSummary(header, details, { includePiezas = false } = {}) {
-  const codigoPale = String(header.codigo ?? header.paleenvioid ?? '').trim()
-  let qrBlock = ''
-  if (codigoPale) {
-    try {
-      const QRCode = (await import('qrcode')).default
-      const dataUrl = await QRCode.toDataURL(codigoPale, {
-        errorCorrectionLevel: 'M',
-        margin: 1,
-        width: 128,
-      })
-      qrBlock = `<div class="qr-wrap"><img src="${dataUrl}" width="128" height="128" alt="QR código pale" /><div class="qr-cap">${esc(codigoPale)}</div></div>`
-    } catch {
-      qrBlock = ''
-    }
-  }
-
-  const lines = Array.isArray(details) ? details : []
-  const rows = lines
-    .map(
-      (line) => `
-    <tr>
-      <td>${esc(line.partCode ?? line.partId)}</td>
-      <td class="ord-cell">${orderCellHtml(line)}</td>
-      <td class="num">${esc(pieceFractionText(line))}</td>
-      <td class="dt">${esc(formatPrintShort(line.fechaAgregado))}</td>
-    </tr>`,
-    )
-    .join('')
-
-  const piezasTable = includePiezas
-    ? `
-  <table>
-    <caption>Detalle de piezas (${lines.length})</caption>
-    <thead>
-      <tr>
-        <th style="width:12%">Parte</th>
-        <th>Orden · Desc. · Med. (L×A)</th>
-        <th style="width:8%">Pza</th>
-        <th style="width:14%">Fecha</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
-    </tbody>
-  </table>`
-    : ''
-
-  const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>${esc(header.codigo)} — Resumen pale</title>
-  <style>
-    @page { 
-      size: 215.9mm 139.7mm;  /* Media carta horizontal */
-      margin: 6mm 8mm;
-    }
-    
-    body { 
-      font-family: system-ui, Segoe UI, sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      color: #111; 
-      font-size: 11pt; 
-      line-height: 1.35; 
-    }
-    
-    .top { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: flex-start; 
-      gap: 10px; 
-      margin-bottom: 8px; 
-    }
-    
-    .top-text { flex: 1; min-width: 0; }
-    
-    h1 { 
-      font-size: 14pt; 
-      margin: 0 0 4px; 
-      font-weight: 700; 
-    }
-    
-    .qr-wrap { 
-      text-align: center; 
-      flex-shrink: 0; 
-    }
-    
-    .qr-wrap img { 
-      display: block; 
-      margin: 0 auto; 
-    }
-    
-    .qr-cap { 
-      font-size: 8pt; 
-      margin-top: 2px; 
-      color: #333; 
-      max-width: 130px; 
-      word-break: break-all; 
-    }
-    
-    .meta {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2px 12px;
-      font-size: 10pt;
-      margin-bottom: 8px;
-      line-height: 1.4;
-    }
-    
-    .meta strong { 
-      display: inline-block; 
-      min-width: 7.5rem; 
-      font-weight: 600; 
-      color: #222; 
-    }
-    
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      font-size: 9.5pt; 
-      table-layout: fixed; 
-      margin-top: 8px;
-    }
-    
-    th, td { 
-      border: 1px solid #bbb; 
-      padding: 4px 5px; 
-      text-align: left; 
-      vertical-align: top; 
-      word-wrap: break-word; 
-    }
-    
-    th { 
-      background: #eee; 
-      font-weight: 600; 
-    }
-    
-    td.num, td.dt { 
-      white-space: nowrap; 
-      width: 1%; 
-    }
-    
-    td.dt { font-variant-numeric: tabular-nums; }
-    
-    .ord-cell .ord-desc { 
-      font-size: 9.5pt; 
-      color: #333; 
-      margin-top: 1px; 
-    }
-    
-    .ord-cell .ord-med { 
-      font-size: 9.5pt; 
-      color: #222; 
-      margin-top: 2px; 
-    }
-    
-    .ord-cell .ord-med__lbl { 
-      font-weight: 600; 
-      color: #444; 
-      margin-right: 4px; 
-    }
-    
-    caption { 
-      text-align: left; 
-      font-weight: 600; 
-      margin-bottom: 4px; 
-      font-size: 10pt; 
-    }
-    
-    tr { break-inside: avoid; }
-    
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-  </style>
-</head>
-<body>
-  <div class="top">
-    <div class="top-text">
-      <h1>Resumen pale / orden de envío</h1>
-    </div>
-    ${qrBlock}
-  </div>
-  <div class="meta">
-    <div><strong>Código</strong> ${esc(header.codigo)}</div>
-    <div><strong>Estado</strong> ${esc(header.estado)}</div>
-    <div><strong>Estado envío</strong> ${esc(header.estadoEnvio)}</div>
-    <div><strong>Piezas / órdenes</strong> ${esc(header.cantidadPiezas)} / ${esc(header.cantidadOrdenes)}</div>
-    <div><strong>Creación</strong> ${esc(formatPrintShort(header.fechaCreacion))}</div>
-    <div><strong>Resumen</strong> ${esc(header.ordenesResumen)}</div>
-    <div><strong>Cierre</strong> ${esc(formatPrintShort(header.fechaCierre))}</div>
-    <div style="grid-column: 1 / -1"><strong>Notas</strong> ${esc(header.notas)}</div>
-  </div>
-  ${piezasTable}
-  <script>window.onload = function () { window.print(); };</script>
-</body>
-</html>`
-
-  const w = window.open('', '_blank')
-  if (!w) {
-    window.alert('Permite ventanas emergentes para imprimir el resumen.')
-    return
-  }
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
 }
 
 /**
@@ -374,6 +134,7 @@ export function PalesPage({ embedded = false }) {
       return false
     }
   })
+  const [pdfBusy, setPdfBusy] = useState(false)
 
   useEffect(() => {
     const fromUrl = searchParams.get('id')
@@ -814,7 +575,7 @@ export function PalesPage({ embedded = false }) {
                           }
                         }}
                       />
-                      Incluir detalle de piezas al imprimir
+                      Incluir detalle de piezas al imprimir / PDF
                     </label>
                     <CanButton
                       I={ACTION.PRINT}
@@ -828,6 +589,25 @@ export function PalesPage({ embedded = false }) {
                       }
                     >
                       Imprimir resumen (orden de envío)
+                    </CanButton>
+                    <CanButton
+                      I={ACTION.PRINT}
+                      a={FEATURE.PALES_PRINT}
+                      type="button"
+                      className="btn"
+                      disabled={pdfBusy}
+                      onClick={() => {
+                        setPdfBusy(true)
+                        void downloadPalletOrderSummaryPdf(header, details, {
+                          includePiezas: printIncludePiezas,
+                        })
+                          .catch((e) => {
+                            window.alert(e?.message || 'No se pudo generar el PDF.')
+                          })
+                          .finally(() => setPdfBusy(false))
+                      }}
+                    >
+                      {pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}
                     </CanButton>
                   </div>
                 ) : (
