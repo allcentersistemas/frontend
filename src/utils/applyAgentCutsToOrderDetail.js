@@ -88,17 +88,28 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
       }))
     }
 
-    const maxNeeded = Math.max(...cutMap.keys(), piezas.length, scheduled)
-    while (piezas.length < maxNeeded) {
-      piezas.push({
-        piezaId: null,
-        numeroPieza: piezas.length + 1,
-        escaneado: false,
-        fechaEscaneo: null,
-        cortada: false,
-        cortadaAt: null,
-        cortadaPor: null,
+    // Nunca inventar piezas por encima de la cantidad del plan.
+    if (scheduled > 0) {
+      piezas = piezas.filter((z) => {
+        const n = Number(z.numeroPieza)
+        return Number.isFinite(n) && n >= 1 && n <= scheduled
       })
+      while (piezas.length < scheduled) {
+        const used = new Set(piezas.map((z) => Number(z.numeroPieza)))
+        let next = 1
+        while (used.has(next)) next += 1
+        if (next > scheduled) break
+        piezas.push({
+          piezaId: null,
+          numeroPieza: next,
+          escaneado: false,
+          fechaEscaneo: null,
+          cortada: false,
+          cortadaAt: null,
+          cortadaPor: null,
+        })
+      }
+      piezas.sort((a, b) => Number(a.numeroPieza) - Number(b.numeroPieza))
     }
 
     return {
@@ -106,6 +117,8 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
       piezas: piezas.map((z) => {
         const n = Number(z.numeroPieza)
         if (!cutMap.has(n) || z.cortada) return z
+        // Solo aplicar cortes dentro del plan 1..cantidad
+        if (scheduled > 0 && n > scheduled) return z
         const por = cutMap.get(n)
         return {
           ...z,

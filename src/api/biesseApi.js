@@ -103,9 +103,16 @@ export async function orderDetail(orderId) {
     const scheduled = toNumber(part.cantidad)
     const scanned = toNumber(part.cantidad_escaneada ?? part.cantidadEscaneada)
     const nested = Array.isArray(part.piezas) ? part.piezas : []
+    const nestedFiltered =
+      scheduled > 0
+        ? nested.filter((z) => {
+            const n = toNumber(z.numero_pieza ?? z.numeroPieza)
+            return n >= 1 && n <= scheduled
+          })
+        : nested
     const piezas =
-      nested.length > 0
-        ? nested.map((z) => ({
+      nestedFiltered.length > 0
+        ? nestedFiltered.map((z) => ({
             piezaId: toNumber(z.piezaid ?? z.piezaId) || null,
             numeroPieza: toNumber(z.numero_pieza ?? z.numeroPieza) || 1,
             escaneado: toBool(z.escaneado),
@@ -114,15 +121,51 @@ export async function orderDetail(orderId) {
             cortadaAt: z.cortada_at ?? z.cortadaAt ?? null,
             cortadaPor: z.cortada_por ?? z.cortadaPor ?? null,
           }))
-        : Array.from({ length: Math.max(scheduled, scanned, 1) }, (_, i) => ({
+        : Array.from({ length: Math.max(scheduled, 1) }, (_, i) => ({
             piezaId: null,
             numeroPieza: i + 1,
-            escaneado: false,
+            escaneado: scheduled > 0 ? false : false,
             fechaEscaneo: null,
             cortada: false,
             cortadaAt: null,
             cortadaPor: null,
           }))
+    // Si hay plan, rellenar huecos 1..cantidad sin inventar más allá.
+    if (scheduled > 0) {
+      const byNum = new Map(piezas.map((z) => [z.numeroPieza, z]))
+      const filled = []
+      for (let i = 1; i <= scheduled; i++) {
+        filled.push(
+          byNum.get(i) ?? {
+            piezaId: null,
+            numeroPieza: i,
+            escaneado: false,
+            fechaEscaneo: null,
+            cortada: false,
+            cortadaAt: null,
+            cortadaPor: null,
+          },
+        )
+      }
+      return {
+        partId: toNumber(part.partid ?? part.partId),
+        partCode: part.partcode ?? part.partCode ?? null,
+        partNumber: toNumber(part.partnumber ?? part.partNumber),
+        descripcion: part.descripcion ?? null,
+        descripcion1: part.descripcion1 ?? null,
+        material: part.material ?? null,
+        matedgeup: part.matedgeup ?? null,
+        matedgelo: part.matedgelo ?? null,
+        matedgel: part.matedgel ?? null,
+        matedger: part.matedger ?? null,
+        longitud: toDimNumber(part.longitud),
+        ancho: toDimNumber(part.ancho),
+        cantidad: scheduled,
+        cantidadEscaneada: scanned,
+        escaneado: toBool(part.escaneado),
+        piezas: filled,
+      }
+    }
     return {
       partId: toNumber(part.partid ?? part.partId),
       partCode: part.partcode ?? part.partCode ?? null,

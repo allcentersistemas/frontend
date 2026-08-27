@@ -53,11 +53,25 @@ function partTagLabel(status) {
 function partScanStatus(part) {
   const scheduled = Math.max(Number(part.cantidad) || 0, 0)
   const scanned = Math.max(Number(part.cantidadEscaneada) || 0, 0)
-  const piezas = Array.isArray(part.piezas) ? part.piezas : []
-  const piezasTot = piezas.length > 0 ? piezas.length : scheduled
-  const piezasDone = piezas.length > 0 ? piezas.filter((z) => z.escaneado).length : scanned
+  const rawPiezas = Array.isArray(part.piezas) ? part.piezas : []
+  // Solo piezas 1..cantidad del plan; ignora filas fantasma del agente CNC.
+  const piezas =
+    scheduled > 0
+      ? rawPiezas.filter((z) => {
+          const n = Number(z.numeroPieza ?? z.numero_pieza)
+          return Number.isFinite(n) && n >= 1 && n <= scheduled
+        })
+      : rawPiezas
+  const piezasTot = scheduled > 0 ? scheduled : piezas.length
+  const piezasDone =
+    piezas.length > 0
+      ? piezas.filter((z) => z.escaneado).length
+      : scanned
   const piezasCut = piezas.length > 0 ? piezas.filter((z) => z.cortada).length : 0
-  const done = Boolean(part.escaneado) || (scheduled > 0 && scanned >= scheduled) || (piezasTot > 0 && piezasDone >= piezasTot)
+  const done =
+    Boolean(part.escaneado) ||
+    (scheduled > 0 && scanned >= scheduled) ||
+    (piezasTot > 0 && piezasDone >= piezasTot)
   const allCutNotDone = !done && piezasTot > 0 && piezasCut >= piezasTot
   const partial = !done && !allCutNotDone && (scanned > 0 || piezasDone > 0 || piezasCut > 0)
   let status = 'pending'
@@ -165,8 +179,8 @@ export function OrderPartsDetail({ partes = [] }) {
 
                 <div className="order-part__meta small">
                   <span>
-                    <strong>Avance:</strong> {scanned} / {scheduled || piezasTot || '—'}
-                    {scheduled > 1 || piezasTot > 1 ? ` (${piezasDone} de ${piezasTot} piezas)` : ''}
+                    <strong>Avance:</strong> {scanned} / {scheduled || '—'}
+                    {scheduled > 1 ? ` (${piezasDone} de ${scheduled} piezas)` : ''}
                   </span>
                   {p.material ? (
                     <span>
