@@ -32,11 +32,15 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
   if (!detail || !Array.isArray(cuts) || !cuts.length) return detail
 
   const partIdByNumber = new Map()
+  const cantidadByPartId = new Map()
   for (const part of detail.partes ?? []) {
     const pn = Number(part.partNumber)
     const pid = Number(part.partId)
     if (Number.isFinite(pn) && pn > 0 && Number.isFinite(pid) && pid > 0) {
       partIdByNumber.set(pn, pid)
+    }
+    if (Number.isFinite(pid) && pid > 0) {
+      cantidadByPartId.set(pid, Math.max(Number(part.cantidad) || 0, 0))
     }
   }
 
@@ -57,10 +61,16 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     }
     if (!Number.isFinite(partId) || partId <= 0) continue
 
+    const qty = cantidadByPartId.get(partId) ?? 0
     let pieceNum = pieceNumFromUnitCode(unit)
     if (!Number.isFinite(pieceNum) || pieceNum <= 0) {
-      pieceNum = (sequentialNext.get(partId) ?? 0) + 1
+      // Sin -P##-N en unit_code: asignar secuencial SOLO dentro de cantidad.
+      const next = (sequentialNext.get(partId) ?? 0) + 1
+      if (qty > 0 && next > qty) continue
+      pieceNum = next
     }
+    if (qty > 0 && pieceNum > qty) continue
+
     sequentialNext.set(partId, Math.max(sequentialNext.get(partId) ?? 0, pieceNum))
 
     const machine = cut.machine_name ?? cut.machineName ?? null
@@ -117,7 +127,6 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
       piezas: piezas.map((z) => {
         const n = Number(z.numeroPieza)
         if (!cutMap.has(n) || z.cortada) return z
-        // Solo aplicar cortes dentro del plan 1..cantidad
         if (scheduled > 0 && n > scheduled) return z
         const por = cutMap.get(n)
         return {
