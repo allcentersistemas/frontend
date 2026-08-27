@@ -20,13 +20,12 @@ function formatPrintShort(value) {
 }
 
 function formatScanStamp(value) {
-  if (!value) return { date: '—', time: '—' }
+  if (!value) return { date: '—', time: '—', compact: '—' }
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return { date: String(value), time: '' }
-  return {
-    date: d.toLocaleDateString(undefined, { dateStyle: 'short' }),
-    time: d.toLocaleTimeString(undefined, { timeStyle: 'short' }),
-  }
+  if (Number.isNaN(d.getTime())) return { date: String(value), time: '', compact: String(value) }
+  const date = d.toLocaleDateString(undefined, { dateStyle: 'short' })
+  const time = d.toLocaleTimeString(undefined, { timeStyle: 'short' })
+  return { date, time, compact: `${date} ${time}` }
 }
 
 function partDescripcion0(line) {
@@ -102,7 +101,7 @@ function groupLinesByPart(lines) {
 const PRINT_CSS = `
   @page {
     size: A4 portrait;
-    margin: 12mm 12mm 14mm;
+    margin: 8mm 9mm 10mm;
   }
   * { box-sizing: border-box; }
   body {
@@ -110,49 +109,49 @@ const PRINT_CSS = `
     margin: 0;
     padding: 0;
     color: #1a1a1a;
-    font-size: 10pt;
-    line-height: 1.35;
+    font-size: 9pt;
+    line-height: 1.25;
     background: #fff;
   }
-  .wrap { width: 100%; max-width: 186mm; margin: 0 auto; }
+  .wrap { width: 100%; max-width: 192mm; margin: 0 auto; }
   .doc-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 14px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #222;
-    margin-bottom: 10px;
+    gap: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1.5px solid #222;
+    margin-bottom: 6px;
   }
   .doc-head__text { flex: 1; min-width: 0; }
   .doc-eyebrow {
-    margin: 0 0 2px;
-    font-size: 8pt;
+    margin: 0 0 1px;
+    font-size: 7pt;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #666;
     font-weight: 600;
   }
   .doc-code {
-    margin: 0 0 6px;
-    font-size: 18pt;
+    margin: 0 0 2px;
+    font-size: 15pt;
     font-weight: 700;
     letter-spacing: -0.02em;
-    line-height: 1.1;
+    line-height: 1.05;
   }
   .doc-title {
-    margin: 0 0 8px;
-    font-size: 11pt;
+    margin: 0 0 4px;
+    font-size: 9pt;
     font-weight: 600;
     color: #333;
   }
-  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
   .badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border: 1px solid #ccc;
     border-radius: 3px;
-    font-size: 8pt;
+    font-size: 7pt;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -160,10 +159,10 @@ const PRINT_CSS = `
   .badge--ok { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
   .badge--neutral { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
   .qr-wrap { text-align: center; flex-shrink: 0; }
-  .qr-wrap img { display: block; margin: 0 auto; width: 92px; height: 92px; }
+  .qr-wrap img { display: block; margin: 0 auto; width: 72px; height: 72px; }
   .qr-cap {
-    font-size: 7.5pt;
-    margin-top: 3px;
+    font-size: 7pt;
+    margin-top: 2px;
     color: #444;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -171,18 +170,18 @@ const PRINT_CSS = `
   .meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px 16px;
-    padding: 8px 10px;
-    margin-bottom: 12px;
+    gap: 2px 12px;
+    padding: 5px 8px;
+    margin-bottom: 7px;
     border: 1px solid #ddd;
     background: #fafafa;
-    font-size: 9pt;
+    font-size: 8pt;
   }
-  .meta__item { display: flex; gap: 6px; align-items: baseline; }
+  .meta__item { display: flex; gap: 5px; align-items: baseline; }
   .meta__lbl {
-    flex: 0 0 5.5rem;
+    flex: 0 0 4.5rem;
     color: #666;
-    font-size: 7.5pt;
+    font-size: 6.5pt;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 600;
@@ -190,83 +189,97 @@ const PRINT_CSS = `
   .meta__val { flex: 1; min-width: 0; word-break: break-word; }
   .meta__item--full { grid-column: 1 / -1; }
   .section-title {
-    margin: 0 0 8px;
-    font-size: 10pt;
+    margin: 0 0 5px;
+    font-size: 9pt;
     font-weight: 700;
     border-bottom: 1px solid #ccc;
-    padding-bottom: 4px;
+    padding-bottom: 2px;
   }
   .part {
     break-inside: avoid;
     page-break-inside: avoid;
-    margin: 0 0 8px;
+    margin: 0 0 4px;
     border: 1px solid #ccc;
   }
   .part__head {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 6px 8px;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 6px;
     background: #f3f4f6;
     border-bottom: 1px solid #ddd;
   }
-  .part__code {
-    font-size: 11pt;
-    font-weight: 700;
-    margin: 0 0 2px;
+  .part__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
   }
-  .part__order { font-size: 9pt; font-weight: 600; color: #222; }
-  .part__desc { font-size: 8.5pt; color: #444; margin-top: 1px; }
-  .part__med { font-size: 8.5pt; color: #222; margin-top: 2px; }
-  .part__med strong { font-weight: 600; color: #555; margin-right: 3px; }
+  .part__code {
+    font-size: 9.5pt;
+    font-weight: 700;
+    margin: 0;
+  }
+  .part__order { font-size: 8pt; font-weight: 600; color: #222; }
+  .part__desc { font-size: 7.5pt; color: #555; }
+  .part__med { font-size: 7.5pt; color: #222; white-space: nowrap; }
+  .part__med strong { font-weight: 600; color: #555; margin-right: 2px; }
   .part__count {
     flex-shrink: 0;
     text-align: right;
-    font-size: 9pt;
+    font-size: 8.5pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  .part__count span { display: block; font-size: 7.5pt; font-weight: 600; color: #666; text-transform: uppercase; }
+  .part__count span {
+    display: inline;
+    font-size: 6.5pt;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    margin-right: 3px;
+  }
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
-    padding: 6px 8px;
+    gap: 2px;
+    padding: 3px 4px;
+    width: 100%;
   }
   .chip {
     display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 3.4rem;
-    padding: 3px 5px;
+    flex: 1 1 4.6rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 3px 5px;
+    min-width: 4.6rem;
+    max-width: 100%;
+    padding: 2px 4px;
     border: 1px solid #ccc;
-    border-radius: 3px;
+    border-radius: 2px;
     background: #fff;
-    font-size: 8.5pt;
-    font-weight: 600;
+    font-size: 7.5pt;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
   }
-  .chip__dt {
+  .chip__n { font-weight: 700; }
+  .chip__stamp {
     font-size: 6pt;
     font-weight: 500;
-    color: #555;
-    margin-top: 2px;
-    text-align: center;
+    color: #444;
     white-space: nowrap;
   }
-  .chip__time {
-    font-size: 6pt;
-    font-weight: 600;
-    color: #333;
-    white-space: nowrap;
-  }
-  .empty { color: #666; font-size: 9pt; padding: 8px; }
+  .empty { color: #666; font-size: 8pt; padding: 4px; }
   .hint {
-    margin: 10px 0 0;
-    font-size: 7.5pt;
+    margin: 6px 0 0;
+    font-size: 7pt;
     color: #888;
   }
   @media print {
@@ -282,9 +295,9 @@ async function buildQrBlock(codigoPale) {
     const dataUrl = await QRCode.toDataURL(codigoPale, {
       errorCorrectionLevel: 'M',
       margin: 1,
-      width: 92,
+      width: 72,
     })
-    return `<div class="qr-wrap"><img src="${dataUrl}" width="92" height="92" alt="QR código pale" /><div class="qr-cap">${esc(codigoPale)}</div></div>`
+    return `<div class="qr-wrap"><img src="${dataUrl}" width="72" height="72" alt="QR código pale" /><div class="qr-cap">${esc(codigoPale)}</div></div>`
   } catch {
     return ''
   }
@@ -297,31 +310,31 @@ function buildPartBlocks(lines) {
   return groups
     .map((g) => {
       const plan = g.planTotal != null && Number(g.planTotal) > 0 ? Number(g.planTotal) : null
-      const countLabel = plan != null ? `${g.pieces.length} / ${plan}` : String(g.pieces.length)
+      const countLabel = plan != null ? `${g.pieces.length}/${plan}` : String(g.pieces.length)
       const descBits = []
-      if (g.desc0) descBits.push(`<div class="part__desc">${esc(g.desc0)}</div>`)
-      if (g.desc1) descBits.push(`<div class="part__desc">${esc(g.desc1)}</div>`)
+      if (g.desc0) descBits.push(`<span class="part__desc">${esc(g.desc0)}</span>`)
+      if (g.desc1) descBits.push(`<span class="part__desc">${esc(g.desc1)}</span>`)
       const med =
         g.medida != null && String(g.medida).trim() !== ''
-          ? `<div class="part__med"><strong>Med.</strong>${esc(g.medida)}</div>`
+          ? `<span class="part__med"><strong>Med.</strong>${esc(g.medida)}</span>`
           : ''
       const chips = g.pieces
         .map((p) => {
           const label = p.n != null ? String(p.n) : '?'
           if (!p.fecha) {
-            return `<span class="chip">${esc(label)}<span class="chip__dt">—</span></span>`
+            return `<span class="chip"><span class="chip__n">${esc(label)}</span><span class="chip__stamp">—</span></span>`
           }
           const stamp = formatScanStamp(p.fecha)
-          return `<span class="chip">${esc(label)}<span class="chip__dt">${esc(stamp.date)}</span><span class="chip__time">${esc(stamp.time)}</span></span>`
+          return `<span class="chip"><span class="chip__n">${esc(label)}</span><span class="chip__stamp">${esc(stamp.compact)}</span></span>`
         })
         .join('')
 
       return `
       <section class="part">
         <header class="part__head">
-          <div>
-            <div class="part__code">${esc(g.partCode)}</div>
-            ${g.orderName ? `<div class="part__order">${esc(g.orderName)}</div>` : ''}
+          <div class="part__main">
+            <span class="part__code">${esc(g.partCode)}</span>
+            ${g.orderName ? `<span class="part__order">${esc(g.orderName)}</span>` : ''}
             ${descBits.join('')}
             ${med}
           </div>
