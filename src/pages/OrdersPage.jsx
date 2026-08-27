@@ -176,10 +176,22 @@ export function OrdersPage({ embedded = false }) {
       setDetailLoading(true)
       setToolErr(null)
       try {
-        const [d, cuts] = await Promise.all([
+        const [d, cutsByOrder] = await Promise.all([
           biesseApi.orderDetail(selectedId),
           systemApi.listAgentCutPieces({ orderId: selectedId, limit: 500 }).catch(() => []),
         ])
+        let cuts = Array.isArray(cutsByOrder) ? cutsByOrder : []
+        // Si el monitor tiene el corte pero sin order_id (o con otro id), reintentar por nombre.
+        if (!cuts.length && d?.orderName) {
+          const recent = await systemApi.listAgentCutPieces({ limit: 200 }).catch(() => [])
+          const name = String(d.orderName).trim().toUpperCase()
+          cuts = (Array.isArray(recent) ? recent : []).filter((c) => {
+            const oid = Number(c.order_id ?? c.orderId)
+            if (Number.isFinite(oid) && oid === Number(selectedId)) return true
+            const on = String(c.order_name ?? c.orderName ?? '').trim().toUpperCase()
+            return on && (on === name || on.startsWith(name) || name.startsWith(on))
+          })
+        }
         if (!cancelled && d) {
           const merged = applyAgentCutsToOrderDetail(d, cuts)
           setDetail(merged)
@@ -246,10 +258,21 @@ export function OrdersPage({ embedded = false }) {
     setToolErr(null)
     try {
       await biesseApi.updateOrder(selectedId, { observaciones: orderEditNotes })
-      const [fresh, cuts] = await Promise.all([
+      const [fresh, cutsByOrder] = await Promise.all([
         biesseApi.orderDetail(selectedId),
         systemApi.listAgentCutPieces({ orderId: selectedId, limit: 500 }).catch(() => []),
       ])
+      let cuts = Array.isArray(cutsByOrder) ? cutsByOrder : []
+      if (!cuts.length && fresh?.orderName) {
+        const recent = await systemApi.listAgentCutPieces({ limit: 200 }).catch(() => [])
+        const name = String(fresh.orderName).trim().toUpperCase()
+        cuts = (Array.isArray(recent) ? recent : []).filter((c) => {
+          const oid = Number(c.order_id ?? c.orderId)
+          if (Number.isFinite(oid) && oid === Number(selectedId)) return true
+          const on = String(c.order_name ?? c.orderName ?? '').trim().toUpperCase()
+          return on && (on === name || on.startsWith(name) || name.startsWith(on))
+        })
+      }
       setDetail(applyAgentCutsToOrderDetail(fresh, cuts))
       setOrderEditNotes(fresh?.observaciones ?? '')
       setToolMsg('Orden actualizada.')

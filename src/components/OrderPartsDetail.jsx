@@ -200,6 +200,7 @@ export function OrderPartsDetail({ partes = [] }) {
                   <div className="order-pieces-grid" role="list">
                     {Array.from({ length: scheduled }, (_, i) => {
                       const n = i + 1
+                      // Sin filas en piezas: solo se puede inferir escaneo por cantidad_escaneada.
                       const z = { cortada: false, escaneado: n <= scanned }
                       const visual = pieceVisualStatus(z)
                       return (

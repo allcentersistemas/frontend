@@ -1,7 +1,8 @@
-/** Número de parte desde texto OSI del agente (ej. "Part 5" → 5). */
+/** Número de parte desde texto OSI del agente (ej. "Part 5", "Part5", "P5" → 5). */
 function parsePartNumberFromOsi(osi) {
   if (osi == null || osi === '') return null
-  const m = /\bP?\s*(\d+)\b/i.exec(String(osi).trim())
+  const s = String(osi).trim()
+  const m = /(?:^|\b)P(?:art)?\s*0*(\d+)\b/i.exec(s) || /\b(\d+)\b/.exec(s)
   if (!m) return null
   const n = Number(m[1])
   return Number.isFinite(n) && n > 0 ? n : null
