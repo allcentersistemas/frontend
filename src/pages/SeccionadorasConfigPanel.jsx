@@ -4,8 +4,8 @@ import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
 
-/** Alineado con backend ONLINE_STALE_SECONDS (agente late cada 5–10s). */
-const ONLINE_STALE_MS = 30_000
+/** Alineado con backend ONLINE_STALE_SECONDS (90s: tolera subida de eventos / blips de red). */
+const ONLINE_STALE_MS = 90_000
 
 function fmtTs(value) {
   if (!value) return '—'
