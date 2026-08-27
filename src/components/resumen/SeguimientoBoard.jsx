@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 /** Estados del tablero y cuándo se alcanza cada uno. */
-export const SEGUIMIENTO_COLUMN_META = [
+const SEGUIMIENTO_COLUMN_META = [
   {
     id: 'OPTIMIZADO',
     title: 'Optimizado',
@@ -63,11 +63,13 @@ export function SeguimientoBoard({
   onSinceChange,
   onRefresh,
 }) {
-  const [sinceDraft, setSinceDraft] = useState(since || DEFAULT_SINCE)
-
-  useEffect(() => {
-    setSinceDraft(since || DEFAULT_SINCE)
-  }, [since])
+  const sinceValue = since || DEFAULT_SINCE
+  const [sinceDraft, setSinceDraft] = useState(sinceValue)
+  const [sinceSynced, setSinceSynced] = useState(sinceValue)
+  if (sinceValue !== sinceSynced) {
+    setSinceSynced(sinceValue)
+    setSinceDraft(sinceValue)
+  }
 
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(ESTADOS_SEGUIMIENTO.map((e) => [e, []]))

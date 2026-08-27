@@ -31,7 +31,7 @@ import {
   downloadOrderTextFromTree,
 } from '../utils/proyectoExcelExport.js'
 import { PROYECTO_COTIZACION_EVENT } from '../notifications/proyectoCotizacionEvents.js'
-import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider.jsx'
+import { useEmployeeNotifications } from '../notifications/useEmployeeNotifications.js'
 
 const TAB_MIS = 'mis'
 const TAB_TODOS = 'todos'

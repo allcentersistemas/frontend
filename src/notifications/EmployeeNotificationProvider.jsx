@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -15,8 +13,7 @@ import { useAuth } from '../auth/AuthContext'
 import { normalizeRoleName } from '../auth/roles'
 import { dispatchProyectoCotizacionNotification } from './proyectoCotizacionEvents'
 import { NotificationToastStack } from '../components/NotificationToastStack.jsx'
-
-const EmployeeNotificationContext = createContext(null)
+import { EmployeeNotificationContext } from './employeeNotificationContext.js'
 
 const RECONNECT_MS = 5_000
 const TOAST_TTL_MS = 12_000
@@ -62,9 +59,25 @@ export function EmployeeNotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [toasts, setToasts] = useState([])
+  const [enabledSynced, setEnabledSynced] = useState(enabled)
   const reconnectTimer = useRef(null)
   const streamAbort = useRef(null)
   const listLoadedRef = useRef(false)
+
+  if (enabled !== enabledSynced) {
+    setEnabledSynced(enabled)
+    if (!enabled) {
+      setUnreadCount(0)
+      setNotifications([])
+      setToasts([])
+    }
+  }
+
+  useEffect(() => {
+    if (!enabled) {
+      listLoadedRef.current = false
+    }
+  }, [enabled])
 
   const refreshUnread = useCallback(async () => {
     if (!enabled) return
@@ -117,15 +130,11 @@ export function EmployeeNotificationProvider({ children }) {
   )
 
   useEffect(() => {
-    if (!enabled) {
-      setUnreadCount(0)
-      setNotifications([])
-      setToasts([])
-      listLoadedRef.current = false
-      return undefined
-    }
-    void refreshUnread()
-    return undefined
+    if (!enabled) return undefined
+    const timer = window.setTimeout(() => {
+      void refreshUnread()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [enabled, refreshUnread, employee?.id])
 
   // Polling de respaldo si SSE falla o queda bufferizado detrás del proxy
@@ -169,7 +178,7 @@ export function EmployeeNotificationProvider({ children }) {
             }
           },
         })
-      } catch (err) {
+      } catch {
         if (controller.signal.aborted || cancelled) return
         reconnectTimer.current = window.setTimeout(connect, RECONNECT_MS)
       }
@@ -231,20 +240,4 @@ export function EmployeeNotificationProvider({ children }) {
       {enabled ? <NotificationToastStack toasts={toasts} /> : null}
     </EmployeeNotificationContext.Provider>
   )
-}
-
-export function useEmployeeNotifications() {
-  const ctx = useContext(EmployeeNotificationContext)
-  if (!ctx) {
-    return {
-      unreadCount: 0,
-      notifications: [],
-      refreshUnread: async () => {},
-      refreshNotifications: async () => [],
-      markRead: async () => {},
-      markAllRead: async () => {},
-      enabled: false,
-    }
-  }
-  return ctx
 }

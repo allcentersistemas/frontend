@@ -25,7 +25,7 @@ function parseOccurredAt(value) {
   return Number.isNaN(t) ? 0 : t
 }
 
-export function normalizeAuditRows(source, payload) {
+function normalizeAuditRows(source, payload) {
   if (source === 'employee') {
     const rows = Array.isArray(payload?.content) ? payload.content : []
     return rows.map((a) => ({

@@ -50,6 +50,15 @@ export function GestionPage({ initialSection } = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [vehiculoToEdit, setVehiculoToEdit] = useState(null)
 
+  const vehiculoFromUrl = useMemo(() => {
+    const id = Number(searchParams.get('vehiculo'))
+    return Number.isFinite(id) && id > 0 ? id : null
+  }, [searchParams])
+
+  if (vehiculoFromUrl != null && vehiculoToEdit !== vehiculoFromUrl) {
+    setVehiculoToEdit(vehiculoFromUrl)
+  }
+
   const base = allowedDashboard ? `/dashboard/${allowedDashboard}` : '/dashboard/admin-produccion'
   const roleNames = useMemo(() => roleNamesFromEmployee(employee), [employee])
   const onClientePortalPath = location.pathname.endsWith('/cliente-portal')
@@ -151,7 +160,6 @@ export function GestionPage({ initialSection } = {}) {
     if (rawVeh) {
       const id = Number(rawVeh)
       if (Number.isFinite(id) && id > 0) {
-        setVehiculoToEdit(id)
         if (section !== 'vehiculos' && allowedIds.includes('vehiculos')) {
           selectSection('vehiculos')
         }

@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
-import { useEmployeeNotifications } from '../notifications/EmployeeNotificationProvider'
+import { useEmployeeNotifications } from '../notifications/useEmployeeNotifications'
 import { formatAppDateTime, formatRelativeTimeEs } from '../utils/appDateTime'
 import { cn } from '../lib/cn'
 
@@ -38,14 +38,21 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
   const [loadError, setLoadError] = useState('')
   const [now, setNow] = useState(() => new Date())
   const [panelStyle, setPanelStyle] = useState(null)
+  const [wasOpen, setWasOpen] = useState(false)
   const rootRef = useRef(null)
   const buttonRef = useRef(null)
   const panelRef = useRef(null)
   const panelId = useId()
 
+  if (open && !wasOpen) {
+    setWasOpen(true)
+    setNow(new Date())
+  } else if (!open && wasOpen) {
+    setWasOpen(false)
+  }
+
   useEffect(() => {
     if (!open) return undefined
-    setNow(new Date())
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(timer)
   }, [open])
@@ -53,30 +60,26 @@ export function NotificationBell({ role, align = 'right', panelPlacement = 'bott
   useEffect(() => {
     if (!open || !enabled) return undefined
     let cancelled = false
-    setLoading(true)
-    setLoadError('')
-    void refreshNotifications()
-      .then((list) => {
-        if (!cancelled && (!list || list.length === 0)) {
-          /* empty is ok */
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoadError('No se pudieron cargar las notificaciones.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setLoading(true)
+      setLoadError('')
+      void refreshNotifications()
+        .catch(() => {
+          if (!cancelled) setLoadError('No se pudieron cargar las notificaciones.')
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    }, 0)
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
   }, [open, enabled, refreshNotifications])
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPanelStyle(null)
-      return undefined
-    }
+    if (!open) return undefined
 
     function placePanel() {
       const btn = buttonRef.current

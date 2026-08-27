@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { cn } from '../lib/cn'
-import { useTheme } from '../theme/ThemeProvider'
+import { useTheme } from '../theme/useTheme'
 
 const MODES = [
   { id: 'light', label: 'Claro', Icon: Sun },

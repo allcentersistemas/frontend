@@ -1,13 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getStoredTheme, setStoredTheme } from './themeStorage'
-
-const ThemeContext = createContext(null)
+import { ThemeContext } from './themeContext'
 
 /** @param {'light' | 'dark' | 'system'} mode */
-function resolveIsDark(mode) {
+function resolveIsDark(mode, systemDark) {
   if (mode === 'dark') return true
   if (mode === 'light') return false
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
+  return systemDark
 }
 
 function applyDocumentTheme(isDark) {
@@ -16,20 +15,23 @@ function applyDocumentTheme(isDark) {
   root.style.colorScheme = isDark ? 'dark' : 'light'
 }
 
+function readSystemDark() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 export function ThemeProvider({ children }) {
   const [mode, setModeState] = useState(getStoredTheme)
-  const [isDark, setIsDark] = useState(() => resolveIsDark(getStoredTheme()))
+  const [systemDark, setSystemDark] = useState(readSystemDark)
+  const isDark = resolveIsDark(mode, systemDark)
 
   useEffect(() => {
     applyDocumentTheme(isDark)
   }, [isDark])
 
   useEffect(() => {
-    setIsDark(resolveIsDark(mode))
     if (mode !== 'system') return undefined
-
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setIsDark(mq.matches)
+    const onChange = () => setSystemDark(mq.matches)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [mode])
@@ -42,10 +44,4 @@ export function ThemeProvider({ children }) {
   const value = useMemo(() => ({ mode, setMode, isDark }), [mode, isDark])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-}
-
-export function useTheme() {
-  const ctx = useContext(ThemeContext)
-  if (!ctx) throw new Error('useTheme debe usarse dentro de ThemeProvider')
-  return ctx
 }
