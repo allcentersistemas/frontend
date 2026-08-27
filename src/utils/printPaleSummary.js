@@ -19,12 +19,14 @@ function formatPrintShort(value) {
     : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
 }
 
-function formatPrintDate(value) {
-  if (!value) return '—'
+function formatScanStamp(value) {
+  if (!value) return { date: '—', time: '—' }
   const d = new Date(value)
-  return Number.isNaN(d.getTime())
-    ? String(value)
-    : d.toLocaleDateString(undefined, { dateStyle: 'short' })
+  if (Number.isNaN(d.getTime())) return { date: String(value), time: '' }
+  return {
+    date: d.toLocaleDateString(undefined, { dateStyle: 'short' }),
+    time: d.toLocaleTimeString(undefined, { timeStyle: 'short' }),
+  }
 }
 
 function partDescripcion0(line) {
@@ -237,8 +239,8 @@ const PRINT_CSS = `
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    min-width: 1.7rem;
-    padding: 2px 5px;
+    min-width: 3.4rem;
+    padding: 3px 5px;
     border: 1px solid #ccc;
     border-radius: 3px;
     background: #fff;
@@ -248,10 +250,18 @@ const PRINT_CSS = `
     line-height: 1.15;
   }
   .chip__dt {
-    font-size: 6.5pt;
+    font-size: 6pt;
     font-weight: 500;
-    color: #777;
-    margin-top: 1px;
+    color: #555;
+    margin-top: 2px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .chip__time {
+    font-size: 6pt;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
   }
   .empty { color: #666; font-size: 9pt; padding: 8px; }
   .hint {
@@ -298,8 +308,11 @@ function buildPartBlocks(lines) {
       const chips = g.pieces
         .map((p) => {
           const label = p.n != null ? String(p.n) : '?'
-          const dt = p.fecha ? `<span class="chip__dt">${esc(formatPrintDate(p.fecha))}</span>` : ''
-          return `<span class="chip">${esc(label)}${dt}</span>`
+          if (!p.fecha) {
+            return `<span class="chip">${esc(label)}<span class="chip__dt">—</span></span>`
+          }
+          const stamp = formatScanStamp(p.fecha)
+          return `<span class="chip">${esc(label)}<span class="chip__dt">${esc(stamp.date)}</span><span class="chip__time">${esc(stamp.time)}</span></span>`
         })
         .join('')
 
