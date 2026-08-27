@@ -19,6 +19,14 @@ function formatPrintShort(value) {
     : d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
 }
 
+function formatPrintDate(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime())
+    ? String(value)
+    : d.toLocaleDateString(undefined, { dateStyle: 'short' })
+}
+
 function partDescripcion0(line) {
   return (
     line.partDescripcion ??
@@ -47,109 +55,213 @@ function partMedida(line) {
   return line.medida ?? null
 }
 
-function pieceFractionText(line) {
-  const n = line.numeroPieza
-  const total = piezasPlanParte(line)
-  if (n != null && total != null && Number(total) > 0) {
-    return `${n}/${total}`
-  }
-  if (n != null) return String(n)
-  return '—'
+function pieceNumber(line) {
+  const n = line.numeroPieza ?? line.numero_pieza ?? line.numero
+  return n == null ? null : Number(n)
 }
 
-function orderCellHtml(line) {
-  const name = line.orderName ?? line.orderId
-  const d0 = partDescripcion0(line)
-  const d1 = partDescripcion1(line)
-  const m = partMedida(line)
-  const bits = []
-  if (name != null && String(name).trim() !== '') {
-    bits.push(`<div><strong>${esc(String(name))}</strong></div>`)
+/** Agrupa líneas por parte+orden+medida para no repetir la descripción en cada pieza. */
+function groupLinesByPart(lines) {
+  const map = new Map()
+  for (const line of lines) {
+    const part = String(line.partCode ?? line.partId ?? '—')
+    const order = String(line.orderName ?? line.orderId ?? '')
+    const med = String(partMedida(line) ?? '')
+    const key = `${part}||${order}||${med}`
+    let g = map.get(key)
+    if (!g) {
+      g = {
+        partCode: part,
+        orderName: order || null,
+        desc0: partDescripcion0(line),
+        desc1: partDescripcion1(line),
+        medida: partMedida(line),
+        planTotal: piezasPlanParte(line),
+        pieces: [],
+      }
+      map.set(key, g)
+    }
+    g.pieces.push({
+      n: pieceNumber(line),
+      fecha: line.fechaAgregado,
+    })
   }
-  if (d0 != null && String(d0).trim() !== '') bits.push(`<div class="ord-desc">${esc(String(d0))}</div>`)
-  if (d1 != null && String(d1).trim() !== '') bits.push(`<div class="ord-desc">${esc(String(d1))}</div>`)
-  if (m != null && String(m).trim() !== '') {
-    bits.push(`<div class="ord-med"><span class="ord-med__lbl">Med.</span> ${esc(String(m))}</div>`)
+  for (const g of map.values()) {
+    g.pieces.sort((a, b) => {
+      if (a.n == null && b.n == null) return 0
+      if (a.n == null) return 1
+      if (b.n == null) return -1
+      return a.n - b.n
+    })
   }
-  return bits.length ? bits.join('') : '—'
+  return [...map.values()]
 }
 
 const PRINT_CSS = `
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm;
+    margin: 12mm 12mm 14mm;
   }
+  * { box-sizing: border-box; }
   body {
-    font-family: system-ui, Segoe UI, sans-serif;
+    font-family: "Segoe UI", system-ui, sans-serif;
     margin: 0;
     padding: 0;
-    color: #111;
-    font-size: 11pt;
+    color: #1a1a1a;
+    font-size: 10pt;
     line-height: 1.35;
     background: #fff;
   }
-  .wrap { width: 100%; max-width: 186mm; margin: 0; }
-  .top {
+  .wrap { width: 100%; max-width: 186mm; margin: 0 auto; }
+  .doc-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 8px;
+    gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #222;
+    margin-bottom: 10px;
   }
-  .top-text { flex: 1; min-width: 0; }
-  h1 { font-size: 14pt; margin: 0 0 4px; font-weight: 700; }
-  .qr-wrap { text-align: center; flex-shrink: 0; }
-  .qr-wrap img { display: block; margin: 0 auto; }
-  .qr-cap {
+  .doc-head__text { flex: 1; min-width: 0; }
+  .doc-eyebrow {
+    margin: 0 0 2px;
     font-size: 8pt;
-    margin-top: 2px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #666;
+    font-weight: 600;
+  }
+  .doc-code {
+    margin: 0 0 6px;
+    font-size: 18pt;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .doc-title {
+    margin: 0 0 8px;
+    font-size: 11pt;
+    font-weight: 600;
     color: #333;
-    max-width: 130px;
-    word-break: break-all;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge--ok { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+  .badge--neutral { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+  .qr-wrap { text-align: center; flex-shrink: 0; }
+  .qr-wrap img { display: block; margin: 0 auto; width: 92px; height: 92px; }
+  .qr-cap {
+    font-size: 7.5pt;
+    margin-top: 3px;
+    color: #444;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
   .meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 12px;
-    font-size: 10pt;
-    margin-bottom: 8px;
-    line-height: 1.4;
+    gap: 4px 16px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    font-size: 9pt;
   }
-  .meta strong {
-    display: inline-block;
-    min-width: 7.5rem;
+  .meta__item { display: flex; gap: 6px; align-items: baseline; }
+  .meta__lbl {
+    flex: 0 0 5.5rem;
+    color: #666;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     font-weight: 600;
-    color: #222;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 9.5pt;
-    table-layout: fixed;
-    margin-top: 8px;
-  }
-  th, td {
-    border: 1px solid #bbb;
-    padding: 4px 5px;
-    text-align: left;
-    vertical-align: top;
-    word-wrap: break-word;
-  }
-  th { background: #eee; font-weight: 600; }
-  td.num, td.dt { white-space: nowrap; width: 1%; }
-  td.dt { font-variant-numeric: tabular-nums; }
-  .ord-cell .ord-desc { font-size: 9.5pt; color: #333; margin-top: 1px; }
-  .ord-cell .ord-med { font-size: 9.5pt; color: #222; margin-top: 2px; }
-  .ord-cell .ord-med__lbl { font-weight: 600; color: #444; margin-right: 4px; }
-  caption {
-    text-align: left;
-    font-weight: 600;
-    margin-bottom: 4px;
+  .meta__val { flex: 1; min-width: 0; word-break: break-word; }
+  .meta__item--full { grid-column: 1 / -1; }
+  .section-title {
+    margin: 0 0 8px;
     font-size: 10pt;
+    font-weight: 700;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
   }
-  tr { break-inside: avoid; }
+  .part {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 0 8px;
+    border: 1px solid #ccc;
+  }
+  .part__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 8px;
+    background: #f3f4f6;
+    border-bottom: 1px solid #ddd;
+  }
+  .part__code {
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 0 0 2px;
+  }
+  .part__order { font-size: 9pt; font-weight: 600; color: #222; }
+  .part__desc { font-size: 8.5pt; color: #444; margin-top: 1px; }
+  .part__med { font-size: 8.5pt; color: #222; margin-top: 2px; }
+  .part__med strong { font-weight: 600; color: #555; margin-right: 3px; }
+  .part__count {
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 9pt;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .part__count span { display: block; font-size: 7.5pt; font-weight: 600; color: #666; text-transform: uppercase; }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 6px 8px;
+  }
+  .chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 1.7rem;
+    padding: 2px 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+    font-size: 8.5pt;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+  .chip__dt {
+    font-size: 6.5pt;
+    font-weight: 500;
+    color: #777;
+    margin-top: 1px;
+  }
+  .empty { color: #666; font-size: 9pt; padding: 8px; }
+  .hint {
+    margin: 10px 0 0;
+    font-size: 7.5pt;
+    color: #888;
+  }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .hint { display: none !important; }
   }
 `
 
@@ -160,65 +272,95 @@ async function buildQrBlock(codigoPale) {
     const dataUrl = await QRCode.toDataURL(codigoPale, {
       errorCorrectionLevel: 'M',
       margin: 1,
-      width: 128,
+      width: 92,
     })
-    return `<div class="qr-wrap"><img src="${dataUrl}" width="128" height="128" alt="QR código pale" /><div class="qr-cap">${esc(codigoPale)}</div></div>`
+    return `<div class="qr-wrap"><img src="${dataUrl}" width="92" height="92" alt="QR código pale" /><div class="qr-cap">${esc(codigoPale)}</div></div>`
   } catch {
     return ''
   }
 }
 
+function buildPartBlocks(lines) {
+  const groups = groupLinesByPart(lines)
+  if (!groups.length) return '<p class="empty">Sin piezas.</p>'
+
+  return groups
+    .map((g) => {
+      const plan = g.planTotal != null && Number(g.planTotal) > 0 ? Number(g.planTotal) : null
+      const countLabel = plan != null ? `${g.pieces.length} / ${plan}` : String(g.pieces.length)
+      const descBits = []
+      if (g.desc0) descBits.push(`<div class="part__desc">${esc(g.desc0)}</div>`)
+      if (g.desc1) descBits.push(`<div class="part__desc">${esc(g.desc1)}</div>`)
+      const med =
+        g.medida != null && String(g.medida).trim() !== ''
+          ? `<div class="part__med"><strong>Med.</strong>${esc(g.medida)}</div>`
+          : ''
+      const chips = g.pieces
+        .map((p) => {
+          const label = p.n != null ? String(p.n) : '?'
+          const dt = p.fecha ? `<span class="chip__dt">${esc(formatPrintDate(p.fecha))}</span>` : ''
+          return `<span class="chip">${esc(label)}${dt}</span>`
+        })
+        .join('')
+
+      return `
+      <section class="part">
+        <header class="part__head">
+          <div>
+            <div class="part__code">${esc(g.partCode)}</div>
+            ${g.orderName ? `<div class="part__order">${esc(g.orderName)}</div>` : ''}
+            ${descBits.join('')}
+            ${med}
+          </div>
+          <div class="part__count"><span>Piezas</span>${esc(countLabel)}</div>
+        </header>
+        <div class="chips">${chips || '<span class="empty">Sin números de pieza</span>'}</div>
+      </section>`
+    })
+    .join('')
+}
+
 function buildBodyHtml(header, details, { includePiezas = false, qrBlock = '' } = {}) {
   const lines = Array.isArray(details) ? details : []
-  const rows = lines
-    .map(
-      (line) => `
-    <tr>
-      <td>${esc(line.partCode ?? line.partId)}</td>
-      <td class="ord-cell">${orderCellHtml(line)}</td>
-      <td class="num">${esc(pieceFractionText(line))}</td>
-      <td class="dt">${esc(formatPrintShort(line.fechaAgregado))}</td>
-    </tr>`,
-    )
-    .join('')
+  const groups = groupLinesByPart(lines)
+  const estado = String(header.estado ?? '').toUpperCase()
+  const envio = String(header.estadoEnvio ?? '').toUpperCase()
+  const badgeEstado =
+    estado === 'CERRADO' ? 'badge badge--ok' : 'badge badge--neutral'
+  const badgeEnvio =
+    envio === 'ESCANEADO' || envio === 'ENTREGADO' ? 'badge badge--ok' : 'badge badge--neutral'
 
-  const piezasTable = includePiezas
+  const piezasSection = includePiezas
     ? `
-  <table>
-    <caption>Detalle de piezas (${lines.length})</caption>
-    <thead>
-      <tr>
-        <th style="width:12%">Parte</th>
-        <th>Orden · Desc. · Med. (L×A)</th>
-        <th style="width:8%">Pza</th>
-        <th style="width:14%">Fecha</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || '<tr><td colspan="4">Sin líneas</td></tr>'}
-    </tbody>
-  </table>`
-    : ''
+    <h2 class="section-title">Detalle por parte (${groups.length} partes · ${lines.length} piezas)</h2>
+    ${buildPartBlocks(lines)}`
+    : `
+    <h2 class="section-title">Resumen</h2>
+    <p class="empty">Sin detalle de piezas (active la opción al imprimir).</p>`
 
   return `
   <div class="wrap">
-    <div class="top">
-      <div class="top-text">
-        <h1>Resumen pale / orden de envío</h1>
+    <header class="doc-head">
+      <div class="doc-head__text">
+        <p class="doc-eyebrow">Orden de envío · pale</p>
+        <h1 class="doc-code">${esc(header.codigo)}</h1>
+        <p class="doc-title">Resumen pale / orden de envío</p>
+        <div class="badges">
+          <span class="${badgeEstado}">${esc(header.estado)}</span>
+          <span class="${badgeEnvio}">Envío: ${esc(header.estadoEnvio)}</span>
+          <span class="badge badge--neutral">${esc(header.cantidadPiezas)} pzas · ${esc(header.cantidadOrdenes)} órd.</span>
+        </div>
       </div>
       ${qrBlock}
-    </div>
+    </header>
     <div class="meta">
-      <div><strong>Código</strong> ${esc(header.codigo)}</div>
-      <div><strong>Estado</strong> ${esc(header.estado)}</div>
-      <div><strong>Estado envío</strong> ${esc(header.estadoEnvio)}</div>
-      <div><strong>Piezas / órdenes</strong> ${esc(header.cantidadPiezas)} / ${esc(header.cantidadOrdenes)}</div>
-      <div><strong>Creación</strong> ${esc(formatPrintShort(header.fechaCreacion))}</div>
-      <div><strong>Resumen</strong> ${esc(header.ordenesResumen)}</div>
-      <div><strong>Cierre</strong> ${esc(formatPrintShort(header.fechaCierre))}</div>
-      <div style="grid-column: 1 / -1"><strong>Notas</strong> ${esc(header.notas)}</div>
+      <div class="meta__item"><span class="meta__lbl">Creación</span><span class="meta__val">${esc(formatPrintShort(header.fechaCreacion))}</span></div>
+      <div class="meta__item"><span class="meta__lbl">Cierre</span><span class="meta__val">${esc(formatPrintShort(header.fechaCierre))}</span></div>
+      <div class="meta__item meta__item--full"><span class="meta__lbl">Órdenes</span><span class="meta__val">${esc(header.ordenesResumen)}</span></div>
+      <div class="meta__item meta__item--full"><span class="meta__lbl">Notas</span><span class="meta__val">${esc(header.notas)}</span></div>
     </div>
-    ${piezasTable}
+    ${piezasSection}
+    <p class="hint">Tip: en el diálogo de impresión desmarque «Encabezados y pies de página» para ocultar la fecha y about:blank.</p>
   </div>`
 }
 
