@@ -30,8 +30,8 @@ function heartbeatAgo(value, { coarse = false } = {}) {
   return `hace ${Math.floor(m / 60)}h`
 }
 
-/** Alineado con backend ONLINE_STALE_SECONDS (agente late cada 5–10s). */
-const ONLINE_STALE_MS = 30_000
+/** Alineado con backend ONLINE_STALE_SECONDS (90s: tolera subida de eventos / blips de red). */
+const ONLINE_STALE_MS = 90_000
 
 function lastSeenAt(machine) {
   const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
