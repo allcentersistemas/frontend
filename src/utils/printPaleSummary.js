@@ -247,27 +247,27 @@ const PRINT_CSS = `
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
-    padding: 2px 3px;
+    padding: 3px 4px;
     width: 100%;
   }
   .chip {
     display: inline-flex;
-    flex: 1 1 4.1rem;
+    flex: 1 1 4.6rem;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: baseline;
     justify-content: flex-start;
-    gap: 2px 4px;
-    min-width: 4.1rem;
+    gap: 3px 5px;
+    min-width: 4.6rem;
     max-width: 100%;
-    padding: 1px 3px;
+    padding: 2px 4px;
     border: 1px solid #ccc;
     border-radius: 2px;
     background: #fff;
-    font-size: 7pt;
+    font-size: 7.5pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1.1;
+    line-height: 1.15;
   }
   .chip__n { font-weight: 700; }
   .chip__stamp {
