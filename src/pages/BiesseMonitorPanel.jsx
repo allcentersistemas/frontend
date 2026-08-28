@@ -8,6 +8,7 @@ import {
   heartbeatAgo,
   isEffectivelyOnline,
   lastSeenAt,
+  shortAgentError,
 } from '../utils/biesseMonitorUtils'
 
 function stateTag(state) {
@@ -243,15 +244,15 @@ export function BiesseMonitorPanel() {
       </div>
 
       {monitorAlerts.alerts.length ? (
-        <div className="card pad" style={{ marginBottom: '1rem' }} role="alert">
-          <h2 className="card__title" style={{ fontSize: '1rem' }}>
+        <div className="card pad biesse-alerts" style={{ marginBottom: '1rem' }} role="alert">
+          <h2 className="card__title" style={{ fontSize: '1rem', marginBottom: 0 }}>
             Alertas
           </h2>
-          <ul className="small" style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
+          <ul className="biesse-alerts__list">
             {monitorAlerts.alerts.map((a) => (
               <li
                 key={a.text}
-                style={{ color: a.level === 'danger' ? 'var(--danger, #c0392b)' : undefined }}
+                className={a.level === 'danger' ? 'biesse-alerts__item--danger' : undefined}
               >
                 {a.text}
               </li>
@@ -318,20 +319,24 @@ export function BiesseMonitorPanel() {
           const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
           const agentVer = m.agent_version ?? m.agentVersion
           const lastErr = m.last_error ?? m.lastError
+          const errShort = shortAgentError(lastErr)
+          const lastPart = m.last_part ?? m.lastPart
           return (
-            <article key={id} className="card pad">
-              <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                <strong>{m.machine_name ?? m.machineName ?? `Seccionador #${id}`}</strong>
+            <article key={id} className="card pad biesse-machine-card">
+              <header className="biesse-machine-card__head">
+                <strong className="biesse-machine-card__title">
+                  {m.machine_name ?? m.machineName ?? `Seccionador #${id}`}
+                </strong>
                 <span className={online ? 'tag tag--ok' : 'tag'}>
                   {onlineLabel(online, hbAt)}
                 </span>
               </header>
-              <dl className="inv-dl" style={{ marginTop: '0.75rem' }}>
+              <dl className="biesse-machine-dl">
                 <div>
                   <dt>Salud agente</dt>
                   <dd>
                     <span className={healthTag(health)} title={lastErr || undefined}>
-                      {healthLabel(health)}
+                      {healthLabel(health, { online })}
                     </span>
                     {agentVer ? <span className="muted small"> · v{agentVer}</span> : null}
                   </dd>
@@ -344,12 +349,11 @@ export function BiesseMonitorPanel() {
                     </dd>
                   </div>
                 ) : null}
-                {lastErr ? (
+                {errShort ? (
                   <div>
                     <dt>Último error</dt>
-                    <dd className="small" title={lastErr}>
-                      {String(lastErr).slice(0, 80)}
-                      {String(lastErr).length > 80 ? '…' : ''}
+                    <dd className="small biesse-machine-dl__err" title={lastErr || undefined}>
+                      {errShort}
                     </dd>
                   </div>
                 ) : null}
@@ -361,7 +365,9 @@ export function BiesseMonitorPanel() {
                 </div>
                 <div>
                   <dt>Job / OP</dt>
-                  <dd>{job || '—'}</dd>
+                  <dd className="biesse-machine-dl__clip" title={job || undefined}>
+                    {job || '—'}
+                  </dd>
                 </div>
                 <div>
                   <dt>Patrón</dt>
@@ -369,17 +375,19 @@ export function BiesseMonitorPanel() {
                 </div>
                 <div>
                   <dt>Última pieza</dt>
-                  <dd>{m.last_part ?? m.lastPart ?? '—'}</dd>
+                  <dd className="biesse-machine-dl__clip" title={lastPart || undefined}>
+                    {lastPart || '—'}
+                  </dd>
                 </div>
                 <div>
-                  <dt>Planchas / piezas (sesión)</dt>
+                  <dt>Planchas / piezas</dt>
                   <dd>
                     {m.boards_done ?? m.boardsDone ?? 0} / {m.pieces_produced ?? m.piecesProduced ?? 0}
                   </dd>
                 </div>
                 {dur ? (
                   <div>
-                    <dt>Tiempo de corte (vivo)</dt>
+                    <dt>Tiempo de corte</dt>
                     <dd>{dur}</dd>
                   </div>
                 ) : null}

@@ -52,16 +52,38 @@ export function healthTag(health) {
   const h = String(health ?? 'OK').toUpperCase()
   if (h === 'OK') return 'tag tag--ok'
   if (h === 'DEGRADED') return 'tag tag--warn'
-  if (h === 'OFFLINE_QUEUE') return 'tag tag--danger'
+  if (h === 'OFFLINE_QUEUE') return 'tag tag--warn'
   return 'tag'
 }
 
-export function healthLabel(health) {
+/** Etiqueta de salud. Si hay heartbeat reciente, no decir "Offline". */
+export function healthLabel(health, { online = true } = {}) {
   const h = String(health ?? 'OK').toUpperCase()
   if (h === 'OK') return 'Saludable'
   if (h === 'DEGRADED') return 'Degradado'
-  if (h === 'OFFLINE_QUEUE') return 'Offline + cola'
+  if (h === 'OFFLINE_QUEUE') return online ? 'Cola pendiente' : 'Offline + cola'
   return h
+}
+
+/** Resume errores técnicos del agente para la tarjeta (sin JSON crudo). */
+export function shortAgentError(err) {
+  if (!err) return null
+  const s = String(err).trim()
+  if (!s) return null
+  const status = /\b(\d{3})\b/.exec(s)?.[1]
+  if (/POST\s*\/events/i.test(s) || /\/api\/.*\/events/i.test(s)) {
+    return status ? `Error al enviar eventos (${status})` : 'Error al enviar eventos'
+  }
+  if (/POST\s*\/status/i.test(s)) {
+    return status ? `Error al enviar status (${status})` : 'Error al enviar status'
+  }
+  if (/UNEXPECTED_ERROR/i.test(s)) {
+    return status ? `Error inesperado del servidor (${status})` : 'Error inesperado del servidor'
+  }
+  // Quitar JSON embebido
+  const noJson = s.replace(/\{[\s\S]*\}$/, '').replace(/\s+/g, ' ').trim()
+  const base = noJson || s
+  return base.length > 72 ? `${base.slice(0, 72)}…` : base
 }
 
 export function compareAgentVersion(current, minimum) {
@@ -106,7 +128,8 @@ export function buildMonitorAlerts(machines, { staleMs = 90_000, minAgentVersion
     if (version && compareAgentVersion(version, minAgentVersion) < 0) outdated++
     const err = m.last_error ?? m.lastError
     if (err && online) {
-      alerts.push({ level: 'warn', text: `${name}: ${String(err).slice(0, 120)}` })
+      const short = shortAgentError(err)
+      if (short) alerts.push({ level: 'warn', text: `${name}: ${short}` })
     }
   }
 
@@ -117,7 +140,10 @@ export function buildMonitorAlerts(machines, { staleMs = 90_000, minAgentVersion
     })
   }
   if (degraded > 0) {
-    alerts.push({ level: 'warn', text: `${degraded} seccionador(es) en estado degradado/offline+cola` })
+    alerts.push({
+      level: 'warn',
+      text: `${degraded} seccionador(es) con cola pendiente o estado degradado`,
+    })
   }
   if (outdated > 0) {
     alerts.push({

@@ -557,6 +557,47 @@
   .inv-dl dd {
     @apply text-sm font-medium text-slate-900 dark:text-slate-100;
   }
+
+  /* Monitor seccionadoras: filas apiladas (evita solape con obras largas / errores). */
+  .biesse-machine-card {
+    @apply min-w-0 overflow-hidden;
+  }
+  .biesse-machine-card__head {
+    @apply flex items-start justify-between gap-2;
+  }
+  .biesse-machine-card__title {
+    @apply min-w-0 break-words;
+  }
+  .biesse-machine-dl {
+    @apply m-0 mt-3 grid gap-y-2;
+  }
+  .biesse-machine-dl > div {
+    @apply grid min-w-0 items-start gap-x-3;
+    grid-template-columns: minmax(6.5rem, 7.5rem) minmax(0, 1fr);
+  }
+  .biesse-machine-dl dt {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400;
+  }
+  .biesse-machine-dl dd {
+    @apply m-0 min-w-0 text-sm font-medium text-slate-900 dark:text-slate-100;
+  }
+  .biesse-machine-dl__clip {
+    @apply break-words;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .biesse-machine-dl__err {
+    @apply break-words text-amber-900 dark:text-amber-200;
+  }
+  .biesse-alerts__list {
+    @apply m-0 mt-2 list-disc space-y-1 pl-5 text-sm;
+  }
+  .biesse-alerts__item--danger {
+    @apply text-red-700 dark:text-red-300;
+  }
+
   tr.inv-row-selected {
     @apply bg-amber-400/12 dark:bg-amber-400/10;
   }
