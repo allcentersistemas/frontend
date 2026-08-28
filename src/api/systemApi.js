@@ -1193,6 +1193,20 @@ export async function listAgentMachines() {
   return systemJson('/api/biesse/monitor/machines')
 }
 
+export async function getAgentMonitorConfig() {
+  return systemJson('/api/biesse/monitor/config')
+}
+
+export async function listAgentEventsSummary(hours = 24) {
+  const q = new URLSearchParams({ hours: String(hours) })
+  return systemJson(`/api/biesse/monitor/events/summary?${q}`)
+}
+
+export async function listAgentAlarms(limit = 40) {
+  const q = new URLSearchParams({ limit: String(limit) })
+  return systemJson(`/api/biesse/monitor/alarms?${q}`)
+}
+
 export async function listAgentEvents(limit = 80) {
   const q = new URLSearchParams({ limit: String(limit) })
   return systemJson(`/api/biesse/monitor/events?${q}`)

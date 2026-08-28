@@ -1,56 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as systemApi from '../api/systemApi'
-
-function fmtTs(value) {
-  if (!value) return '—'
-  try {
-    const d = value instanceof Date ? value : new Date(value)
-    if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleString()
-  } catch {
-    return String(value)
-  }
-}
-
-function heartbeatAgo(value, { coarse = false } = {}) {
-  if (!value) return null
-  const t = new Date(value).getTime()
-  if (Number.isNaN(t)) return null
-  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000))
-  if (coarse) {
-    if (sec < 60) return 'hace <1 min'
-    const m = Math.floor(sec / 60)
-    if (m < 60) return `hace ${m} min`
-    return `hace ${Math.floor(m / 60)} h`
-  }
-  if (sec < 3) return 'ahora'
-  if (sec < 60) return `hace ${sec}s`
-  const m = Math.floor(sec / 60)
-  if (m < 60) return `hace ${m}m`
-  return `hace ${Math.floor(m / 60)}h`
-}
-
-/** Alineado con backend ONLINE_STALE_SECONDS (90s: tolera subida de eventos / blips de red). */
-const ONLINE_STALE_MS = 90_000
-
-function lastSeenAt(machine) {
-  const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
-  const st = machine?.last_status_at ?? machine?.lastStatusAt
-  const hbT = hb ? new Date(hb).getTime() : NaN
-  const stT = st ? new Date(st).getTime() : NaN
-  if (!Number.isNaN(hbT) && !Number.isNaN(stT)) return hbT >= stT ? hb : st
-  if (!Number.isNaN(hbT)) return hb
-  if (!Number.isNaN(stT)) return st
-  return null
-}
-
-function isEffectivelyOnline(machine) {
-  const seen = lastSeenAt(machine)
-  if (!seen) return false
-  const t = new Date(seen).getTime()
-  if (Number.isNaN(t)) return Boolean(machine?.online)
-  return Date.now() - t <= ONLINE_STALE_MS
-}
+import {
+  buildMonitorAlerts,
+  fmtTs,
+  healthLabel,
+  healthTag,
+  heartbeatAgo,
+  isEffectivelyOnline,
+  lastSeenAt,
+} from '../utils/biesseMonitorUtils'
 
 function stateTag(state) {
   const s = String(state ?? '').toUpperCase()
@@ -113,6 +71,9 @@ const EVENTS_POLL_MS = 10000
 
 export function BiesseMonitorPanel() {
   const [machines, setMachines] = useState([])
+  const [monitorConfig, setMonitorConfig] = useState(null)
+  const [eventSummary, setEventSummary] = useState([])
+  const [alarms, setAlarms] = useState([])
   const [boardsLive, setBoardsLive] = useState(null)
   const [boardsHistory, setBoardsHistory] = useState([])
   const [boardsSummary, setBoardsSummary] = useState(null)
@@ -127,6 +88,25 @@ export function BiesseMonitorPanel() {
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
   const [lastMachinesAt, setLastMachinesAt] = useState(null)
+
+  const staleMs = (monitorConfig?.onlineStaleSeconds ?? 90) * 1000
+  const minAgentVersion = monitorConfig?.minAgentVersion ?? '1.7.0'
+  const machinesPollMs = monitorConfig?.machinesPollMs ?? MACHINES_POLL_MS
+  const eventsPollMs = monitorConfig?.eventsPollMs ?? EVENTS_POLL_MS
+
+  const monitorAlerts = useMemo(
+    () => buildMonitorAlerts(machines, { staleMs, minAgentVersion }),
+    [machines, staleMs, minAgentVersion],
+  )
+
+  const loadMonitorConfig = useCallback(async () => {
+    try {
+      const cfg = await systemApi.getAgentMonitorConfig()
+      setMonitorConfig(cfg && typeof cfg === 'object' ? cfg : null)
+    } catch {
+      setMonitorConfig(null)
+    }
+  }, [])
 
   const loadMachines = useCallback(async () => {
     try {
@@ -181,16 +161,20 @@ export function BiesseMonitorPanel() {
 
   const loadEvents = useCallback(async () => {
     try {
-      const [e, c, t, s] = await Promise.all([
+      const [e, c, t, s, summary, alarmRows] = await Promise.all([
         systemApi.listAgentEvents(100).catch(() => []),
         systemApi.listAgentCutPieces({ limit: 40 }).catch(() => []),
         systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
         systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
+        systemApi.listAgentEventsSummary(24).catch(() => []),
+        systemApi.listAgentAlarms(30).catch(() => []),
       ])
       setEvents(Array.isArray(e) ? e : [])
       setCuts(Array.isArray(c) ? c : [])
       setCutTimes(Array.isArray(t) ? t : [])
       setCutSummary(Array.isArray(s) ? s : [])
+      setEventSummary(Array.isArray(summary) ? summary : [])
+      setAlarms(Array.isArray(alarmRows) ? alarmRows : [])
     } catch {
       setEvents([])
       setCuts([])
@@ -200,21 +184,21 @@ export function BiesseMonitorPanel() {
   }, [])
 
   const load = useCallback(async () => {
-    await Promise.all([loadMachines(), loadEvents(), loadBoardsHistory()])
-  }, [loadMachines, loadEvents, loadBoardsHistory])
+    await Promise.all([loadMonitorConfig(), loadMachines(), loadEvents(), loadBoardsHistory()])
+  }, [loadMonitorConfig, loadMachines, loadEvents, loadBoardsHistory])
 
   useEffect(() => {
     void load()
-    const machinesPoll = window.setInterval(() => void loadMachines(), MACHINES_POLL_MS)
+    const machinesPoll = window.setInterval(() => void loadMachines(), machinesPollMs)
     const eventsPoll = window.setInterval(() => {
       void loadEvents()
       void loadBoardsHistory()
-    }, EVENTS_POLL_MS)
+    }, eventsPollMs)
     return () => {
       window.clearInterval(machinesPoll)
       window.clearInterval(eventsPoll)
     }
-  }, [load, loadMachines, loadEvents, loadBoardsHistory])
+  }, [load, loadMachines, loadEvents, loadBoardsHistory, machinesPollMs, eventsPollMs])
 
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 1000)
@@ -231,8 +215,8 @@ export function BiesseMonitorPanel() {
             <h1 className="card__title">Seccionadores</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
               Monitoreo en vivo del agente OSI (<code>agente_biesse_win10</code>): estados, tiempos,
-              planchas, eventos y cortes. Máquinas cada {MACHINES_POLL_MS / 1000}s; eventos/cortes cada{' '}
-              {EVENTS_POLL_MS / 1000}s. Para crear máquinas o rotar tokens use Gestión → Configuración.
+              planchas, eventos y cortes. Máquinas cada {machinesPollMs / 1000}s; eventos/cortes cada{' '}
+              {eventsPollMs / 1000}s. TTL online: {monitorConfig?.onlineStaleSeconds ?? 90}s. Para crear máquinas o rotar tokens use Gestión → Configuración.
             </p>
             {lastMachinesAt ? (
               <p className="small muted" style={{ marginTop: '0.25rem' }} role="status">
@@ -258,6 +242,47 @@ export function BiesseMonitorPanel() {
         ) : null}
       </div>
 
+      {monitorAlerts.alerts.length ? (
+        <div className="card pad" style={{ marginBottom: '1rem' }} role="alert">
+          <h2 className="card__title" style={{ fontSize: '1rem' }}>
+            Alertas
+          </h2>
+          <ul className="small" style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
+            {monitorAlerts.alerts.map((a) => (
+              <li
+                key={a.text}
+                style={{ color: a.level === 'danger' ? 'var(--danger, #c0392b)' : undefined }}
+              >
+                {a.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {eventSummary.length ? (
+        <div
+          className="card pad"
+          style={{
+            marginBottom: '1rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            alignItems: 'stretch',
+          }}
+        >
+          <div className="small muted" style={{ width: '100%' }}>
+            KPIs eventos (24 h)
+          </div>
+          {eventSummary.slice(0, 8).map((row) => (
+            <div key={row.action} className="pad surface-2" style={{ borderRadius: 8, minWidth: 120 }}>
+              <div className="small muted">{row.action}</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 700 }}>{row.total ?? 0}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {loading && !machines.length && !err ? (
         <p className="muted pad">Cargando seccionadores…</p>
       ) : null}
@@ -281,7 +306,7 @@ export function BiesseMonitorPanel() {
         ) : null}
         {machines.map((m) => {
           const id = m.machine_id ?? m.machineId
-          const online = isEffectivelyOnline(m)
+          const online = isEffectivelyOnline(m, staleMs)
           const stateRaw = m.state ?? ''
           const stateLabel = formatMachineState(stateRaw, online)
           const job = m.job_name ?? m.jobName
@@ -289,6 +314,10 @@ export function BiesseMonitorPanel() {
           const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
           const hbRel = heartbeatAgo(hbAt, { coarse: !online })
           const dur = String(stateRaw).toUpperCase() === 'RUN' && online ? durationLive(started) : null
+          const health = m.health_status ?? m.healthStatus ?? 'OK'
+          const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
+          const agentVer = m.agent_version ?? m.agentVersion
+          const lastErr = m.last_error ?? m.lastError
           return (
             <article key={id} className="card pad">
               <header style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
@@ -298,6 +327,32 @@ export function BiesseMonitorPanel() {
                 </span>
               </header>
               <dl className="inv-dl" style={{ marginTop: '0.75rem' }}>
+                <div>
+                  <dt>Salud agente</dt>
+                  <dd>
+                    <span className={healthTag(health)} title={lastErr || undefined}>
+                      {healthLabel(health)}
+                    </span>
+                    {agentVer ? <span className="muted small"> · v{agentVer}</span> : null}
+                  </dd>
+                </div>
+                {Number(queue) > 0 ? (
+                  <div>
+                    <dt>Cola offline</dt>
+                    <dd>
+                      <strong>{queue}</strong> eventos
+                    </dd>
+                  </div>
+                ) : null}
+                {lastErr ? (
+                  <div>
+                    <dt>Último error</dt>
+                    <dd className="small" title={lastErr}>
+                      {String(lastErr).slice(0, 80)}
+                      {String(lastErr).length > 80 ? '…' : ''}
+                    </dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt>Estado</dt>
                   <dd>
@@ -390,7 +445,7 @@ export function BiesseMonitorPanel() {
             </thead>
             <tbody>
               {(boardsLive?.machines ?? []).map((row) => {
-                const rowOnline = isEffectivelyOnline(row)
+                const rowOnline = isEffectivelyOnline(row, staleMs)
                 return (
                 <tr key={row.machine_id}>
                   <td className="small">
@@ -406,7 +461,7 @@ export function BiesseMonitorPanel() {
                     )}
                   </td>
                   <td>
-                    <span className={stateTag(row.state)}>{formatMachineState(row.state, isEffectivelyOnline(row))}</span>
+                    <span className={stateTag(row.state)}>{formatMachineState(row.state, isEffectivelyOnline(row, staleMs))}</span>
                   </td>
                   <td className="small">{row.job_name || '—'}</td>
                   <td className="small">
@@ -664,6 +719,37 @@ export function BiesseMonitorPanel() {
           </table>
           {!cutSummary.length ? (
             <p className="muted pad small">Sin historial agregado aún (requiere CORTE_FIN en trazabilidad).</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <h2 className="card__title pad" style={{ fontSize: '1rem', marginBottom: 0 }}>
+          Alarmas OSI (Message)
+        </h2>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Seccionador</th>
+                <th>Código</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alarms.map((ev) => (
+                <tr key={ev.id ?? ev.event_uid}>
+                  <td className="small muted">{fmtTs(ev.event_time ?? ev.created_at)}</td>
+                  <td className="small">{ev.machine_name ?? ev.machine_id ?? '—'}</td>
+                  <td className="small">{ev.code || '—'}</td>
+                  <td className="small">{(ev.description || '').slice(0, 80)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!alarms.length ? (
+            <p className="muted pad small">Sin alarmas OSI recientes.</p>
           ) : null}
         </div>
       </section>

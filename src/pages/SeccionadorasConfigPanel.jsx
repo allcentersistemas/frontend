@@ -3,39 +3,14 @@ import * as systemApi from '../api/systemApi'
 import { CanButton } from '../components/CanButton'
 import { FEATURE } from '../access/permissionCatalog'
 import { ACTION } from '../access/rolePermissions'
+import {
+  fmtTs,
+  healthLabel,
+  healthTag,
+  isEffectivelyOnline,
+} from '../utils/biesseMonitorUtils'
 
-/** Alineado con backend ONLINE_STALE_SECONDS (90s: tolera subida de eventos / blips de red). */
-const ONLINE_STALE_MS = 90_000
-
-function fmtTs(value) {
-  if (!value) return '—'
-  try {
-    const d = value instanceof Date ? value : new Date(value)
-    if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleString()
-  } catch {
-    return String(value)
-  }
-}
-
-function lastSeenAt(machine) {
-  const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
-  const st = machine?.last_status_at ?? machine?.lastStatusAt
-  const hbT = hb ? new Date(hb).getTime() : NaN
-  const stT = st ? new Date(st).getTime() : NaN
-  if (!Number.isNaN(hbT) && !Number.isNaN(stT)) return hbT >= stT ? hb : st
-  if (!Number.isNaN(hbT)) return hb
-  if (!Number.isNaN(stT)) return st
-  return null
-}
-
-function isEffectivelyOnline(machine) {
-  const seen = lastSeenAt(machine)
-  if (!seen) return false
-  const t = new Date(seen).getTime()
-  if (Number.isNaN(t)) return Boolean(machine?.online)
-  return Date.now() - t <= ONLINE_STALE_MS
-}
+const DEFAULT_STALE_MS = 90_000
 
 function onlineLabel(online, heartbeatAt) {
   if (online) return 'Online'
@@ -45,6 +20,7 @@ function onlineLabel(online, heartbeatAt) {
 
 export function SeccionadorasConfigPanel() {
   const [machines, setMachines] = useState([])
+  const [staleMs, setStaleMs] = useState(DEFAULT_STALE_MS)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
 
@@ -56,7 +32,11 @@ export function SeccionadorasConfigPanel() {
 
   const load = useCallback(async () => {
     try {
-      const m = await systemApi.listAgentMachines()
+      const [m, cfg] = await Promise.all([
+        systemApi.listAgentMachines(),
+        systemApi.getAgentMonitorConfig().catch(() => null),
+      ])
+      if (cfg?.onlineStaleSeconds) setStaleMs(cfg.onlineStaleSeconds * 1000)
       const list = Array.isArray(m) ? [...m] : []
       list.sort((a, b) => Number(a.machine_id ?? a.machineId ?? 0) - Number(b.machine_id ?? b.machineId ?? 0))
       setMachines(list)
@@ -193,6 +173,32 @@ export function SeccionadorasConfigPanel() {
         </div>
       ) : null}
 
+      <details className="pad surface-2" style={{ marginTop: '1rem', borderRadius: 8 }}>
+        <summary className="small" style={{ cursor: 'pointer', fontWeight: 600 }}>
+          Runbook de despliegue (agente v1.7+)
+        </summary>
+        <ol className="small muted" style={{ margin: '0.75rem 0 0', paddingLeft: '1.25rem' }}>
+          <li>Crear seccionador + token arriba → copiar a <code>config.json</code> en la PC OSI.</li>
+          <li>
+            Compilar en Windows: <code>build-agents.bat</code> → instalar exe Win10 en{' '}
+            <code>%ProgramData%\AllCenter\BiesseAgent\</code>.
+          </li>
+          <li>
+            Config: API <code>http://IP-SERVIDOR:8080</code>, token, ruta <code>Event.log</code>, impresora Zebra
+            modo <strong>raw</strong>.
+          </li>
+          <li>
+            Activar: impresora + imprimir al corte. Opcional: «Esperar confirmación ERP» si la red es inestable.
+          </li>
+          <li>Prueba etiqueta LEdit → Start program → 1er corte → escanear QR Android.</li>
+          <li>
+            Servicio Windows (sin sesión): <code>install-service.bat</code> como administrador en la carpeta{' '}
+            <code>dist/Win10</code>.
+          </li>
+          <li>Verificar monitor Inventario → Seccionadores: salud OK, cola 0, versión ≥ 1.7.0.</li>
+        </ol>
+      </details>
+
       {loading && !machines.length && !err ? (
         <p className="muted small" style={{ marginTop: '1rem' }}>
           Cargando seccionadoras…
@@ -206,6 +212,8 @@ export function SeccionadorasConfigPanel() {
               <th>Nombre</th>
               <th>Planta</th>
               <th>Estado enlace</th>
+              <th>Salud / cola</th>
+              <th>Agente</th>
               <th>Último heartbeat</th>
               <th>Acciones</th>
             </tr>
@@ -214,8 +222,11 @@ export function SeccionadorasConfigPanel() {
             {machines.map((m) => {
               const id = m.machine_id ?? m.machineId
               const name = m.machine_name ?? m.machineName ?? `Seccionador #${id}`
-              const online = isEffectivelyOnline(m)
+              const online = isEffectivelyOnline(m, staleMs)
               const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
+              const health = m.health_status ?? m.healthStatus ?? 'OK'
+              const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
+              const agentVer = m.agent_version ?? m.agentVersion
               return (
                 <tr key={id}>
                   <td className="small">
@@ -225,6 +236,13 @@ export function SeccionadorasConfigPanel() {
                   <td>
                     <span className={online ? 'tag tag--ok' : 'tag'}>{onlineLabel(online, hbAt)}</span>
                   </td>
+                  <td className="small">
+                    <span className={healthTag(health)}>{healthLabel(health)}</span>
+                    {Number(queue) > 0 ? (
+                      <span className="muted"> · cola {queue}</span>
+                    ) : null}
+                  </td>
+                  <td className="small muted">{agentVer ? `v${agentVer}` : '—'}</td>
                   <td className="small muted">{fmtTs(hbAt)}</td>
                   <td style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                     <CanButton
