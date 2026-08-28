@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as biesseApi from '../api/biesseApi'
 import * as systemApi from '../api/systemApi'
@@ -20,6 +20,8 @@ import { printBiesseOrderDetail } from '../utils/printBiesseOrderDetail'
 import { applyAgentCutsToOrderDetail } from '../utils/applyAgentCutsToOrderDetail'
 
 const PAGE_SIZE = 25
+/** Actualiza cortes del agente mientras el detalle de orden está abierto. */
+const ORDER_DETAIL_POLL_MS = 8000
 
 function formatOrderEstado(estado) {
   const e = String(estado ?? '').toUpperCase()
@@ -165,6 +167,51 @@ export function OrdersPage({ embedded = false }) {
     })
   }
 
+  const refreshOrderDetail = useCallback(async (orderId, { silent = false, isCancelled = () => false } = {}) => {
+    if (!silent) {
+      setDetailLoading(true)
+      setToolErr(null)
+    }
+    try {
+      const [d, cutsByOrder] = await Promise.all([
+        biesseApi.orderDetail(orderId),
+        systemApi.listAgentCutPieces({ orderId, limit: 500 }).catch(() => []),
+      ])
+      let cuts = Array.isArray(cutsByOrder) ? cutsByOrder : []
+      if (!cuts.length && d?.orderName) {
+        const recent = await systemApi.listAgentCutPieces({ limit: 200 }).catch(() => [])
+        const name = String(d.orderName).trim().toUpperCase()
+        cuts = (Array.isArray(recent) ? recent : []).filter((c) => {
+          const oid = Number(c.order_id ?? c.orderId)
+          if (Number.isFinite(oid) && oid === Number(orderId)) return true
+          const on = String(c.order_name ?? c.orderName ?? '').trim().toUpperCase()
+          return on && (on === name || on.startsWith(name) || name.startsWith(on))
+        })
+      }
+      if (!isCancelled() && d) {
+        const merged = applyAgentCutsToOrderDetail(d, cuts)
+        setDetail(merged)
+        setOrderEditNotes(merged?.observaciones ?? '')
+        setList((prev) =>
+          prev.map((row) =>
+            row.orderId === orderId
+              ? {
+                  ...row,
+                  estadoEscaneo: merged.estadoEscaneo ?? row.estadoEscaneo,
+                  partesEscaneadas: merged.partesEscaneadas ?? row.partesEscaneadas,
+                  totalPartes: merged.totalPartes ?? row.totalPartes,
+                }
+              : row,
+          ),
+        )
+      }
+    } catch {
+      if (!isCancelled() && !silent) setDetail(null)
+    } finally {
+      if (!isCancelled() && !silent) setDetailLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (selectedId == null) {
       setDetail(null)
@@ -172,53 +219,15 @@ export function OrdersPage({ embedded = false }) {
       return
     }
     let cancelled = false
-    ;(async () => {
-      setDetailLoading(true)
-      setToolErr(null)
-      try {
-        const [d, cutsByOrder] = await Promise.all([
-          biesseApi.orderDetail(selectedId),
-          systemApi.listAgentCutPieces({ orderId: selectedId, limit: 500 }).catch(() => []),
-        ])
-        let cuts = Array.isArray(cutsByOrder) ? cutsByOrder : []
-        // Si el monitor tiene el corte pero sin order_id (o con otro id), reintentar por nombre.
-        if (!cuts.length && d?.orderName) {
-          const recent = await systemApi.listAgentCutPieces({ limit: 200 }).catch(() => [])
-          const name = String(d.orderName).trim().toUpperCase()
-          cuts = (Array.isArray(recent) ? recent : []).filter((c) => {
-            const oid = Number(c.order_id ?? c.orderId)
-            if (Number.isFinite(oid) && oid === Number(selectedId)) return true
-            const on = String(c.order_name ?? c.orderName ?? '').trim().toUpperCase()
-            return on && (on === name || on.startsWith(name) || name.startsWith(on))
-          })
-        }
-        if (!cancelled && d) {
-          const merged = applyAgentCutsToOrderDetail(d, cuts)
-          setDetail(merged)
-          setOrderEditNotes(merged?.observaciones ?? '')
-          setList((prev) =>
-            prev.map((row) =>
-              row.orderId === selectedId
-                ? {
-                    ...row,
-                    estadoEscaneo: merged.estadoEscaneo ?? row.estadoEscaneo,
-                    partesEscaneadas: merged.partesEscaneadas ?? row.partesEscaneadas,
-                    totalPartes: merged.totalPartes ?? row.totalPartes,
-                  }
-                : row,
-            ),
-          )
-        }
-      } catch {
-        if (!cancelled) setDetail(null)
-      } finally {
-        if (!cancelled) setDetailLoading(false)
-      }
-    })()
+    refreshOrderDetail(selectedId, { silent: false, isCancelled: () => cancelled })
+    const timer = setInterval(() => {
+      refreshOrderDetail(selectedId, { silent: true, isCancelled: () => cancelled })
+    }, ORDER_DETAIL_POLL_MS)
     return () => {
       cancelled = true
+      clearInterval(timer)
     }
-  }, [selectedId])
+  }, [selectedId, refreshOrderDetail])
 
   useEffect(() => {
     if (selectedId == null) {
