@@ -21,7 +21,7 @@ import { applyAgentCutsToOrderDetail } from '../utils/applyAgentCutsToOrderDetai
 
 const PAGE_SIZE = 25
 /** Actualiza cortes del agente mientras el detalle de orden está abierto. */
-const ORDER_DETAIL_POLL_MS = 8000
+const ORDER_DETAIL_POLL_MS = 5000
 
 function formatOrderEstado(estado) {
   const e = String(estado ?? '').toUpperCase()
@@ -178,15 +178,27 @@ export function OrdersPage({ embedded = false }) {
         systemApi.listAgentCutPieces({ orderId, limit: 500 }).catch(() => []),
       ])
       let cuts = Array.isArray(cutsByOrder) ? cutsByOrder : []
-      if (!cuts.length && d?.orderName) {
+      // Siempre enriquecer con cortes recientes por nombre (order_id a veces null/desfasado).
+      if (d?.orderName) {
         const recent = await systemApi.listAgentCutPieces({ limit: 200 }).catch(() => [])
         const name = String(d.orderName).trim().toUpperCase()
-        cuts = (Array.isArray(recent) ? recent : []).filter((c) => {
+        const byName = (Array.isArray(recent) ? recent : []).filter((c) => {
           const oid = Number(c.order_id ?? c.orderId)
           if (Number.isFinite(oid) && oid === Number(orderId)) return true
           const on = String(c.order_name ?? c.orderName ?? '').trim().toUpperCase()
           return on && (on === name || on.startsWith(name) || name.startsWith(on))
         })
+        if (byName.length) {
+          const seen = new Set(
+            cuts.map((c) => String(c.cut_piece_id ?? c.cutPieceId ?? c.event_uid ?? c.eventUid ?? '')),
+          )
+          for (const c of byName) {
+            const key = String(c.cut_piece_id ?? c.cutPieceId ?? c.event_uid ?? c.eventUid ?? '')
+            if (key && seen.has(key)) continue
+            if (key) seen.add(key)
+            cuts.push(c)
+          }
+        }
       }
       if (!isCancelled() && d) {
         const merged = applyAgentCutsToOrderDetail(d, cuts)
