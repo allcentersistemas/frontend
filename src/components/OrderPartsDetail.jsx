@@ -12,16 +12,19 @@ const PART_FILTERS = [
  * - pendiente: sin cortar ni escanear (gris)
  * - error: fallo al capturar/mapear en agente (rojo) — solo visual
  * - cortada: agente marcó corte, aún no escaneada (ámbar)
+ * - recorte: cortada 2+ veces (morado)
  * - escaneada: escaneado (verde), con o sin corte
  */
-function pieceVisualStatus({ cortada, escaneado, corteError }) {
+function pieceVisualStatus({ cortada, escaneado, corteError, corteCount }) {
   if (Boolean(escaneado)) return 'scanned'
+  if (Boolean(cortada) && Number(corteCount) >= 2) return 'recorte'
   if (Boolean(cortada)) return 'cut'
   if (Boolean(corteError)) return 'error'
   return 'pending'
 }
 
 function pieceClassName(status) {
+  if (status === 'recorte') return 'order-piece order-piece--recorte'
   if (status === 'cut') return 'order-piece order-piece--cut'
   if (status === 'scanned') return 'order-piece order-piece--ok'
   if (status === 'error') return 'order-piece order-piece--error'
@@ -29,6 +32,11 @@ function pieceClassName(status) {
 }
 
 function pieceTitle(z, status) {
+  if (status === 'recorte') {
+    const n = Number(z.corteCount) || 2
+    const por = z.cortadaPor ? ` (${z.cortadaPor})` : ''
+    return `Recorte ×${n}${por} · pendiente de escaneo`
+  }
   if (status === 'cut') {
     const por = z.cortadaPor ? ` (${z.cortadaPor})` : ''
     return `Cortada${por} · pendiente de escaneo`
@@ -150,6 +158,7 @@ export function OrderPartsDetail({ partes = [] }) {
       <p className="order-pieces-legend small muted" aria-label="Leyenda de colores de piezas">
         <span className="order-piece order-piece--pending order-piece--legend">Pendiente</span>
         <span className="order-piece order-piece--cut order-piece--legend">Cortada</span>
+        <span className="order-piece order-piece--recorte order-piece--legend">Recorte 2×</span>
         <span className="order-piece order-piece--error order-piece--legend">Error captura</span>
         <span className="order-piece order-piece--ok order-piece--legend">Escaneada</span>
       </p>

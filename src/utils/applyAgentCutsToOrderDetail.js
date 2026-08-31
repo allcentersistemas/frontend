@@ -49,7 +49,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     }
   }
 
-  /** partId → Map(pieceNum → { por, error, errorMsg }) */
+  /** partId → Map(pieceNum → { por, error, errorMsg, count }) */
   const cutByPart = new Map()
   const sequentialNext = new Map()
 
@@ -57,6 +57,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
 
   for (const cut of sorted) {
     const unit = String(cut.unit_code ?? cut.unitCode ?? '')
+    const eventUid = String(cut.event_uid ?? cut.eventUid ?? '')
     let partId = Number(cut.part_id ?? cut.partId)
     const unmapped = isUnmappedCut(cut)
 
@@ -67,8 +68,13 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     }
     if (!Number.isFinite(partId) || partId <= 0) continue
 
-    const qty = cantidadByPartId.get(partId) ?? 0
+    // status-cut sin sufijo -N: no inventar avance visual 1..cantidad
     let pieceNum = pieceNumFromUnitCode(unit)
+    if ((!Number.isFinite(pieceNum) || pieceNum <= 0) && eventUid.toLowerCase().startsWith('status-cut-')) {
+      continue
+    }
+
+    const qty = cantidadByPartId.get(partId) ?? 0
     if (!Number.isFinite(pieceNum) || pieceNum <= 0) {
       const next = (sequentialNext.get(partId) ?? 0) + 1
       if (qty > 0 && next > qty) {
@@ -87,12 +93,15 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
 
     const machine = cut.machine_name ?? cut.machineName ?? null
     if (!cutByPart.has(partId)) cutByPart.set(partId, new Map())
+    const prev = cutByPart.get(partId).get(pieceNum)
+    const count = (prev?.count ?? 0) + 1
     cutByPart.get(partId).set(pieceNum, {
-      por: machine,
-      error: unmapped,
+      por: machine ?? prev?.por ?? null,
+      error: unmapped || Boolean(prev?.error),
       errorMsg: unmapped
         ? `Sin mapeo ERP (${String(cut.osi_part_id ?? cut.osiPartId ?? '').slice(0, 80)})`
-        : null,
+        : (prev?.errorMsg ?? null),
+      count,
     })
   }
 
@@ -115,6 +124,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
         cortadaPor: null,
         corteError: false,
         corteErrorMsg: null,
+        corteCount: 0,
       }))
     }
 
@@ -138,6 +148,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
           cortadaPor: null,
           corteError: false,
           corteErrorMsg: null,
+          corteCount: 0,
         })
       }
       piezas.sort((a, b) => Number(a.numeroPieza) - Number(b.numeroPieza))
@@ -149,21 +160,23 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
         const n = Number(z.numeroPieza)
         if (!cutMap.has(n)) return z
         if (scheduled > 0 && n > scheduled) return z
-        if (z.escaneado || z.cortada) return z
+        if (z.escaneado) return z
         const info = cutMap.get(n)
-        if (info?.error) {
+        if (info?.error && !z.cortada) {
           return {
             ...z,
             corteError: true,
             corteErrorMsg: info.errorMsg ?? z.corteErrorMsg ?? 'Error al capturar',
           }
         }
+        const count = Math.max(Number(z.corteCount) || 0, info?.count ?? 1)
         return {
           ...z,
           cortada: true,
           cortadaPor: info?.por ?? z.cortadaPor ?? null,
           corteError: false,
           corteErrorMsg: null,
+          corteCount: count,
         }
       }),
     }
