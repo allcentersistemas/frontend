@@ -120,6 +120,8 @@ export async function orderDetail(orderId) {
             cortada: toBool(z.cortada),
             cortadaAt: z.cortada_at ?? z.cortadaAt ?? null,
             cortadaPor: z.cortada_por ?? z.cortadaPor ?? null,
+            corteError: toBool(z.corte_error ?? z.corteError),
+            corteErrorMsg: z.corte_error_msg ?? z.corteErrorMsg ?? null,
           }))
         : Array.from({ length: Math.max(scheduled, 1) }, (_, i) => ({
             piezaId: null,
@@ -129,6 +131,8 @@ export async function orderDetail(orderId) {
             cortada: false,
             cortadaAt: null,
             cortadaPor: null,
+            corteError: false,
+            corteErrorMsg: null,
           }))
     // Si hay plan, rellenar huecos 1..cantidad sin inventar más allá.
     if (scheduled > 0) {
@@ -144,6 +148,8 @@ export async function orderDetail(orderId) {
             cortada: false,
             cortadaAt: null,
             cortadaPor: null,
+            corteError: false,
+            corteErrorMsg: null,
           },
         )
       }

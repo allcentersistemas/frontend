@@ -24,9 +24,14 @@ function cutSortKey(cut) {
   return Number(cut.cut_piece_id ?? cut.cutPieceId) || 0
 }
 
+function isUnmappedCut(cut) {
+  const status = String(cut.map_status ?? cut.mapStatus ?? '').toUpperCase()
+  return status === 'UNMAPPED' || status === 'ERROR' || status === 'PART_UNMAPPED'
+}
+
 /**
- * Respaldo visual: solo marca cortada en memoria si la BD aún no la tiene.
- * Tras desplegar module-biesse, el detalle ya trae {@code cortada} desde la BD.
+ * Respaldo visual: marca cortada / error de captura en memoria si la BD aún no lo tiene.
+ * No inventa piezas fuera de cantidad. No afecta PRODUCCION.
  */
 export function applyAgentCutsToOrderDetail(detail, cuts) {
   if (!detail || !Array.isArray(cuts) || !cuts.length) return detail
@@ -44,7 +49,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     }
   }
 
-  /** partId → Map(pieceNum → cortadaPor) */
+  /** partId → Map(pieceNum → { por, error, errorMsg }) */
   const cutByPart = new Map()
   const sequentialNext = new Map()
 
@@ -53,6 +58,7 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
   for (const cut of sorted) {
     const unit = String(cut.unit_code ?? cut.unitCode ?? '')
     let partId = Number(cut.part_id ?? cut.partId)
+    const unmapped = isUnmappedCut(cut)
 
     if (!Number.isFinite(partId) || partId <= 0) {
       const partNum =
@@ -64,18 +70,30 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     const qty = cantidadByPartId.get(partId) ?? 0
     let pieceNum = pieceNumFromUnitCode(unit)
     if (!Number.isFinite(pieceNum) || pieceNum <= 0) {
-      // Sin -P##-N en unit_code: asignar secuencial SOLO dentro de cantidad.
       const next = (sequentialNext.get(partId) ?? 0) + 1
-      if (qty > 0 && next > qty) continue
-      pieceNum = next
+      if (qty > 0 && next > qty) {
+        if (unmapped && qty > 0) pieceNum = qty
+        else continue
+      } else {
+        pieceNum = next
+      }
     }
-    if (qty > 0 && pieceNum > qty) continue
+    if (qty > 0 && pieceNum > qty) {
+      if (unmapped) pieceNum = qty
+      else continue
+    }
 
     sequentialNext.set(partId, Math.max(sequentialNext.get(partId) ?? 0, pieceNum))
 
     const machine = cut.machine_name ?? cut.machineName ?? null
     if (!cutByPart.has(partId)) cutByPart.set(partId, new Map())
-    cutByPart.get(partId).set(pieceNum, machine)
+    cutByPart.get(partId).set(pieceNum, {
+      por: machine,
+      error: unmapped,
+      errorMsg: unmapped
+        ? `Sin mapeo ERP (${String(cut.osi_part_id ?? cut.osiPartId ?? '').slice(0, 80)})`
+        : null,
+    })
   }
 
   if (!cutByPart.size) return detail
@@ -95,10 +113,11 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
         cortada: false,
         cortadaAt: null,
         cortadaPor: null,
+        corteError: false,
+        corteErrorMsg: null,
       }))
     }
 
-    // Nunca inventar piezas por encima de la cantidad del plan.
     if (scheduled > 0) {
       piezas = piezas.filter((z) => {
         const n = Number(z.numeroPieza)
@@ -117,6 +136,8 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
           cortada: false,
           cortadaAt: null,
           cortadaPor: null,
+          corteError: false,
+          corteErrorMsg: null,
         })
       }
       piezas.sort((a, b) => Number(a.numeroPieza) - Number(b.numeroPieza))
@@ -126,13 +147,23 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
       ...part,
       piezas: piezas.map((z) => {
         const n = Number(z.numeroPieza)
-        if (!cutMap.has(n) || z.cortada) return z
+        if (!cutMap.has(n)) return z
         if (scheduled > 0 && n > scheduled) return z
-        const por = cutMap.get(n)
+        if (z.escaneado || z.cortada) return z
+        const info = cutMap.get(n)
+        if (info?.error) {
+          return {
+            ...z,
+            corteError: true,
+            corteErrorMsg: info.errorMsg ?? z.corteErrorMsg ?? 'Error al capturar',
+          }
+        }
         return {
           ...z,
           cortada: true,
-          cortadaPor: por ?? z.cortadaPor ?? null,
+          cortadaPor: info?.por ?? z.cortadaPor ?? null,
+          corteError: false,
+          corteErrorMsg: null,
         }
       }),
     }

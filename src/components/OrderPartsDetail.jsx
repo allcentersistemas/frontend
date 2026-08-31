@@ -10,18 +10,21 @@ const PART_FILTERS = [
 /**
  * Prioridad visual del número de pieza:
  * - pendiente: sin cortar ni escanear (gris)
+ * - error: fallo al capturar/mapear en agente (rojo) — solo visual
  * - cortada: agente marcó corte, aún no escaneada (ámbar)
  * - escaneada: escaneado (verde), con o sin corte
  */
-function pieceVisualStatus({ cortada, escaneado }) {
+function pieceVisualStatus({ cortada, escaneado, corteError }) {
   if (Boolean(escaneado)) return 'scanned'
   if (Boolean(cortada)) return 'cut'
+  if (Boolean(corteError)) return 'error'
   return 'pending'
 }
 
 function pieceClassName(status) {
   if (status === 'cut') return 'order-piece order-piece--cut'
   if (status === 'scanned') return 'order-piece order-piece--ok'
+  if (status === 'error') return 'order-piece order-piece--error'
   return 'order-piece order-piece--pending'
 }
 
@@ -32,6 +35,9 @@ function pieceTitle(z, status) {
   }
   if (status === 'scanned') {
     return z.cortada ? 'Cortada y escaneada' : 'Escaneada'
+  }
+  if (status === 'error') {
+    return z.corteErrorMsg ? `Error captura: ${z.corteErrorMsg}` : 'Error al capturar (sin mapeo ERP)'
   }
   return 'Pendiente (sin corte ni escaneo)'
 }
@@ -144,6 +150,7 @@ export function OrderPartsDetail({ partes = [] }) {
       <p className="order-pieces-legend small muted" aria-label="Leyenda de colores de piezas">
         <span className="order-piece order-piece--pending order-piece--legend">Pendiente</span>
         <span className="order-piece order-piece--cut order-piece--legend">Cortada</span>
+        <span className="order-piece order-piece--error order-piece--legend">Error captura</span>
         <span className="order-piece order-piece--ok order-piece--legend">Escaneada</span>
       </p>
 
@@ -215,7 +222,7 @@ export function OrderPartsDetail({ partes = [] }) {
                     {Array.from({ length: scheduled }, (_, i) => {
                       const n = i + 1
                       // Sin filas en piezas: solo se puede inferir escaneo por cantidad_escaneada.
-                      const z = { cortada: false, escaneado: n <= scanned }
+                      const z = { cortada: false, escaneado: n <= scanned, corteError: false }
                       const visual = pieceVisualStatus(z)
                       return (
                         <span
