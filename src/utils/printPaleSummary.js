@@ -2,6 +2,8 @@
  * Resumen pale / orden de envío: imprimir o descargar PDF (A4 vertical).
  */
 
+import { formatDimPair, formatMedidaText } from './formatDim.js'
+
 function esc(s) {
   if (s == null || s === '') return '—'
   return String(s)
@@ -53,7 +55,11 @@ function piezasPlanParte(line) {
 }
 
 function partMedida(line) {
-  return line.medida ?? null
+  const lon = line.longitud ?? line.longitudParte ?? line.longitud_parte
+  const ancho = line.ancho ?? line.anchoParte ?? line.ancho_parte
+  const fromRaw = formatDimPair(lon, ancho)
+  if (fromRaw) return fromRaw
+  return formatMedidaText(line.medida)
 }
 
 function pieceNumber(line) {

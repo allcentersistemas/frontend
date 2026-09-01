@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatDimPair } from '../utils/formatDim.js'
 
 const PART_FILTERS = [
   { id: 'all', label: 'Todas' },
@@ -205,7 +206,7 @@ export function OrderPartsDetail({ partes = [] }) {
                   ) : null}
                   {hasMeasures ? (
                     <span>
-                      <strong>Medidas:</strong> {longitud ?? '—'} × {ancho ?? '—'}
+                      <strong>Medidas:</strong> {formatDimPair(longitud, ancho) ?? '—'}
                     </span>
                   ) : null}
                 </div>

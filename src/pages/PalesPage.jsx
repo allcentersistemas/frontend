@@ -16,6 +16,7 @@ import {
   downloadPalletOrderSummaryPdf,
   printPalletOrderSummary,
 } from '../utils/printPaleSummary.js'
+import { formatDimPair, formatMedidaText } from '../utils/formatDim.js'
 
 const PALE_ESTADOS = ['ABIERTO', 'CERRADO', 'EN_TRANSITO', 'ENTREGADO', 'CANCELADO']
 
@@ -58,7 +59,11 @@ function piezasPlanParte(line) {
 }
 
 function partMedida(line) {
-  return line.medida ?? null
+  const lon = line.longitud ?? line.longitudParte ?? line.longitud_parte
+  const ancho = line.ancho ?? line.anchoParte ?? line.ancho_parte
+  const fromRaw = formatDimPair(lon, ancho)
+  if (fromRaw) return fromRaw
+  return formatMedidaText(line.medida)
 }
 
 function pieceFractionText(line) {

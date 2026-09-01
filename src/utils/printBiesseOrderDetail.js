@@ -3,6 +3,8 @@
  * Ventana propia: A4 vertical por defecto; el usuario puede cambiar orientación en el diálogo del navegador.
  */
 
+import { formatDimPair, formatMedidaText } from './formatDim.js'
+
 function esc(s) {
   if (s == null || s === '') return '—'
   return String(s)
@@ -70,9 +72,9 @@ export function printBiesseOrderDetail(detail) {
         : '<span class="muted">Sin piezas</span>'
 
       const measures =
-        part.largo != null || part.ancho != null
-          ? `${part.largo ?? '—'} × ${part.ancho ?? '—'}`
-          : part.medidas ?? '—'
+        part.largo != null || part.ancho != null || part.longitud != null
+          ? formatDimPair(part.largo ?? part.longitud, part.ancho) ?? '—'
+          : formatMedidaText(part.medidas) ?? '—'
 
       return `
       <section class="part">
