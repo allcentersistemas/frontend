@@ -1264,12 +1264,21 @@ export async function listAgentBoardsHistory({ from, to, machineId, limit = 100 
   return systemJson(`/api/biesse/monitor/boards/history?${q}`)
 }
 
-/** Resumen de planchas por máquina en rango de fechas. */
-export async function listAgentBoardsSummary({ from, to } = {}) {
+/** Resumen de planchas por máquina en rango de fechas (respeta machineId). */
+export async function listAgentBoardsSummary({ from, to, machineId } = {}) {
   const q = new URLSearchParams()
   if (from) q.set('from', String(from))
   if (to) q.set('to', String(to))
+  if (machineId != null && machineId !== '') q.set('machineId', String(machineId))
   return systemJson(`/api/biesse/monitor/boards/summary?${q}`)
+}
+
+/**
+ * Canal en vivo (SSE) del monitor de seccionadoras.
+ * Eventos: connected, snapshot, update, ping. Payload: { machines, boards_live, server_time }.
+ */
+export function streamAgentMonitor({ onEvent, signal } = {}) {
+  return systemEventStream('/api/biesse/monitor/stream', { onEvent, signal })
 }
 
 export async function listAgentTrazabilidad({ op, orderId, limit = 100 } = {}) {

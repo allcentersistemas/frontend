@@ -81,14 +81,18 @@ export function BiesseMonitorPanel() {
   const [boardsFrom, setBoardsFrom] = useState(() => daysAgoLocalISO(7))
   const [boardsTo, setBoardsTo] = useState(() => toLocalISODate())
   const [boardsMachineId, setBoardsMachineId] = useState('')
+  const [boardsHistoryTotal, setBoardsHistoryTotal] = useState(null)
   const [events, setEvents] = useState([])
   const [cuts, setCuts] = useState([])
   const [cutTimes, setCutTimes] = useState([])
   const [cutSummary, setCutSummary] = useState([])
+  const [cutOpFilter, setCutOpFilter] = useState('')
+  const [cutOpApplied, setCutOpApplied] = useState('')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
   const [lastMachinesAt, setLastMachinesAt] = useState(null)
+  const [liveConnected, setLiveConnected] = useState(false)
 
   const staleMs = (monitorConfig?.onlineStaleSeconds ?? 90) * 1000
   const minAgentVersion = monitorConfig?.minAgentVersion ?? '1.7.0'
@@ -149,24 +153,30 @@ export function BiesseMonitorPanel() {
           .listAgentBoardsSummary({
             from: boardsFrom || undefined,
             to: boardsTo || undefined,
+            machineId: boardsMachineId || undefined,
           })
           .catch(() => null),
       ])
       setBoardsHistory(Array.isArray(hist?.items) ? hist.items : [])
+      setBoardsHistoryTotal(
+        typeof hist?.total_boards === 'number' ? hist.total_boards : null,
+      )
       setBoardsSummary(sum && typeof sum === 'object' ? sum : null)
     } catch {
       setBoardsHistory([])
+      setBoardsHistoryTotal(null)
       setBoardsSummary(null)
     }
   }, [boardsFrom, boardsTo, boardsMachineId])
 
   const loadEvents = useCallback(async () => {
+    const op = cutOpApplied.trim() || undefined
     try {
       const [e, c, t, s, summary, alarmRows] = await Promise.all([
         systemApi.listAgentEvents(100).catch(() => []),
         systemApi.listAgentCutPieces({ limit: 40 }).catch(() => []),
-        systemApi.listAgentCutTimes({ limit: 40 }).catch(() => []),
-        systemApi.listAgentCutTimesSummary({ limit: 30 }).catch(() => []),
+        systemApi.listAgentCutTimes({ op, limit: 80 }).catch(() => []),
+        systemApi.listAgentCutTimesSummary({ op, limit: 50 }).catch(() => []),
         systemApi.listAgentEventsSummary(24).catch(() => []),
         systemApi.listAgentAlarms(30).catch(() => []),
       ])
@@ -182,15 +192,90 @@ export function BiesseMonitorPanel() {
       setCutTimes([])
       setCutSummary([])
     }
+  }, [cutOpApplied])
+
+  const applyLiveSnapshot = useCallback((payload) => {
+    if (!payload || typeof payload !== 'object') return
+    const list = Array.isArray(payload.machines) ? [...payload.machines] : null
+    if (list) {
+      list.sort((a, b) => {
+        const idA = Number(a.machine_id ?? a.machineId ?? 0)
+        const idB = Number(b.machine_id ?? b.machineId ?? 0)
+        return idA - idB
+      })
+      setMachines(list)
+    }
+    const live = payload.boards_live ?? payload.boardsLive
+    if (live && typeof live === 'object') {
+      setBoardsLive(live)
+    }
+    setLastMachinesAt(Date.now())
+    setErr(null)
+    setLoading(false)
   }, [])
 
   const load = useCallback(async () => {
     await Promise.all([loadMonitorConfig(), loadMachines(), loadEvents(), loadBoardsHistory()])
   }, [loadMonitorConfig, loadMachines, loadEvents, loadBoardsHistory])
 
+  // Canal en vivo (SSE). Si falla, polling HTTP de respaldo.
+  useEffect(() => {
+    let cancelled = false
+    let reconnectTimer = null
+    const abort = new AbortController()
+
+    const connect = async () => {
+      if (cancelled) return
+      try {
+        await systemApi.streamAgentMonitor({
+          signal: abort.signal,
+          onEvent: ({ event, data }) => {
+            if (cancelled) return
+            if (event === 'connected') {
+              setLiveConnected(true)
+              return
+            }
+            if (event === 'snapshot' || event === 'update') {
+              applyLiveSnapshot(data)
+              setLiveConnected(true)
+            }
+          },
+        })
+      } catch {
+        if (cancelled || abort.signal.aborted) return
+        setLiveConnected(false)
+        void loadMachines()
+        reconnectTimer = window.setTimeout(() => {
+          void connect()
+        }, 5_000)
+        return
+      }
+      if (!cancelled && !abort.signal.aborted) {
+        setLiveConnected(false)
+        reconnectTimer = window.setTimeout(() => {
+          void connect()
+        }, 3_000)
+      }
+    }
+
+    void connect()
+    return () => {
+      cancelled = true
+      setLiveConnected(false)
+      abort.abort()
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+    }
+  }, [applyLiveSnapshot, loadMachines])
+
   useEffect(() => {
     void load()
-    const machinesPoll = window.setInterval(() => void loadMachines(), machinesPollMs)
+  }, [load])
+
+  useEffect(() => {
+    // Polling de respaldo: más lento si el SSE está vivo
+    const machinesPoll = window.setInterval(() => {
+      if (!liveConnected) void loadMachines()
+    }, liveConnected ? Math.max(machinesPollMs, 15_000) : machinesPollMs)
     const eventsPoll = window.setInterval(() => {
       void loadEvents()
       void loadBoardsHistory()
@@ -199,7 +284,7 @@ export function BiesseMonitorPanel() {
       window.clearInterval(machinesPoll)
       window.clearInterval(eventsPoll)
     }
-  }, [load, loadMachines, loadEvents, loadBoardsHistory, machinesPollMs, eventsPollMs])
+  }, [loadMachines, loadEvents, loadBoardsHistory, machinesPollMs, eventsPollMs, liveConnected])
 
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 1000)
@@ -216,8 +301,21 @@ export function BiesseMonitorPanel() {
             <h1 className="card__title">Seccionadores</h1>
             <p className="muted small" style={{ marginTop: '0.35rem' }}>
               Monitoreo en vivo del agente OSI (<code>agente_biesse_win10</code>): estados, tiempos,
-              planchas, eventos y cortes. Máquinas cada {machinesPollMs / 1000}s; eventos/cortes cada{' '}
-              {eventsPollMs / 1000}s. TTL online: {monitorConfig?.onlineStaleSeconds ?? 90}s. Para crear máquinas o rotar tokens use Gestión → Configuración.
+              planchas, eventos y cortes. Canal en vivo (SSE)
+              {liveConnected ? (
+                <>
+                  {' '}
+                  <span className="seguimiento-live" title="Canal en vivo conectado">
+                    <span className="seguimiento-live__dot" aria-hidden />
+                    conectado
+                  </span>
+                </>
+              ) : (
+                <> · respaldo HTTP cada {machinesPollMs / 1000}s</>
+              )}
+              ; eventos/cortes cada {eventsPollMs / 1000}s. TTL online:{' '}
+              {monitorConfig?.onlineStaleSeconds ?? 90}s. Para crear máquinas o rotar tokens use Gestión →
+              Configuración.
             </p>
             {lastMachinesAt ? (
               <p className="small muted" style={{ marginTop: '0.25rem' }} role="status">
@@ -314,7 +412,13 @@ export function BiesseMonitorPanel() {
           const started = m.job_started_at ?? m.jobStartedAt
           const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
           const hbRel = heartbeatAgo(hbAt, { coarse: !online })
-          const dur = String(stateRaw).toUpperCase() === 'RUN' && online ? durationLive(started) : null
+          // Tiempo en curso si hay ventana abierta (aunque el estado OSI no diga RUN).
+          const dur =
+            online && started
+              ? durationLive(started)
+              : String(stateRaw).toUpperCase() === 'RUN' && online
+                ? durationLive(started)
+                : null
           const health = m.health_status ?? m.healthStatus ?? 'OK'
           const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
           const agentVer = m.agent_version ?? m.agentVersion
@@ -387,8 +491,10 @@ export function BiesseMonitorPanel() {
                 </div>
                 {dur ? (
                   <div>
-                    <dt>Tiempo de corte</dt>
-                    <dd>{dur}</dd>
+                    <dt>Tiempo cortando</dt>
+                    <dd>
+                      <strong>{dur}</strong>
+                    </dd>
                   </div>
                 ) : null}
                 <div>
@@ -447,6 +553,7 @@ export function BiesseMonitorPanel() {
                 <th>Seccionador</th>
                 <th>Estado</th>
                 <th>Job</th>
+                <th>Tiempo cortando</th>
                 <th>Planchas sesión</th>
                 <th>Planchas hoy</th>
               </tr>
@@ -454,6 +561,8 @@ export function BiesseMonitorPanel() {
             <tbody>
               {(boardsLive?.machines ?? []).map((row) => {
                 const rowOnline = isEffectivelyOnline(row, staleMs)
+                const cutting =
+                  rowOnline && row.job_started_at ? durationLive(row.job_started_at) : null
                 return (
                 <tr key={row.machine_id}>
                   <td className="small">
@@ -472,6 +581,7 @@ export function BiesseMonitorPanel() {
                     <span className={stateTag(row.state)}>{formatMachineState(row.state, isEffectivelyOnline(row, staleMs))}</span>
                   </td>
                   <td className="small">{row.job_name || '—'}</td>
+                  <td className="small">{cutting ? <strong>{cutting}</strong> : '—'}</td>
                   <td className="small">
                     <strong>{row.boards_done ?? 0}</strong>
                   </td>
@@ -553,6 +663,7 @@ export function BiesseMonitorPanel() {
             <div className="small muted">Total en rango</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
               {boardsSummary?.grand_total
+                ?? boardsHistoryTotal
                 ?? boardsHistory.reduce((acc, r) => acc + (Number(r.boards_delta) || 0), 0)}
             </div>
           </div>
@@ -692,6 +803,46 @@ export function BiesseMonitorPanel() {
         <h2 className="card__title pad" style={{ fontSize: '1rem', marginBottom: 0 }}>
           Historial de corte por obra
         </h2>
+        <p className="muted small pad" style={{ marginTop: 0, paddingBottom: 0 }}>
+          Duración total que demoró cada obra (suma de ventanas CORTE_FIN). Filtre por OP si quiere
+          acotar.
+        </p>
+        <div
+          className="pad"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}
+        >
+          <label className="field">
+            <span className="small">OP / buscar</span>
+            <input
+              type="text"
+              placeholder="S14783"
+              value={cutOpFilter}
+              onChange={(e) => setCutOpFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setCutOpApplied(cutOpFilter.trim())
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => setCutOpApplied(cutOpFilter.trim())}
+          >
+            Filtrar tiempos
+          </button>
+          {cutOpApplied ? (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                setCutOpFilter('')
+                setCutOpApplied('')
+              }}
+            >
+              Limpiar
+            </button>
+          ) : null}
+        </div>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -712,7 +863,9 @@ export function BiesseMonitorPanel() {
                     {row.orderid != null ? <div className="muted">#{row.orderid}</div> : null}
                     {row.op_codigo ? <div className="muted">{row.op_codigo}</div> : null}
                   </td>
-                  <td className="small">{row.total_duration_label || '0s'}</td>
+                  <td className="small">
+                    <strong>{row.total_duration_label || '0s'}</strong>
+                  </td>
                   <td className="small">{row.sessions ?? 0}</td>
                   <td className="small">
                     {Array.isArray(row.seccionadores) && row.seccionadores.length

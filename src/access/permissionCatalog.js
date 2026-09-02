@@ -61,6 +61,7 @@ export const ENDPOINT_CATALOG = [
     feature: FEATURE.BIESSE_ORDERS,
     endpoints: [
       ['GET', '/api/biesse/monitor/machines'],
+      ['GET', '/api/biesse/monitor/stream'],
       ['GET', '/api/biesse/monitor/events'],
       ['GET', '/api/biesse/monitor/cut-pieces'],
       ['GET', '/api/biesse/monitor/boards/live'],
