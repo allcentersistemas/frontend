@@ -182,5 +182,27 @@ export function applyAgentCutsToOrderDetail(detail, cuts) {
     }
   })
 
-  return { ...detail, partes }
+  let totalPiezas = 0
+  let piezasCortadas = 0
+  for (const part of partes) {
+    const scheduled = Math.max(Number(part.cantidad) || 0, 0)
+    totalPiezas += scheduled
+    const piezas = Array.isArray(part.piezas) ? part.piezas : []
+    piezasCortadas += piezas.filter((z) => {
+      const n = Number(z.numeroPieza)
+      const inPlan = scheduled <= 0 || (Number.isFinite(n) && n >= 1 && n <= scheduled)
+      return inPlan && Boolean(z.cortada)
+    }).length
+  }
+  const porcentajeCorte =
+    totalPiezas > 0 ? Math.round((piezasCortadas * 1000) / totalPiezas) / 10 : 0
+
+  return {
+    ...detail,
+    partes,
+    totalPiezas: totalPiezas || detail.totalPiezas,
+    piezasCortadas,
+    porcentajeCorte,
+    avanceCorteLabel: `${piezasCortadas}/${totalPiezas || detail.totalPiezas || 0} cortes`,
+  }
 }

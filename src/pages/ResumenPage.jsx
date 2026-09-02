@@ -107,22 +107,28 @@ export function ResumenPage() {
     }
   }, [showPage, showVentas, activeTab])
 
-  const loadSeguimiento = useCallback(async () => {
-    setSeguimientoLoading(true)
+  const loadSeguimiento = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
       const list = await systemApi.listObrasSeguimiento({ since: seguimientoSince })
       setSeguimiento(Array.isArray(list) ? list : [])
     } catch (e) {
-      setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
+      if (!silent) {
+        setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
+      }
     } finally {
-      setSeguimientoLoading(false)
+      if (!silent) setSeguimientoLoading(false)
     }
   }, [seguimientoSince])
 
   useEffect(() => {
     if (!showPage || activeTab !== 'seguimiento') return
     void loadSeguimiento()
+    const timer = window.setInterval(() => {
+      void loadSeguimiento({ silent: true })
+    }, 12000)
+    return () => window.clearInterval(timer)
   }, [showPage, activeTab, loadSeguimiento])
 
   if (!showPage) {
@@ -205,7 +211,7 @@ export function ResumenPage() {
             loading={seguimientoLoading}
             since={seguimientoSince}
             onSinceChange={setSeguimientoSince}
-            onRefresh={loadSeguimiento}
+            onRefresh={() => loadSeguimiento()}
           />
         </>
       ) : null}

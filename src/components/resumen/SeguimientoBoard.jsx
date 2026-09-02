@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 const SEGUIMIENTO_COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({ id }))
-
 const DEFAULT_SINCE = '2026-08-26'
+const FLIGHT_MS = 1600
+const ARRIVE_MS = 2200
 
 function normalizeObraEstado(raw) {
   const e = String(raw ?? '')
@@ -13,6 +14,37 @@ function normalizeObraEstado(raw) {
   if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'LISTO_PARA_ENTREGAR'
   if (e === 'EN_PROCESO') return 'DESPACHO'
   return e
+}
+
+function obraId(o) {
+  return o.orderId ?? o.orderid
+}
+
+function obraName(o) {
+  const id = obraId(o)
+  return o.orderName ?? o.ordername ?? (id != null ? `Obra #${id}` : 'Obra')
+}
+
+function clampPct(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return 0
+  return Math.max(0, Math.min(100, v))
+}
+
+function ProgressRow({ label, pct, detail, tone = 'scan' }) {
+  const value = clampPct(pct)
+  return (
+    <div className={`seguimiento-progress seguimiento-progress--${tone}`}>
+      <div className="seguimiento-progress__head">
+        <span>{label}</span>
+        <span className="seguimiento-progress__pct">{value.toFixed(value % 1 ? 1 : 0)}%</span>
+      </div>
+      <div className="seguimiento-progress__track" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
+        <span className="seguimiento-progress__fill" style={{ width: `${value}%` }} />
+      </div>
+      {detail ? <span className="seguimiento-progress__detail muted">{detail}</span> : null}
+    </div>
+  )
 }
 
 /**
@@ -39,6 +71,11 @@ export function SeguimientoBoard({
     setSinceDraft(sinceValue)
   }
 
+  const prevEstadosRef = useRef(new Map())
+  const primedRef = useRef(false)
+  const [flights, setFlights] = useState([])
+  const [arrived, setArrived] = useState(() => new Set())
+
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(ESTADOS_SEGUIMIENTO.map((e) => [e, []]))
     for (const o of obras) {
@@ -48,12 +85,69 @@ export function SeguimientoBoard({
     return map
   }, [obras])
 
+  useEffect(() => {
+    const prev = prevEstadosRef.current
+    const next = new Map()
+    const newFlights = []
+    const newlyArrived = []
+
+    for (const o of obras) {
+      const id = obraId(o)
+      if (id == null) continue
+      const estado = normalizeObraEstado(o.estadoEscaneo ?? o.estado_escaneo ?? o.estado)
+      next.set(String(id), estado)
+      const old = prev.get(String(id))
+      if (primedRef.current && old && old !== estado) {
+        const fromIdx = ESTADOS_SEGUIMIENTO.indexOf(old)
+        const toIdx = ESTADOS_SEGUIMIENTO.indexOf(estado)
+        if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
+          newFlights.push({
+            key: `${id}-${old}-${estado}-${Date.now()}`,
+            id,
+            name: obraName(o),
+            fromIdx,
+            toIdx,
+          })
+          newlyArrived.push(String(id))
+        }
+      }
+    }
+
+    prevEstadosRef.current = next
+    if (!primedRef.current && obras.length >= 0) {
+      primedRef.current = true
+    }
+
+    if (newFlights.length) {
+      setFlights((f) => [...f, ...newFlights].slice(-8))
+      setArrived((prevSet) => {
+        const s = new Set(prevSet)
+        for (const id of newlyArrived) s.add(id)
+        return s
+      })
+      const clearArrive = window.setTimeout(() => {
+        setArrived((prevSet) => {
+          const s = new Set(prevSet)
+          for (const id of newlyArrived) s.delete(id)
+          return s
+        })
+      }, ARRIVE_MS)
+      return () => window.clearTimeout(clearArrive)
+    }
+  }, [obras])
+
+  function dismissFlight(key) {
+    setFlights((f) => f.filter((x) => x.key !== key))
+  }
+
   function applySince(e) {
     e?.preventDefault?.()
     const value = String(sinceDraft || '').trim()
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return
     onSinceChange?.(value)
   }
+
+  const steps = ESTADOS_SEGUIMIENTO.length
 
   return (
     <div className="dash">
@@ -100,47 +194,96 @@ export function SeguimientoBoard({
       ) : null}
 
       {!loading || obras.length ? (
-        <div className="seguimiento-board">
-          {SEGUIMIENTO_COLUMNS.map((col) => (
-            <section key={col.id} className="seguimiento-col card">
-              <h2 className="seguimiento-col__title">
-                <span className={estadoTagClass(col.id)}>{formatEstadoProyecto(col.id)}</span>
-                <span className="muted small">{byEstado[col.id]?.length ?? 0}</span>
-              </h2>
-              <ul className="seguimiento-col__list">
-                {(byEstado[col.id] ?? []).length === 0 ? (
-                  <li className="muted small">Sin obras</li>
-                ) : (
-                  (byEstado[col.id] ?? []).map((o) => {
-                    const id = o.orderId ?? o.orderid
-                    const name = o.orderName ?? o.ordername ?? `Obra #${id}`
-                    const op = o.opCodigo ?? o.op_codigo
-                    const booking = o.bookingCode ?? o.bookingcode
-                    const pct = o.porcentaje
-                    const avance = o.avanceLabel ?? o.avance_label
-                    const seccionador = o.seccionador
-                    return (
-                      <li key={id} className="seguimiento-card">
-                        <strong>{name}</strong>
-                        {op ? <span className="muted small">OP {op}</span> : null}
-                        {booking ? <span className="muted small">{booking}</span> : null}
-                        {avance || pct != null ? (
-                          <span className="muted small">
-                            {avance || `${pct ?? 0}%`}
-                            {pct != null && avance ? ` · ${pct}%` : null}
-                          </span>
-                        ) : null}
-                        {seccionador ? (
-                          <span className="muted small">Seccionador: {seccionador}</span>
-                        ) : null}
-                      </li>
-                    )
-                  })
-                )}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <>
+          <div className="seguimiento-rail" aria-hidden={flights.length === 0}>
+            <div className="seguimiento-rail__line" />
+            <div className="seguimiento-rail__stops">
+              {ESTADOS_SEGUIMIENTO.map((id) => (
+                <div key={id} className="seguimiento-rail__stop">
+                  <span className="seguimiento-rail__dot" />
+                  <span className="seguimiento-rail__label">{formatEstadoProyecto(id)}</span>
+                </div>
+              ))}
+            </div>
+            {flights.map((f) => {
+              const fromPct = ((f.fromIdx + 0.5) / steps) * 100
+              const toPct = ((f.toIdx + 0.5) / steps) * 100
+              return (
+                <div
+                  key={f.key}
+                  className="seguimiento-flight"
+                  style={{
+                    '--from-pct': `${fromPct}%`,
+                    '--to-pct': `${toPct}%`,
+                    animationDuration: `${FLIGHT_MS}ms`,
+                  }}
+                  onAnimationEnd={() => dismissFlight(f.key)}
+                >
+                  <span className="seguimiento-flight__glow" />
+                  <span className="seguimiento-flight__chip" title={f.name}>
+                    {f.name}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="seguimiento-board">
+            {SEGUIMIENTO_COLUMNS.map((col) => (
+              <section key={col.id} className="seguimiento-col card">
+                <h2 className="seguimiento-col__title">
+                  <span className={estadoTagClass(col.id)}>{formatEstadoProyecto(col.id)}</span>
+                  <span className="seguimiento-col__count muted">{byEstado[col.id]?.length ?? 0}</span>
+                </h2>
+                <ul className="seguimiento-col__list">
+                  {(byEstado[col.id] ?? []).length === 0 ? (
+                    <li className="seguimiento-empty muted small">Sin obras</li>
+                  ) : (
+                    (byEstado[col.id] ?? []).map((o) => {
+                      const id = obraId(o)
+                      const name = obraName(o)
+                      const op = o.opCodigo ?? o.op_codigo
+                      const booking = o.bookingCode ?? o.bookingcode
+                      const pct = o.porcentaje
+                      const avance = o.avanceLabel ?? o.avance_label
+                      const pctCorte = o.porcentajeCorte ?? o.porcentaje_corte
+                      const avanceCorte = o.avanceCorteLabel ?? o.avance_corte_label
+                      const seccionador = o.seccionador
+                      const isArrived = arrived.has(String(id))
+                      return (
+                        <li
+                          key={id}
+                          className={`seguimiento-card${isArrived ? ' seguimiento-card--arrive' : ''}`}
+                        >
+                          <strong className="seguimiento-card__name">{name}</strong>
+                          <div className="seguimiento-card__meta">
+                            {op ? <span className="muted small">OP {op}</span> : null}
+                            {booking ? <span className="muted small">{booking}</span> : null}
+                            {seccionador ? (
+                              <span className="muted small">Seccionador: {seccionador}</span>
+                            ) : null}
+                          </div>
+                          <ProgressRow
+                            label="Escaneo"
+                            pct={pct}
+                            detail={avance || null}
+                            tone="scan"
+                          />
+                          <ProgressRow
+                            label="Cortes"
+                            pct={pctCorte}
+                            detail={avanceCorte || null}
+                            tone="cut"
+                          />
+                        </li>
+                      )
+                    })
+                  )}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </>
       ) : null}
     </div>
   )

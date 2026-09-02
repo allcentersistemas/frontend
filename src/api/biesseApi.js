@@ -70,19 +70,7 @@ export async function listOrdersPage(params) {
   if (params?.offset != null) q.set('offset', String(params.offset))
   const suffix = q.toString() ? `?${q}` : ''
   const raw = await biesseJson(`/api/biesse/scan/orders${suffix}`)
-  const payload = normalizeOrderListPayload(raw)
-
-  if (!params?.q) return payload
-  const needle = params.q.trim().toLowerCase()
-  if (!needle) return payload
-  const filtered = payload.items.filter((item) =>
-    [item.orderName, item.bookingCode, String(item.orderId)].some((value) =>
-      String(value ?? '')
-        .toLowerCase()
-        .includes(needle),
-    ),
-  )
-  return { items: filtered, totalCount: filtered.length }
+  return normalizeOrderListPayload(raw)
 }
 
 function toDimNumber(value) {
@@ -197,11 +185,25 @@ export async function orderDetail(orderId) {
   const totalPartes = toNumber(stats.total ?? order.totalPartes)
   const partesEscaneadas = toNumber(stats.escaneadas ?? order.partesEscaneadas)
   const partesPendientes = toNumber(stats.pendientes ?? Math.max(totalPartes - partesEscaneadas, 0))
-  const totalPiezas = partsRaw.reduce((acc, part) => acc + toNumber(part.cantidad), 0)
+  const totalPiezas = partes.reduce((acc, part) => acc + Math.max(toNumber(part.cantidad), 0), 0)
   const piezasEscaneadas = partsRaw.reduce(
     (acc, part) => acc + toNumber(part.cantidad_escaneada ?? part.cantidadEscaneada),
     0,
   )
+  const piezasCortadas = partes.reduce((acc, part) => {
+    const scheduled = Math.max(toNumber(part.cantidad), 0)
+    const piezas = Array.isArray(part.piezas) ? part.piezas : []
+    const cutInPlan = piezas.filter((z) => {
+      const n = toNumber(z.numeroPieza)
+      const inPlan = scheduled <= 0 || (n >= 1 && n <= scheduled)
+      return inPlan && Boolean(z.cortada)
+    }).length
+    return acc + cutInPlan
+  }, 0)
+  const porcentajeEscaneoPiezas =
+    totalPiezas > 0 ? Math.round((piezasEscaneadas * 1000) / totalPiezas) / 10 : 0
+  const porcentajeCorte =
+    totalPiezas > 0 ? Math.round((piezasCortadas * 1000) / totalPiezas) / 10 : 0
 
   return {
     ...order,
@@ -211,8 +213,19 @@ export async function orderDetail(orderId) {
     partesPendientes,
     totalPiezas,
     piezasEscaneadas,
+    piezasCortadas,
     porcentajeCompletado:
-      totalPartes > 0 ? (partesEscaneadas / totalPartes) * 100 : order.porcentajeCompletado,
+      totalPiezas > 0
+        ? porcentajeEscaneoPiezas
+        : totalPartes > 0
+          ? (partesEscaneadas / totalPartes) * 100
+          : order.porcentajeCompletado,
+    porcentajeCorte,
+    avanceCorteLabel: `${piezasCortadas}/${totalPiezas} cortes`,
+    avanceEscaneoLabel:
+      totalPiezas > 0
+        ? `${piezasEscaneadas}/${totalPiezas} piezas`
+        : `${partesEscaneadas}/${totalPartes} partes`,
   }
 }
 

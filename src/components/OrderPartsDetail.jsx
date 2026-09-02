@@ -170,7 +170,7 @@ export function OrderPartsDetail({ partes = [] }) {
         </p>
       ) : (
         <ul className="order-parts-list">
-          {visible.map(({ part: p, scheduled, scanned, piezas, piezasTot, piezasDone, status }) => {
+          {visible.map(({ part: p, scheduled, scanned, piezas, piezasTot, piezasDone, piezasCut, status }) => {
             const partDone = status === 'done'
             const partPartial = status === 'partial' || status === 'cut'
             const longitud = p.longitud
@@ -196,8 +196,17 @@ export function OrderPartsDetail({ partes = [] }) {
 
                 <div className="order-part__meta small">
                   <span>
-                    <strong>Avance:</strong> {scanned} / {scheduled || '—'}
+                    <strong>Escaneo:</strong> {scanned} / {scheduled || '—'}
                     {scheduled > 1 ? ` (${piezasDone} de ${scheduled} piezas)` : ''}
+                    {scheduled > 0
+                      ? ` · ${Math.round((Math.min(scanned, scheduled) * 1000) / scheduled) / 10}%`
+                      : ''}
+                  </span>
+                  <span>
+                    <strong>Cortes:</strong> {piezasCut} / {piezasTot || scheduled || '—'}
+                    {piezasTot > 0
+                      ? ` · ${Math.round((Math.min(piezasCut, piezasTot) * 1000) / piezasTot) / 10}%`
+                      : ''}
                   </span>
                   {p.material ? (
                     <span>

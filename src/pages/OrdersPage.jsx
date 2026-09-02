@@ -588,7 +588,14 @@ export function OrdersPage({ embedded = false }) {
                       `${detail.partesEscaneadas} / ${detail.totalPartes} (pend. ${detail.partesPendientes})`,
                     ],
                     ['Piezas', `${detail.piezasEscaneadas} / ${detail.totalPiezas}`],
-                    ['Avance', `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`],
+                    [
+                      'Avance escaneo',
+                      `${Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%`,
+                    ],
+                    [
+                      'Avance cortes',
+                      `${Number(detail.porcentajeCorte ?? 0).toFixed(1)}% (${detail.piezasCortadas ?? 0}/${detail.totalPiezas ?? 0})`,
+                    ],
                     ['Estado', formatOrderEstado(detail.estadoEscaneo)],
                   ].map(([k, v]) => (
                     <div key={k}>
@@ -603,6 +610,60 @@ export function OrdersPage({ embedded = false }) {
                     </div>
                   ))}
                 </dl>
+                <div className="order-avance-bars" aria-label="Avance de escaneo y cortes">
+                  <div className="seguimiento-progress seguimiento-progress--scan">
+                    <div className="seguimiento-progress__head">
+                      <span>Escaneo</span>
+                      <span className="seguimiento-progress__pct">
+                        {Number(detail.porcentajeCompletado ?? 0).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div
+                      className="seguimiento-progress__track"
+                      role="progressbar"
+                      aria-valuenow={Number(detail.porcentajeCompletado ?? 0)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <span
+                        className="seguimiento-progress__fill"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, Number(detail.porcentajeCompletado ?? 0)))}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="seguimiento-progress__detail muted">
+                      {detail.avanceEscaneoLabel ??
+                        `${detail.piezasEscaneadas ?? 0}/${detail.totalPiezas ?? 0} piezas`}
+                    </span>
+                  </div>
+                  <div className="seguimiento-progress seguimiento-progress--cut">
+                    <div className="seguimiento-progress__head">
+                      <span>Cortes</span>
+                      <span className="seguimiento-progress__pct">
+                        {Number(detail.porcentajeCorte ?? 0).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div
+                      className="seguimiento-progress__track"
+                      role="progressbar"
+                      aria-valuenow={Number(detail.porcentajeCorte ?? 0)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <span
+                        className="seguimiento-progress__fill"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, Number(detail.porcentajeCorte ?? 0)))}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="seguimiento-progress__detail muted">
+                      {detail.avanceCorteLabel ??
+                        `${detail.piezasCortadas ?? 0}/${detail.totalPiezas ?? 0} cortes`}
+                    </span>
+                  </div>
+                </div>
 
                 <section className="order-detail-block" aria-labelledby="order-pallets-heading">
                   <h3
