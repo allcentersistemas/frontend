@@ -62,7 +62,8 @@ export async function listOrdersPage(params) {
   }
   if (params?.estado) q.set('state', params.estado)
   if (params?.q != null && String(params.q).trim() !== '') {
-    q.set('q', effectiveOrderSearchQuery(params.q))
+    // Mantener el nombre completo (no reducir a la OP); solo normalizar _ / ().
+    q.set('q', normalizeOrderSearchQuery(params.q))
   }
   if (params?.fromDate) q.set('fromDate', params.fromDate)
   if (params?.toDate) q.set('toDate', params.toDate)
@@ -73,16 +74,14 @@ export async function listOrdersPage(params) {
   return normalizeOrderListPayload(raw)
 }
 
-/**
- * Si el texto trae _ o () (rompen LIKE / URLs), buscar por la OP inicial
- * (ej. S14783 … K1_DER… → S14783) hasta que el backend normalice nombres.
- */
-function effectiveOrderSearchQuery(value) {
-  const t = String(value ?? '').trim()
-  if (!t) return t
-  if (!/[_()]/.test(t)) return t
-  const m = t.match(/^([A-Za-z]?\d{3,})(?:[\s_].*)?$/)
-  return m ? m[1] : t
+/** Conserva todos los tokens; unifica _ y () para que K5_IZQ(x10) ≈ K5 IZQ x10. */
+function normalizeOrderSearchQuery(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function toDimNumber(value) {
@@ -343,7 +342,7 @@ export async function listOpTrazabilidad({ op, orderId, limit = 100 } = {}) {
 /** Agrupación por OP (S14531, 31174, …) con obras/XML y % avance */
 export async function listOpsPage({ q, limit = 20, offset = 0 } = {}) {
   const params = new URLSearchParams()
-  if (q != null && String(q).trim() !== '') params.set('q', effectiveOrderSearchQuery(q))
+  if (q != null && String(q).trim() !== '') params.set('q', normalizeOrderSearchQuery(q))
   params.set('limit', String(limit))
   params.set('offset', String(offset))
   const raw = await biesseJson(`/api/biesse/scan/ops?${params}`)
