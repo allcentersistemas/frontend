@@ -71,7 +71,16 @@ export async function listOrdersPage(params) {
   if (params?.offset != null) q.set('offset', String(params.offset))
   const suffix = q.toString() ? `?${q}` : ''
   const raw = await biesseJson(`/api/biesse/scan/orders${suffix}`)
-  return normalizeOrderListPayload(raw)
+  const payload = normalizeOrderListPayload(raw)
+  // Refina en cliente: aunque el API aún devuelva toda la OP, solo deja las que
+  // contienen TODOS los tokens (así "…K5_IZQ…(1)4" no mezcla K1 ni (1)3).
+  if (params?.q != null && String(params.q).trim() !== '') {
+    const filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, params.q))
+    if (filtered.length !== payload.items.length) {
+      return { items: filtered, totalCount: filtered.length }
+    }
+  }
+  return payload
 }
 
 /** Conserva todos los tokens; unifica _ y () para que K5_IZQ(x10) ≈ K5 IZQ x10. */
@@ -80,8 +89,29 @@ function normalizeOrderSearchQuery(value) {
     .trim()
     .replace(/_/g, ' ')
     .replace(/[()]/g, ' ')
+    .replace(/[^A-Za-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function searchTokens(value) {
+  const norm = normalizeOrderSearchQuery(value)
+  if (!norm) return []
+  return norm.split(/\s+/).filter(Boolean)
+}
+
+/** Match por palabra completa (el "4" de (1)4 no cuenta dentro de S14783). */
+function orderMatchesSearchTokens(row, query) {
+  const tokens = searchTokens(query)
+  if (!tokens.length) return true
+  const hay = normalizeOrderSearchQuery(
+    [row.orderName, row.bookingCode, row.orderId].filter((v) => v != null && String(v).trim() !== '').join(' '),
+  ).toLowerCase()
+  const padded = ` ${hay} `
+  return tokens.every((token) => {
+    const t = token.toLowerCase()
+    return padded.includes(` ${t} `) || String(row.orderId) === token
+  })
 }
 
 function toDimNumber(value) {
