@@ -45,6 +45,7 @@ export function ResumenPage() {
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
   const [seguimientoSince, setSeguimientoSince] = useState('2026-08-26')
+  const [seguimientoLive, setSeguimientoLive] = useState(false)
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -123,13 +124,79 @@ export function ResumenPage() {
   }, [seguimientoSince])
 
   useEffect(() => {
-    if (!showPage || activeTab !== 'seguimiento') return
-    void loadSeguimiento()
-    const timer = window.setInterval(() => {
-      void loadSeguimiento({ silent: true })
-    }, 12000)
-    return () => window.clearInterval(timer)
-  }, [showPage, activeTab, loadSeguimiento])
+    if (!showPage || activeTab !== 'seguimiento') {
+      setSeguimientoLive(false)
+      return
+    }
+
+    let cancelled = false
+    let reconnectTimer = null
+    const abort = new AbortController()
+
+    const applyObras = (payload) => {
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.obras)
+          ? payload.obras
+          : null
+      if (list) setSeguimiento(list)
+    }
+
+    const connect = async () => {
+      if (cancelled) return
+      setSeguimientoLoading(true)
+      setSeguimientoErr(null)
+      try {
+        await systemApi.streamObrasSeguimiento({
+          since: seguimientoSince,
+          signal: abort.signal,
+          onEvent: ({ event, data }) => {
+            if (cancelled) return
+            if (event === 'connected') {
+              setSeguimientoLive(true)
+              setSeguimientoLoading(false)
+              return
+            }
+            if (event === 'snapshot' || event === 'update') {
+              applyObras(data)
+              setSeguimientoLive(true)
+              setSeguimientoLoading(false)
+            }
+          },
+        })
+      } catch (e) {
+        if (cancelled || abort.signal.aborted) return
+        setSeguimientoLive(false)
+        // Fallback REST + reintento del canal en vivo
+        void loadSeguimiento({ silent: true })
+        reconnectTimer = window.setTimeout(() => {
+          void connect()
+        }, 5_000)
+        return
+      }
+      if (!cancelled && !abort.signal.aborted) {
+        setSeguimientoLive(false)
+        reconnectTimer = window.setTimeout(() => {
+          void connect()
+        }, 3_000)
+      }
+    }
+
+    void connect()
+
+    // Respaldo lento por si el proxy corta el stream
+    const fallbackPoll = window.setInterval(() => {
+      if (!cancelled) void loadSeguimiento({ silent: true })
+    }, 45_000)
+
+    return () => {
+      cancelled = true
+      setSeguimientoLive(false)
+      abort.abort()
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      window.clearInterval(fallbackPoll)
+    }
+  }, [showPage, activeTab, seguimientoSince, loadSeguimiento])
 
   if (!showPage) {
     return (
@@ -209,6 +276,7 @@ export function ResumenPage() {
           <SeguimientoBoard
             obras={seguimiento}
             loading={seguimientoLoading}
+            live={seguimientoLive}
             since={seguimientoSince}
             onSinceChange={setSeguimientoSince}
             onRefresh={() => loadSeguimiento()}

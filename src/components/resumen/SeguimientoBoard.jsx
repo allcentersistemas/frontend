@@ -51,6 +51,7 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
  * @param {{
  *   obras?: Array<object>,
  *   loading?: boolean,
+ *   live?: boolean,
  *   since?: string,
  *   onSinceChange?: (yyyyMmDd: string) => void,
  *   onRefresh?: () => Promise<void>|void,
@@ -59,6 +60,7 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
 export function SeguimientoBoard({
   obras = [],
   loading = false,
+  live = false,
   since = DEFAULT_SINCE,
   onSinceChange,
   onRefresh,
@@ -153,7 +155,15 @@ export function SeguimientoBoard({
     <div className="dash">
       <header className="dash-header">
         <div>
-          <h1 className="dash-header__title">Seguimiento por XML</h1>
+          <h1 className="dash-header__title">
+            Seguimiento por XML
+            {live ? (
+              <span className="seguimiento-live" title="Canal en vivo conectado">
+                <span className="seguimiento-live__dot" aria-hidden />
+                En vivo
+              </span>
+            ) : null}
+          </h1>
           <p className="dash-header__lead">
             Flujo de cada obra (XML):{' '}
             <strong>Optimizado</strong> → <strong>Producción</strong> → <strong>Despacho</strong> →{' '}

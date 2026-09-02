@@ -1,6 +1,6 @@
 import { sessionClientHeaders } from '../auth/clientSession'
 import { systemApiBase } from '../config/env'
-import { getStoredTokens, systemJson } from './http'
+import { getStoredTokens, systemEventStream, systemJson } from './http'
 
 /* ——— Auth ——— */
 
@@ -290,6 +290,20 @@ export async function listObrasSeguimiento({ since } = {}) {
   if (since) q.set('since', String(since).trim())
   const suffix = q.toString() ? `?${q}` : ''
   return systemJson(`/api/order/obras/seguimiento${suffix}`)
+}
+
+/**
+ * Canal en vivo (SSE) del tablero de seguimiento.
+ * Eventos: `connected`, `snapshot`, `update` (payload = array de obras).
+ */
+export function streamObrasSeguimiento({ since, onEvent, signal } = {}) {
+  const q = new URLSearchParams()
+  if (since) q.set('since', String(since).trim())
+  const suffix = q.toString() ? `?${q}` : ''
+  return systemEventStream(`/api/order/obras/seguimiento/stream${suffix}`, {
+    onEvent,
+    signal,
+  })
 }
 
 export async function listSeguimientoOps() {

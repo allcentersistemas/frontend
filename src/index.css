@@ -458,6 +458,42 @@
     flex: 1 1 12rem;
     margin: 0;
   }
+  .seguimiento-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: #0f766e;
+    background: color-mix(in srgb, #ccfbf1 80%, white);
+    border: 1px solid color-mix(in srgb, #14b8a6 40%, transparent);
+  }
+  .dark .seguimiento-live {
+    color: #99f6e4;
+    background: color-mix(in srgb, #134e4a 80%, black);
+  }
+  .seguimiento-live__dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: #14b8a6;
+    box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 55%, transparent);
+    animation: seguimiento-live-pulse 1.4s ease-out infinite;
+  }
+  @keyframes seguimiento-live-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 45%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 0.45rem color-mix(in srgb, #14b8a6 0%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 0%, transparent);
+    }
+  }
 
   .seguimiento-rail {
     position: relative;
@@ -921,7 +957,7 @@
     @apply mb-7 flex flex-wrap items-start justify-between gap-4;
   }
   .dash-header__title {
-    @apply flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white;
+    @apply flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white;
   }
   .dash-header__icon {
     @apply text-amber-600 dark:text-amber-400;
