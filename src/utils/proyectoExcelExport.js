@@ -103,10 +103,19 @@ function orderExportContext(tree) {
   }
 }
 
+/** Conserva espacios; solo quita caracteres inválidos en nombres de archivo. */
+function safeFilenamePart(value, fallback) {
+  const cleaned = String(value || fallback)
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned || fallback
+}
+
 export function orderExcelFilename(order, projectName = 'proyecto', ext = 'xlsx') {
-  const projectSlug = String(projectName || 'proyecto').replace(/[^\w.-]+/g, '_')
-  const orderSlug = String(order.codigo || `orden-${order.id}`).replace(/[^\w.-]+/g, '_')
-  const base = `${projectSlug}_${orderSlug}`
+  const projectSlug = safeFilenamePart(projectName, 'proyecto')
+  const orderSlug = safeFilenamePart(order.codigo || `orden-${order.id}`, `orden-${order.id}`)
+  const base = `${projectSlug} ${orderSlug}`
   return ext ? `${base}.${ext.replace(/^\./, '')}` : base
 }
 

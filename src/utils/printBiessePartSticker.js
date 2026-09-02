@@ -13,10 +13,10 @@ import { sendZplToZebra } from './zebraBrowserPrint.js'
 function esc(s) {
   if (s == null || s === '') return ''
   return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 function roundDim(v) {
@@ -39,11 +39,11 @@ export function buildScanCode(orderName, partNumber, numeroPieza) {
   const name = String(orderName ?? '').trim()
   const pnRaw = partNumber != null && partNumber !== '' ? String(partNumber).trim() : ''
   const pn =
-      pnRaw !== '' && Number.parseInt(pnRaw, 10) > 0
-          ? String(Number.parseInt(pnRaw, 10))
-          : pnRaw !== ''
-              ? pnRaw
-              : '0'
+    pnRaw !== '' && Number.parseInt(pnRaw, 10) > 0
+      ? String(Number.parseInt(pnRaw, 10))
+      : pnRaw !== ''
+        ? pnRaw
+        : '0'
   const nz = numeroPieza != null ? String(numeroPieza).trim() : '1'
   if (!name || pn === '0') return `${name || 'orden'}-P0-${nz}`
   return `${name}-P${pn}-${nz}`
@@ -479,16 +479,16 @@ function triggerPrint(win) {
     }
     const doc = win.document
     const fontsReady =
-        doc.fonts && typeof doc.fonts.ready?.then === 'function'
-            ? doc.fonts.ready
-            : Promise.resolve()
+      doc.fonts && typeof doc.fonts.ready?.then === 'function'
+        ? doc.fonts.ready
+        : Promise.resolve()
     fontsReady
-        .catch(() => undefined)
-        .finally(() => {
-          requestAnimationFrame(() => {
-            setTimeout(printJob, 800)
-          })
+      .catch(() => undefined)
+      .finally(() => {
+        requestAnimationFrame(() => {
+          setTimeout(printJob, 800)
         })
+      })
   }
 
   const imgs = [...win.document.querySelectorAll('.qr img')]
@@ -520,7 +520,7 @@ function printViaIframe(html) {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('title', 'Impresión etiqueta')
   iframe.style.cssText =
-      'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+    'position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
   document.body.appendChild(iframe)
   const win = iframe.contentWindow
   if (!win) {
@@ -563,10 +563,10 @@ function buildStickerInnerHtml(data) {
   <div class="sticker">
     <div class="body">
       <div class="col-left">
-        <header class="head">
-          <h1 class="head__title">${esc(headerTitle)}</h1>
-          ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
-        </header>
+    <header class="head">
+      <h1 class="head__title">${esc(headerTitle)}</h1>
+      ${booking ? `<p class="head__sub">${esc(booking)}</p>` : ''}
+    </header>
         <div class="mat">${esc(matLine)}</div>
         ${subDesc ? `<div class="desc1">${esc(subDesc)}</div>` : ''}
         <div class="ref">${esc(refLine)}</div>
@@ -661,9 +661,9 @@ export async function resolveStickerItemData({
   const numeroPieza = piece?.numeroPieza ?? 1
   const cantidad = Math.max(1, Number(part?.cantidad ?? 1))
   const scanCode = buildScanCode(
-      orderName,
-      partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
-      numeroPieza,
+    orderName,
+    partNumber ?? part?.partCode?.replace(/^P/i, '') ?? null,
+    numeroPieza,
   )
   const printedAt = new Date()
   const qrPixels = isZebraZplSize(printSize) ? 720 : 280
@@ -894,7 +894,7 @@ export async function printBiessePartSticker({
       printViaIframe(html)
     } catch {
       window.alert(
-          'No se pudo abrir la impresión.\n\n' +
+        'No se pudo abrir la impresión.\n\n' +
           'Permite ventanas emergentes para este sitio o pulsa Imprimir de nuevo.'
       )
       throw new Error('impresión no disponible')
