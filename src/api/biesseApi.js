@@ -72,13 +72,10 @@ export async function listOrdersPage(params) {
   const suffix = q.toString() ? `?${q}` : ''
   const raw = await biesseJson(`/api/biesse/scan/orders${suffix}`)
   const payload = normalizeOrderListPayload(raw)
-  // Refina en cliente: aunque el API aún devuelva toda la OP, solo deja las que
-  // contienen TODOS los tokens (así "…K5_IZQ…(1)4" no mezcla K1 ni (1)3).
+  // Token exacto en cliente: "8MM" no debe matchear "18MM" aunque el API aún use LIKE.
   if (params?.q != null && String(params.q).trim() !== '') {
     const filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, params.q))
-    if (filtered.length !== payload.items.length) {
-      return { items: filtered, totalCount: filtered.length }
-    }
+    return { items: filtered, totalCount: filtered.length }
   }
   return payload
 }
@@ -100,18 +97,21 @@ function searchTokens(value) {
   return norm.split(/\s+/).filter(Boolean)
 }
 
-/** Match por palabra completa (el "4" de (1)4 no cuenta dentro de S14783). */
+/**
+ * Cada token de la búsqueda debe existir como palabra entera en el nombre.
+ * Así 8MM ≠ 18MM y (1)4 ≠ (1)3.
+ */
 function orderMatchesSearchTokens(row, query) {
-  const tokens = searchTokens(query)
+  const tokens = searchTokens(query).map((t) => t.toLowerCase())
   if (!tokens.length) return true
-  const hay = normalizeOrderSearchQuery(
-    [row.orderName, row.bookingCode, row.orderId].filter((v) => v != null && String(v).trim() !== '').join(' '),
-  ).toLowerCase()
-  const padded = ` ${hay} `
-  return tokens.every((token) => {
-    const t = token.toLowerCase()
-    return padded.includes(` ${t} `) || String(row.orderId) === token
-  })
+  const nameTokens = new Set(
+    searchTokens(
+      [row.orderName, row.bookingCode, row.orderId]
+        .filter((v) => v != null && String(v).trim() !== '')
+        .join(' '),
+    ).map((t) => t.toLowerCase()),
+  )
+  return tokens.every((token) => nameTokens.has(token) || String(row.orderId) === token)
 }
 
 function toDimNumber(value) {
