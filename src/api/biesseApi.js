@@ -72,9 +72,12 @@ export async function listOrdersPage(params) {
   const suffix = q.toString() ? `?${q}` : ''
   const raw = await biesseJson(`/api/biesse/scan/orders${suffix}`)
   const payload = normalizeOrderListPayload(raw)
-  // Token exacto en cliente: "8MM" no debe matchear "18MM" aunque el API aún use LIKE.
   if (params?.q != null && String(params.q).trim() !== '') {
-    const filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, params.q))
+    const q = params.q
+    let filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, q))
+    const qTokens = tokenSet(q)
+    const exact = filtered.filter((row) => tokenSetsEqual(tokenSet(row.orderName), qTokens))
+    if (exact.length) filtered = exact
     return { items: filtered, totalCount: filtered.length }
   }
   return payload
@@ -97,19 +100,30 @@ function searchTokens(value) {
   return norm.split(/\s+/).filter(Boolean)
 }
 
+function tokenSet(value) {
+  return new Set(searchTokens(value).map((t) => t.toLowerCase()))
+}
+
+function tokenSetsEqual(a, b) {
+  if (a.size !== b.size) return false
+  for (const t of a) {
+    if (!b.has(t)) return false
+  }
+  return true
+}
+
 /**
- * Cada token de la búsqueda debe existir como palabra entera en el nombre.
- * Así 8MM ≠ 18MM y (1)4 ≠ (1)3.
+ * Cada token de la búsqueda debe existir como palabra entera.
+ * Si alguna obra coincide en el conjunto exacto de palabras, se descartan
+ * supersets (p.ej. «…BLANCO 18MM» no arrastra «…BLANCO RH 18MM»).
  */
 function orderMatchesSearchTokens(row, query) {
   const tokens = searchTokens(query).map((t) => t.toLowerCase())
   if (!tokens.length) return true
-  const nameTokens = new Set(
-    searchTokens(
-      [row.orderName, row.bookingCode, row.orderId]
-        .filter((v) => v != null && String(v).trim() !== '')
-        .join(' '),
-    ).map((t) => t.toLowerCase()),
+  const nameTokens = tokenSet(
+    [row.orderName, row.bookingCode, row.orderId]
+      .filter((v) => v != null && String(v).trim() !== '')
+      .join(' '),
   )
   return tokens.every((token) => nameTokens.has(token) || String(row.orderId) === token)
 }
