@@ -14,6 +14,7 @@ function rowToEditForm(row) {
     username: row.username || '',
     displayName: row.displayName || '',
     phone: row.phone || '',
+    telegramChatId: row.telegramChatId || '',
     juridica: Boolean(row.juridica),
     tipoDocumento: row.tipoDocumento || 'DNI',
     numeroDocumento: row.numeroDocumento || '',
@@ -35,6 +36,7 @@ function emptyCreateForm() {
     password: '',
     displayName: '',
     phone: '',
+    telegramChatId: '',
     active: true,
   }
 }
@@ -181,6 +183,8 @@ export function GestionClientesPanel() {
       if (u) body.username = u
       const p = createForm.phone.trim()
       if (p) body.phone = p
+      const tg = createForm.telegramChatId.trim()
+      if (tg) body.telegramChatId = tg
       const created = await systemApi.createClient(body)
       setCreateOk(`Cliente creado: ${created.email}`)
       setCreateForm(emptyCreateForm())
@@ -205,6 +209,7 @@ export function GestionClientesPanel() {
         username: editForm.username.trim(),
         displayName: editForm.displayName.trim(),
         phone: editForm.phone.trim() || null,
+        telegramChatId: editForm.telegramChatId.trim() || null,
         juridica: editForm.juridica,
         tipoDocumento: editForm.tipoDocumento,
         numeroDocumento: editForm.numeroDocumento.trim() || null,
@@ -327,6 +332,14 @@ export function GestionClientesPanel() {
                 <input
                   value={createForm.phone}
                   onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Telegram Chat ID</span>
+                <input
+                  value={createForm.telegramChatId}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, telegramChatId: e.target.value }))}
+                  placeholder="123456789"
                 />
               </label>
             </div>
@@ -454,6 +467,14 @@ export function GestionClientesPanel() {
               <label className="field">
                 <span>Teléfono</span>
                 <input value={editForm.phone} onChange={(e) => patchEdit('phone', e.target.value)} />
+              </label>
+              <label className="field">
+                <span>Telegram Chat ID</span>
+                <input
+                  value={editForm.telegramChatId}
+                  onChange={(e) => patchEdit('telegramChatId', e.target.value)}
+                  placeholder="123456789"
+                />
               </label>
               <label className="field">
                 <span>Estado</span>

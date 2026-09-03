@@ -1140,6 +1140,13 @@ export async function testAppMail(body) {
   })
 }
 
+export async function testAppTelegram(body) {
+  await systemJson('/api/admin/config/telegram/test', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function resetKardexInventory() {
   return systemJson('/api/admin/config/kardex/reset', { method: 'POST' })
 }

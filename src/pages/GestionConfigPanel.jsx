@@ -13,6 +13,7 @@ export function GestionConfigPanel() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testingMail, setTestingMail] = useState(false)
+  const [testingTelegram, setTestingTelegram] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [err, setErr] = useState(null)
   const [ok, setOk] = useState(null)
@@ -29,6 +30,11 @@ export function GestionConfigPanel() {
   const [smtpAuth, setSmtpAuth] = useState(false)
   const [smtpStarttls, setSmtpStarttls] = useState(true)
   const [testMailTo, setTestMailTo] = useState('')
+  const [telegramEnabled, setTelegramEnabled] = useState(false)
+  const [telegramBotToken, setTelegramBotToken] = useState('')
+  const [telegramBotTokenConfigured, setTelegramBotTokenConfigured] = useState(false)
+  const [testTelegramChatId, setTestTelegramChatId] = useState('')
+  const [savingTelegram, setSavingTelegram] = useState(false)
   const [plantillaInfo, setPlantillaInfo] = useState(null)
   const [plantillaFile, setPlantillaFile] = useState(null)
   const [uploadingPlantilla, setUploadingPlantilla] = useState(false)
@@ -53,6 +59,9 @@ export function GestionConfigPanel() {
     setSmtpAuth(Boolean(cfg.smtpAuth))
     setSmtpStarttls(cfg.smtpStarttls !== false)
     setSmtpPassword('')
+    setTelegramEnabled(Boolean(cfg.telegramEnabled))
+    setTelegramBotTokenConfigured(Boolean(cfg.telegramBotTokenConfigured))
+    setTelegramBotToken('')
     setAiVisionEnabled(Boolean(cfg.aiVisionEnabled))
     setAiProvider(cfg.aiProvider === 'openai' ? 'openai' : 'claude')
     setAiModel(cfg.aiModel ?? '')
@@ -162,6 +171,44 @@ export function GestionConfigPanel() {
       setErr(e?.message ?? 'No se pudo enviar el correo de prueba')
     } finally {
       setTestingMail(false)
+    }
+  }
+
+  async function submitTelegramConfig(e) {
+    e.preventDefault()
+    setSavingTelegram(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const body = { telegramEnabled }
+      if (telegramBotToken.trim()) {
+        body.telegramBotToken = telegramBotToken.trim()
+      }
+      const updated = await systemApi.updateAppConfig(body)
+      applyConfig(updated)
+      setOk(
+        telegramEnabled
+          ? 'Telegram activado. Asigne el Chat ID a cada cliente en Gestión → Clientes.'
+          : 'Telegram desactivado. No se enviarán notificaciones de pedido listo.',
+      )
+    } catch (e2) {
+      setErr(e2?.message ?? 'No se pudo guardar la configuración de Telegram')
+    } finally {
+      setSavingTelegram(false)
+    }
+  }
+
+  async function sendTestTelegram() {
+    setTestingTelegram(true)
+    setErr(null)
+    setOk(null)
+    try {
+      await systemApi.testAppTelegram({ chatId: testTelegramChatId.trim() })
+      setOk('Mensaje de prueba enviado por Telegram')
+    } catch (e) {
+      setErr(e?.message ?? 'No se pudo enviar el mensaje de prueba')
+    } finally {
+      setTestingTelegram(false)
     }
   }
 
@@ -579,6 +626,74 @@ export function GestionConfigPanel() {
           </div>
           <p className="muted small form-hint">
             Guarde primero la configuración SMTP si acaba de cambiarla. El envío usa los valores guardados.
+          </p>
+        </div>
+      </div>
+
+      <div className="card pad form-section">
+        <h2>Telegram</h2>
+        <p className="muted small" style={{ marginBottom: '0.75rem' }}>
+          Notifica al cliente cuando su pedido pasa a <strong>listo para entregar</strong>. Cree un bot
+          con <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>, pegue
+          el token aquí y registre el Chat ID de cada cliente en Gestión → Clientes.
+        </p>
+        <form onSubmit={(e) => void submitTelegramConfig(e)}>
+          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={telegramEnabled}
+              onChange={(e) => setTelegramEnabled(e.target.checked)}
+            />
+            <span>Telegram activo</span>
+          </label>
+
+          <label className="field">
+            <span>Token del bot</span>
+            <input
+              type="password"
+              value={telegramBotToken}
+              onChange={(e) => setTelegramBotToken(e.target.value)}
+              placeholder={telegramBotTokenConfigured ? '•••••••• (sin cambiar)' : '123456:ABC-DEF…'}
+              autoComplete="new-password"
+            />
+          </label>
+
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={savingTelegram || saving || resetting}
+            >
+              {savingTelegram ? 'Guardando…' : 'Guardar Telegram'}
+            </button>
+          </div>
+        </form>
+
+        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border, #ddd)' }}>
+          <h3 className="small" style={{ marginBottom: '0.35rem' }}>Probar envío</h3>
+          <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+            <label className="field">
+              <span>Chat ID de prueba</span>
+              <input
+                value={testTelegramChatId}
+                onChange={(e) => setTestTelegramChatId(e.target.value)}
+                placeholder="123456789"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={
+                testingTelegram || savingTelegram || saving || !testTelegramChatId.trim()
+              }
+              onClick={() => void sendTestTelegram()}
+            >
+              {testingTelegram ? 'Enviando…' : 'Enviar mensaje de prueba'}
+            </button>
+          </div>
+          <p className="muted small form-hint">
+            El usuario debe haber iniciado conversación con el bot. Obtenga el Chat ID con
+            @userinfobot o similar.
           </p>
         </div>
       </div>
