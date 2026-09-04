@@ -40,20 +40,26 @@ export function lastSeenAt(machine) {
   return null
 }
 
-export function isEffectivelyOnline(machine, staleMs = 90_000) {
-  const seen = lastSeenAt(machine)
-  if (!seen) return false
-  const t = new Date(seen).getTime()
-  if (Number.isNaN(t)) return Boolean(machine?.online)
+/** Live = heartbeat reciente. No usa last_status_at ni el flag `online` (marcaba todo en vivo). */
+export function isMachineLive(machine, staleMs = 90_000) {
+  const hb = machine?.last_heartbeat_at ?? machine?.lastHeartbeatAt
+  if (!hb) return false
+  const t = new Date(hb).getTime()
+  if (Number.isNaN(t)) return false
   return Date.now() - t <= staleMs
 }
 
-export function healthLabel(health, { online = true } = {}) {
+/** @deprecated Preferir isMachineLive — solo heartbeat. */
+export function isEffectivelyOnline(machine, staleMs = 90_000) {
+  return isMachineLive(machine, staleMs)
+}
+
+export function healthLabel(health, { live = true, online = live } = {}) {
   const h = String(health ?? 'OK').toUpperCase()
   if (h === 'OK') return 'Saludable'
-  if (h === 'OFFLINE') return online ? 'Sin señal' : 'Offline'
+  if (h === 'OFFLINE') return online ? 'Sin señal' : 'Sin live'
   if (h === 'DEGRADED') return 'Degradado'
-  if (h === 'OFFLINE_QUEUE') return online ? 'Cola pendiente' : 'Offline + cola'
+  if (h === 'OFFLINE_QUEUE') return online ? 'Cola pendiente' : 'Sin live + cola'
   return h
 }
 
@@ -110,7 +116,7 @@ export function buildMonitorAlerts(machines, { staleMs = 90_000, minAgentVersion
 
   for (const m of machines) {
     const name = m.machine_name ?? m.machineName ?? `#${m.machine_id ?? m.machineId}`
-    const online = isEffectivelyOnline(m, staleMs)
+    const online = isMachineLive(m, staleMs)
     const hb = m.last_heartbeat_at ?? m.lastHeartbeatAt
     const queue = Number(m.pending_queue_size ?? m.pendingQueueSize ?? 0)
     const health = String(m.health_status ?? m.healthStatus ?? 'OK').toUpperCase()
@@ -136,7 +142,7 @@ export function buildMonitorAlerts(machines, { staleMs = 90_000, minAgentVersion
   if (offlineLong.length) {
     alerts.unshift({
       level: 'danger',
-      text: `Offline >3 min: ${offlineLong.join(', ')}`,
+      text: `Sin live >3 min: ${offlineLong.join(', ')}`,
     })
   }
   if (degraded > 0) {

@@ -6,8 +6,7 @@ import {
   healthLabel,
   healthTag,
   heartbeatAgo,
-  isEffectivelyOnline,
-  lastSeenAt,
+  isMachineLive,
   shortAgentError,
 } from '../utils/biesseMonitorUtils'
 
@@ -20,10 +19,10 @@ function stateTag(state) {
   return 'tag'
 }
 
-function formatMachineState(state, online) {
+function formatMachineState(state, live) {
   const raw = state == null || state === '' ? '' : String(state).trim()
   const upper = raw.toUpperCase()
-  if (!online) {
+  if (!live) {
     if (!raw || upper === 'UNKNOWN' || upper === '—') return 'Sin señal'
     return `${upper === 'PAUSE' ? 'PAUSA' : upper} (último)`
   }
@@ -32,17 +31,16 @@ function formatMachineState(state, online) {
   return upper
 }
 
-/** Salud efectiva: no se queda pegada en DEGRADED si ya está online y sin cola. */
-function effectiveHealth(machine, online) {
+/** Salud efectiva: no se queda pegada en DEGRADED si ya está live y sin cola. */
+function effectiveHealth(machine, live) {
   const queue = Number(machine?.pending_queue_size ?? machine?.pendingQueueSize ?? 0)
   const raw = String(machine?.health_status ?? machine?.healthStatus ?? 'OK').toUpperCase()
-  if (!online) {
+  if (!live) {
     if (queue > 0 || raw === 'OFFLINE_QUEUE') return 'OFFLINE_QUEUE'
     return 'OFFLINE'
   }
   if (queue > 0) return queue >= 50 ? 'OFFLINE_QUEUE' : 'DEGRADED'
   if (raw === 'DEGRADED' || raw === 'OFFLINE_QUEUE') {
-    // Heartbeat vivo + cola 0 → mostrar saludable aunque BD no se haya limpiado.
     return 'OK'
   }
   return raw || 'OK'
@@ -60,12 +58,6 @@ function progressPct(done, total) {
   const t = Number(total ?? 0) || 0
   if (t <= 0) return null
   return Math.min(100, Math.round((d / t) * 100))
-}
-
-function onlineLabel(online, heartbeatAt) {
-  if (online) return 'Online'
-  if (heartbeatAt) return 'Offline'
-  return 'Sin señal'
 }
 
 function durationLive(startedAt) {
@@ -117,8 +109,8 @@ export function BiesseMonitorPanel() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [tick, setTick] = useState(0)
-  const [lastMachinesAt, setLastMachinesAt] = useState(null)
   const [liveConnected, setLiveConnected] = useState(false)
+  const [liveKey, setLiveKey] = useState(0)
 
   const staleMs = (monitorConfig?.onlineStaleSeconds ?? 90) * 1000
   const minAgentVersion = monitorConfig?.minAgentVersion ?? '1.7.0'
@@ -153,7 +145,6 @@ export function BiesseMonitorPanel() {
       })
       setMachines(list)
       setBoardsLive(live && typeof live === 'object' ? live : null)
-      setLastMachinesAt(Date.now())
       setErr(null)
     } catch (ex) {
       const msg = ex instanceof Error ? ex.message : 'No se pudo cargar el monitor'
@@ -235,7 +226,6 @@ export function BiesseMonitorPanel() {
     if (live && typeof live === 'object') {
       setBoardsLive(live)
     }
-    setLastMachinesAt(Date.now())
     setErr(null)
     setLoading(false)
   }, [])
@@ -291,17 +281,24 @@ export function BiesseMonitorPanel() {
       abort.abort()
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
     }
-  }, [applyLiveSnapshot, loadMachines])
+  }, [applyLiveSnapshot, loadMachines, liveKey])
 
   useEffect(() => {
     void load()
   }, [load])
 
   useEffect(() => {
-    // Polling de respaldo: más lento si el SSE está vivo
+    if (liveConnected) {
+      // Con live: máquinas vienen por SSE; historial/eventos se refrescan más lento
+      const eventsPoll = window.setInterval(() => {
+        void loadEvents()
+        void loadBoardsHistory()
+      }, Math.max(eventsPollMs, 15_000))
+      return () => window.clearInterval(eventsPoll)
+    }
     const machinesPoll = window.setInterval(() => {
-      if (!liveConnected) void loadMachines()
-    }, liveConnected ? Math.max(machinesPollMs, 15_000) : machinesPollMs)
+      void loadMachines()
+    }, machinesPollMs)
     const eventsPoll = window.setInterval(() => {
       void loadEvents()
       void loadBoardsHistory()
@@ -322,35 +319,24 @@ export function BiesseMonitorPanel() {
   return (
     <div className="dash">
       <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h1 className="card__title">Seccionadores</h1>
-            <p className="muted small" style={{ marginTop: '0.35rem' }}>
-              Monitoreo en vivo del agente OSI (<code>agente_biesse_win10</code>): estados, tiempos,
-              planchas, eventos y cortes. Canal en vivo (SSE)
-              {liveConnected ? (
-                <>
-                  {' '}
-                  <span className="seguimiento-live" title="Canal en vivo conectado">
-                    <span className="seguimiento-live__dot" aria-hidden />
-                    conectado
-                  </span>
-                </>
-              ) : (
-                <> · respaldo HTTP cada {machinesPollMs / 1000}s</>
-              )}
-              ; eventos/cortes cada {eventsPollMs / 1000}s. TTL online:{' '}
-              {monitorConfig?.onlineStaleSeconds ?? 90}s. Para crear máquinas o rotar tokens use Gestión →
-              Configuración.
-            </p>
-            {lastMachinesAt ? (
-              <p className="small muted" style={{ marginTop: '0.25rem' }} role="status">
-                Monitor actualizado {heartbeatAgo(lastMachinesAt) || 'ahora'}
-              </p>
-            ) : null}
-          </div>
-          <button type="button" className="btn btn--ghost" onClick={() => void load()} disabled={loading}>
-            Actualizar
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h1 className="card__title" style={{ margin: 0 }}>
+            Seccionadores
+          </h1>
+          <button
+            type="button"
+            className={`seguimiento-live biesse-monitor-live-btn${liveConnected ? '' : ' seguimiento-live--off'}`}
+            title={
+              liveConnected
+                ? 'Canal en vivo conectado'
+                : 'Canal en vivo desconectado — clic para reintentar'
+            }
+            onClick={() => {
+              if (!liveConnected) setLiveKey((n) => n + 1)
+            }}
+          >
+            <span className="seguimiento-live__dot" aria-hidden />
+            Live
           </button>
         </div>
         {err ? (
@@ -360,7 +346,7 @@ export function BiesseMonitorPanel() {
               <p className="small" style={{ margin: '0.5rem 0 0' }}>
                 El backend aún no tiene estas rutas. Reinicie/redeploy{' '}
                 <strong>module-system</strong> (puerto 8080) con el código actual y vuelva a
-                actualizar.
+                conectar Live.
               </p>
             ) : null}
           </div>
@@ -431,21 +417,20 @@ export function BiesseMonitorPanel() {
         ) : null}
         {machines.map((m) => {
           const id = m.machine_id ?? m.machineId
-          const online = isEffectivelyOnline(m, staleMs)
+          const live = isMachineLive(m, staleMs)
           const stateRaw = m.state ?? ''
-          const stateLabel = formatMachineState(stateRaw, online)
+          const stateLabel = formatMachineState(stateRaw, live)
           const job = m.job_name ?? m.jobName
           const started = m.job_started_at ?? m.jobStartedAt
           const hbAt = m.last_heartbeat_at ?? m.lastHeartbeatAt
-          const hbRel = heartbeatAgo(hbAt, { coarse: !online })
-          // Tiempo en curso si hay ventana abierta (aunque el estado OSI no diga RUN).
+          const hbRel = heartbeatAgo(hbAt, { coarse: !live })
           const dur =
-            online && started
+            live && started
               ? durationLive(started)
-              : String(stateRaw).toUpperCase() === 'RUN' && online
+              : String(stateRaw).toUpperCase() === 'RUN' && live
                 ? durationLive(started)
                 : null
-          const health = effectiveHealth(m, online)
+          const health = effectiveHealth(m, live)
           const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
           const agentVer = m.agent_version ?? m.agentVersion
           const lastErr = m.last_error ?? m.lastError
@@ -464,21 +449,20 @@ export function BiesseMonitorPanel() {
           return (
             <article
               key={id}
-              className={`card pad biesse-machine-card${online ? '' : ' biesse-machine-card--offline'}${String(stateRaw).toUpperCase() === 'PAUSE' ? ' biesse-machine-card--pause' : ''}`}
+              className={`card pad biesse-machine-card${live ? '' : ' biesse-machine-card--offline'}${String(stateRaw).toUpperCase() === 'PAUSE' ? ' biesse-machine-card--pause' : ''}`}
             >
               <header className="biesse-machine-card__head">
                 <strong className="biesse-machine-card__title">
                   {m.machine_name ?? m.machineName ?? `Seccionador #${id}`}
                 </strong>
                 <div className="biesse-machine-card__badges">
-                  <span className={online ? 'tag tag--ok' : 'tag'}>
-                    {onlineLabel(online, hbAt)}
+                  <span
+                    className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}
+                    title={live ? 'Heartbeat reciente' : 'Sin heartbeat reciente'}
+                  >
+                    <span className="seguimiento-live__dot" aria-hidden />
+                    Live
                   </span>
-                  {liveConnected ? (
-                    <span className="tag tag--ok" title="Canal SSE en vivo">
-                      Live
-                    </span>
-                  ) : null}
                 </div>
               </header>
               <dl className="biesse-machine-dl">
@@ -486,7 +470,7 @@ export function BiesseMonitorPanel() {
                   <dt>Salud agente</dt>
                   <dd>
                     <span className={healthTag(health)} title={lastErr || undefined}>
-                      {healthLabel(health, { online })}
+                      {healthLabel(health, { live })}
                     </span>
                     {agentVer ? <span className="muted small"> · v{agentVer}</span> : null}
                   </dd>
@@ -510,7 +494,7 @@ export function BiesseMonitorPanel() {
                 <div>
                   <dt>Estado</dt>
                   <dd>
-                    <span className={stateTag(online ? stateRaw : '')}>{stateLabel}</span>
+                    <span className={stateTag(live ? stateRaw : '')}>{stateLabel}</span>
                   </dd>
                 </div>
                 <div>
@@ -567,7 +551,7 @@ export function BiesseMonitorPanel() {
                   </div>
                 ) : null}
                 <div>
-                  <dt>{online ? 'Último heartbeat' : 'Última señal'}</dt>
+                  <dt>{live ? 'Último heartbeat' : 'Última señal'}</dt>
                   <dd className="small">
                     {hbRel ? <strong>{hbRel}</strong> : '—'}
                     {hbAt ? <span className="muted"> · {fmtTs(hbAt)}</span> : null}
@@ -585,7 +569,7 @@ export function BiesseMonitorPanel() {
         </h2>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
           Una plancha = board OSI (<code>Boards done</code> / <code>boards_done</code>), no una pieza
-          individual. Por máquina: sesión/job actual. Totales: en RUN (vivo), online y del día.
+          individual. Por máquina: sesión/job actual. Totales: en RUN (vivo) y del día.
         </p>
         <div
           style={{
@@ -600,12 +584,6 @@ export function BiesseMonitorPanel() {
             <div className="small muted">Total en RUN (vivo)</div>
             <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
               {boardsLive?.total_live ?? 0}
-            </div>
-          </div>
-          <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 140 }}>
-            <div className="small muted">Total online</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.2 }}>
-              {boardsLive?.total_online ?? 0}
             </div>
           </div>
           <div className="pad surface-2" style={{ borderRadius: 8, minWidth: 140 }}>
@@ -629,25 +607,24 @@ export function BiesseMonitorPanel() {
             </thead>
             <tbody>
               {(boardsLive?.machines ?? []).map((row) => {
-                const rowOnline = isEffectivelyOnline(row, staleMs)
+                const rowLive = isMachineLive(row, staleMs)
                 const cutting =
-                  rowOnline && row.job_started_at ? durationLive(row.job_started_at) : null
+                  rowLive && row.job_started_at ? durationLive(row.job_started_at) : null
                 return (
                 <tr key={row.machine_id}>
                   <td className="small">
                     {row.machine_name || `#${row.machine_id}`}
-                    {rowOnline ? (
-                      <span className="tag tag--ok" style={{ marginLeft: 6 }}>
-                        Online
-                      </span>
-                    ) : (
-                      <span className="tag" style={{ marginLeft: 6 }}>
-                        Offline
-                      </span>
-                    )}
+                    <span
+                      className={`seguimiento-live${rowLive ? '' : ' seguimiento-live--off'}`}
+                      style={{ marginLeft: 6 }}
+                      title={rowLive ? 'Heartbeat reciente' : 'Sin heartbeat reciente'}
+                    >
+                      <span className="seguimiento-live__dot" aria-hidden />
+                      Live
+                    </span>
                   </td>
                   <td>
-                    <span className={stateTag(row.state)}>{formatMachineState(row.state, isEffectivelyOnline(row, staleMs))}</span>
+                    <span className={stateTag(row.state)}>{formatMachineState(row.state, rowLive)}</span>
                   </td>
                   <td className="small">{row.job_name || '—'}</td>
                   <td className="small">{cutting ? <strong>{cutting}</strong> : '—'}</td>
