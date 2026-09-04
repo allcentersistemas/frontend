@@ -250,37 +250,38 @@ const PRINT_CSS = `
     margin-right: 3px;
   }
   .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    padding: 3px 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 5.4rem);
+    gap: 3px;
+    padding: 4px 5px;
     width: 100%;
+    justify-content: start;
   }
   .chip {
-    display: inline-flex;
-    flex: 1 1 4.6rem;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: flex-start;
-    gap: 3px 5px;
-    min-width: 4.6rem;
-    max-width: 100%;
-    padding: 2px 4px;
-    border: 1px solid #ccc;
-    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: 5.4rem;
+    min-height: 2.1rem;
+    padding: 3px 4px;
+    border: 1px solid #bbb;
+    border-radius: 3px;
     background: #fff;
-    font-size: 7.5pt;
+    font-size: 9pt;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
+    text-align: center;
   }
-  .chip__n { font-weight: 700; }
+  .chip__n { font-weight: 700; font-size: 10pt; }
   .chip__stamp {
-    font-size: 6pt;
+    font-size: 6.5pt;
     font-weight: 500;
     color: #444;
     white-space: nowrap;
+    letter-spacing: -0.02em;
   }
   .empty { color: #666; font-size: 8pt; padding: 4px; }
   .hint {
