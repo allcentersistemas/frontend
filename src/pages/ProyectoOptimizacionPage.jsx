@@ -153,16 +153,32 @@ function ProyectoTreeSummary({
                     <p className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
                       {(o.detalles ?? []).length} pieza(s)
                     </p>
-                    {canAssignBiesse || o.biesseOrderId ? (
-                      <OrdenBiesseObraAssign
-                        orden={o}
-                        disabled={!canAssignBiesse}
-                        onAssigned={(updated) => onOrdenBiesseAssigned?.(o.id, updated)}
-                      />
-                    ) : null}
+                    <div
+                      className="card pad"
+                      style={{
+                        marginTop: 8,
+                        padding: '0.65rem 0.75rem',
+                        background: 'var(--surface-2, #f6f7f9)',
+                        border: '1px solid var(--border, #e2e5ea)',
+                      }}
+                    >
+                      <strong className="small" style={{ display: 'block', marginBottom: 4 }}>
+                        Obra / XML Biesse
+                      </strong>
+                      {canAssignBiesse || o.biesseOrderId ? (
+                        <OrdenBiesseObraAssign
+                          orden={o}
+                          disabled={!canAssignBiesse}
+                          onAssigned={(updated) => onOrdenBiesseAssigned?.(o.id, updated)}
+                        />
+                      ) : (
+                        <p className="muted small" style={{ margin: 0 }}>
+                          Sin permiso para asignar. Abra el detalle o use un rol con acceso a proyectos.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  {(o.detalles ?? []).length ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
@@ -170,23 +186,26 @@ function ProyectoTreeSummary({
                       >
                         Ver detalle
                       </button>
-                      {onDownloadOrderExcel ? (
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
-                          Excel
-                        </button>
-                      ) : null}
-                      {onDownloadOrderText ? (
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderText(o)}>
-                          TXT
-                        </button>
-                      ) : null}
-                      {onDownloadOrderCsv ? (
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderCsv(o)}>
-                          CSV
-                        </button>
+                      {(o.detalles ?? []).length ? (
+                        <>
+                          {onDownloadOrderExcel ? (
+                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
+                              Excel
+                            </button>
+                          ) : null}
+                          {onDownloadOrderText ? (
+                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderText(o)}>
+                              TXT
+                            </button>
+                          ) : null}
+                          {onDownloadOrderCsv ? (
+                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderCsv(o)}>
+                              CSV
+                            </button>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
-                  ) : null}
                 </div>
               </li>
             ))}
@@ -195,7 +214,24 @@ function ProyectoTreeSummary({
       ) : (
         <p className="muted">Sin órdenes registradas.</p>
       )}
-      <ProyectoOrdenPiezasModal order={ordenPiezas} onClose={() => setOrdenPiezas(null)} />
+      <ProyectoOrdenPiezasModal
+        order={ordenPiezas}
+        canAssignBiesse={canAssignBiesse}
+        onOrdenBiesseAssigned={(ordenId, updated) => {
+          onOrdenBiesseAssigned?.(ordenId, updated)
+          setOrdenPiezas((prev) =>
+            prev && prev.id === ordenId
+              ? {
+                  ...prev,
+                  biesseOrderId: updated?.biesseOrderId ?? null,
+                  biesseOrderName: updated?.biesseOrderName ?? null,
+                  opCodigo: updated?.opCodigo ?? null,
+                }
+              : prev,
+          )
+        }}
+        onClose={() => setOrdenPiezas(null)}
+      />
       <ClientDetailModal
         open={clientModalOpen}
         proyectoId={project.id}
@@ -211,7 +247,10 @@ export function ProyectoOptimizacionPage() {
   const isAdmin = ability.can('manage', 'all')
   const canAssignBiesse =
     ability.can('create', FEATURE.PROJECT_LIST) ||
+    ability.can('update', FEATURE.PROJECT_LIST) ||
     ability.can('manage', FEATURE.PROJECT_LIST) ||
+    ability.can('view', FEATURE.GESTION_PROYECTOS) ||
+    ability.can('update', FEATURE.GESTION_PROYECTOS) ||
     isAdmin
   const { markAllRead } = useEmployeeNotifications()
   const [searchParams, setSearchParams] = useSearchParams()

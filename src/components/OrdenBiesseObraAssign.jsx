@@ -73,7 +73,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
   return (
     <div ref={rootRef} className="stack gap-1" style={{ marginTop: 8, minWidth: 0, flex: '1 1 220px' }}>
       <div className="small" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
-        <span className="muted">Obra Biesse:</span>
+        <span className="muted">Estado:</span>
         {linked ? (
           <>
             <strong>{orden.biesseOrderName || `#${orden.biesseOrderId}`}</strong>
@@ -88,7 +88,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
             </button>
           </>
         ) : (
-          <span className="muted">Sin asignar</span>
+          <span className="muted">Sin asignar — busque abajo</span>
         )}
       </div>
       {!disabled ? (
