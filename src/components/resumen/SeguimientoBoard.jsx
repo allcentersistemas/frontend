@@ -1,10 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
+import { ESTADOS_SEGUIMIENTO, estadoTagClass } from '../../utils/proyectoOptimizacion.js'
 
-const SEGUIMIENTO_COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({ id }))
 const DEFAULT_SINCE = '2026-08-26'
 const FLIGHT_MS = 1600
 const ARRIVE_MS = 2200
+
+/** Etiquetas cortas para el tablero (evitan aplastar / scroll horizontal). */
+const COL_LABEL = {
+  OPTIMIZADO: 'Optimizado',
+  PRODUCCION: 'Producción',
+  DESPACHO: 'Despacho',
+  LISTO_PARA_ENTREGAR: 'Listo',
+  ENTREGADO: 'Entregado',
+}
+
+const SEGUIMIENTO_COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({
+  id,
+  label: COL_LABEL[id] ?? id,
+}))
 
 function normalizeObraEstado(raw) {
   const e = String(raw ?? '')
@@ -39,7 +52,13 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
         <span>{label}</span>
         <span className="seguimiento-progress__pct">{value.toFixed(value % 1 ? 1 : 0)}%</span>
       </div>
-      <div className="seguimiento-progress__track" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className="seguimiento-progress__track"
+        role="progressbar"
+        aria-valuenow={value}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <span className="seguimiento-progress__fill" style={{ width: `${value}%` }} />
       </div>
       {detail ? <span className="seguimiento-progress__detail muted">{detail}</span> : null}
@@ -54,7 +73,6 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
  *   live?: boolean,
  *   since?: string,
  *   onSinceChange?: (yyyyMmDd: string) => void,
- *   onRefresh?: () => Promise<void>|void,
  * }} props
  */
 export function SeguimientoBoard({
@@ -63,7 +81,6 @@ export function SeguimientoBoard({
   live = false,
   since = DEFAULT_SINCE,
   onSinceChange,
-  onRefresh,
 }) {
   const sinceValue = since || DEFAULT_SINCE
   const [sinceDraft, setSinceDraft] = useState(sinceValue)
@@ -86,6 +103,8 @@ export function SeguimientoBoard({
     }
     return map
   }, [obras])
+
+  const totalObras = obras.length
 
   useEffect(() => {
     const prev = prevEstadosRef.current
@@ -116,7 +135,7 @@ export function SeguimientoBoard({
     }
 
     prevEstadosRef.current = next
-    if (!primedRef.current && obras.length >= 0) {
+    if (!primedRef.current) {
       primedRef.current = true
     }
 
@@ -152,54 +171,46 @@ export function SeguimientoBoard({
   const steps = ESTADOS_SEGUIMIENTO.length
 
   return (
-    <div className="dash">
-      <header className="dash-header">
-        <div>
-          <h1 className="dash-header__title">
-            Seguimiento por XML
-            {live ? (
-              <span className="seguimiento-live" title="Canal en vivo conectado">
-                <span className="seguimiento-live__dot" aria-hidden />
-                En vivo
-              </span>
-            ) : null}
-          </h1>
-          <p className="dash-header__lead">
-            Flujo de cada obra (XML):{' '}
-            <strong>Optimizado</strong> → <strong>Producción</strong> → <strong>Despacho</strong> →{' '}
-            <strong>Listo</strong> → <strong>Entregado</strong>.
+    <div className="dash seguimiento-page">
+      <header className="seguimiento-top">
+        <div className="seguimiento-top__main">
+          <div className="seguimiento-top__title-row">
+            <h1 className="seguimiento-top__title">Seguimiento</h1>
+            <span
+              className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}
+              title={live ? 'Canal en vivo conectado' : 'Reconectando canal en vivo…'}
+            >
+              <span className="seguimiento-live__dot" aria-hidden />
+              {live ? 'En vivo' : loading ? 'Conectando…' : 'Reconectando…'}
+            </span>
+            <span className="seguimiento-top__count muted small">{totalObras} obras</span>
+          </div>
+          <p className="seguimiento-top__lead muted small">
+            Optimizado → Producción → Despacho → Listo → Entregado
           </p>
         </div>
-        {onRefresh ? (
-          <button type="button" className="btn btn--ghost" onClick={() => void onRefresh()} disabled={loading}>
-            {loading ? 'Actualizando…' : 'Actualizar'}
-          </button>
-        ) : null}
-      </header>
 
-      <form className="seguimiento-filters" onSubmit={applySince}>
-        <label className="field">
-          <span className="field__label">Desde</span>
-          <input
-            type="date"
-            className="input"
-            value={sinceDraft}
-            onChange={(ev) => setSinceDraft(ev.target.value)}
-            disabled={loading}
-          />
-        </label>
-        <button type="submit" className="btn btn--primary btn--sm" disabled={loading}>
-          Filtrar
-        </button>
-        <p className="muted small seguimiento-filters__hint">
-          Solo obras creadas o actualizadas desde esta fecha (p. ej. al pasar a Producción).
-        </p>
-      </form>
+        <form className="seguimiento-filters" onSubmit={applySince}>
+          <label className="field">
+            <span className="field__label">Desde</span>
+            <input
+              type="date"
+              className="input"
+              value={sinceDraft}
+              onChange={(ev) => setSinceDraft(ev.target.value)}
+              disabled={loading && !obras.length}
+            />
+          </label>
+          <button type="submit" className="btn btn--primary btn--sm" disabled={loading && !obras.length}>
+            Filtrar
+          </button>
+        </form>
+      </header>
 
       {loading && !obras.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
           <div className="app-loading__spinner" aria-hidden />
-          <p className="text-sm">Cargando seguimiento…</p>
+          <p className="text-sm">Conectando seguimiento en vivo…</p>
         </div>
       ) : null}
 
@@ -208,10 +219,10 @@ export function SeguimientoBoard({
           <div className="seguimiento-rail" aria-hidden={flights.length === 0}>
             <div className="seguimiento-rail__line" />
             <div className="seguimiento-rail__stops">
-              {ESTADOS_SEGUIMIENTO.map((id) => (
-                <div key={id} className="seguimiento-rail__stop">
+              {SEGUIMIENTO_COLUMNS.map((col) => (
+                <div key={col.id} className="seguimiento-rail__stop">
                   <span className="seguimiento-rail__dot" />
-                  <span className="seguimiento-rail__label">{formatEstadoProyecto(id)}</span>
+                  <span className="seguimiento-rail__label">{col.label}</span>
                 </div>
               ))}
             </div>
@@ -239,59 +250,56 @@ export function SeguimientoBoard({
           </div>
 
           <div className="seguimiento-board">
-            {SEGUIMIENTO_COLUMNS.map((col) => (
-              <section key={col.id} className="seguimiento-col card">
-                <h2 className="seguimiento-col__title">
-                  <span className={estadoTagClass(col.id)}>{formatEstadoProyecto(col.id)}</span>
-                  <span className="seguimiento-col__count muted">{byEstado[col.id]?.length ?? 0}</span>
-                </h2>
-                <ul className="seguimiento-col__list">
-                  {(byEstado[col.id] ?? []).length === 0 ? (
-                    <li className="seguimiento-empty muted small">Sin obras</li>
-                  ) : (
-                    (byEstado[col.id] ?? []).map((o) => {
-                      const id = obraId(o)
-                      const name = obraName(o)
-                      const op = o.opCodigo ?? o.op_codigo
-                      const booking = o.bookingCode ?? o.bookingcode
-                      const pct = o.porcentaje
-                      const avance = o.avanceLabel ?? o.avance_label
-                      const pctCorte = o.porcentajeCorte ?? o.porcentaje_corte
-                      const avanceCorte = o.avanceCorteLabel ?? o.avance_corte_label
-                      const seccionador = o.seccionador
-                      const isArrived = arrived.has(String(id))
-                      return (
-                        <li
-                          key={id}
-                          className={`seguimiento-card${isArrived ? ' seguimiento-card--arrive' : ''}`}
-                        >
-                          <strong className="seguimiento-card__name">{name}</strong>
-                          <div className="seguimiento-card__meta">
-                            {op ? <span className="muted small">OP {op}</span> : null}
-                            {booking ? <span className="muted small">{booking}</span> : null}
-                            {seccionador ? (
-                              <span className="muted small">Seccionador: {seccionador}</span>
-                            ) : null}
-                          </div>
-                          <ProgressRow
-                            label="Escaneo"
-                            pct={pct}
-                            detail={avance || null}
-                            tone="scan"
-                          />
-                          <ProgressRow
-                            label="Cortes"
-                            pct={pctCorte}
-                            detail={avanceCorte || null}
-                            tone="cut"
-                          />
-                        </li>
-                      )
-                    })
-                  )}
-                </ul>
-              </section>
-            ))}
+            {SEGUIMIENTO_COLUMNS.map((col) => {
+              const count = byEstado[col.id]?.length ?? 0
+              return (
+                <section key={col.id} className={`seguimiento-col seguimiento-col--${col.id.toLowerCase()}`}>
+                  <h2 className="seguimiento-col__title">
+                    <span className={`${estadoTagClass(col.id)} seguimiento-col__tag`} title={col.id === 'LISTO_PARA_ENTREGAR' ? 'Listo para entregar' : col.label}>
+                      {col.label}
+                    </span>
+                    <span className="seguimiento-col__count">{count}</span>
+                  </h2>
+                  <ul className="seguimiento-col__list">
+                    {count === 0 ? (
+                      <li className="seguimiento-empty muted small">Sin obras</li>
+                    ) : (
+                      (byEstado[col.id] ?? []).map((o) => {
+                        const id = obraId(o)
+                        const name = obraName(o)
+                        const op = o.opCodigo ?? o.op_codigo
+                        const booking = o.bookingCode ?? o.bookingcode
+                        const pct = o.porcentaje
+                        const avance = o.avanceLabel ?? o.avance_label
+                        const pctCorte = o.porcentajeCorte ?? o.porcentaje_corte
+                        const avanceCorte = o.avanceCorteLabel ?? o.avance_corte_label
+                        const seccionador = o.seccionador
+                        const isArrived = arrived.has(String(id))
+                        return (
+                          <li
+                            key={id}
+                            className={`seguimiento-card${isArrived ? ' seguimiento-card--arrive' : ''}`}
+                          >
+                            <strong className="seguimiento-card__name" title={name}>
+                              {name}
+                            </strong>
+                            <div className="seguimiento-card__meta">
+                              {op ? <span className="muted small">OP {op}</span> : null}
+                              {booking ? <span className="muted small">{booking}</span> : null}
+                              {seccionador ? (
+                                <span className="muted small">Secc. {seccionador}</span>
+                              ) : null}
+                            </div>
+                            <ProgressRow label="Escaneo" pct={pct} detail={avance || null} tone="scan" />
+                            <ProgressRow label="Cortes" pct={pctCorte} detail={avanceCorte || null} tone="cut" />
+                          </li>
+                        )
+                      })
+                    )}
+                  </ul>
+                </section>
+              )
+            })}
           </div>
         </>
       ) : null}

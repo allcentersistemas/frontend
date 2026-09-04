@@ -20,7 +20,11 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
   const rootRef = useRef(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setItems([])
+      setLoading(false)
+      return
+    }
     function onDoc(e) {
       if (rootRef.current && !rootRef.current.contains(e.target)) {
         setOpen(false)
@@ -32,13 +36,19 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
 
   useEffect(() => {
     if (!open) return
+    const query = q.trim()
+    if (!query) {
+      setItems([])
+      setLoading(false)
+      return
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       void (async () => {
         setLoading(true)
         setMsg('')
         try {
-          const res = await systemApi.listBiesseObrasForAssign({ q, limit: 25, offset: 0 })
+          const res = await systemApi.listBiesseObrasForAssign({ q: query, limit: 25, offset: 0 })
           setItems(Array.isArray(res?.items) ? res.items.filter((i) => i.orderId != null) : [])
         } catch (e) {
           setItems([])
@@ -71,12 +81,12 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
   const linked = orden?.biesseOrderId != null
 
   return (
-    <div ref={rootRef} className="stack gap-1" style={{ marginTop: 8, minWidth: 0, flex: '1 1 220px' }}>
+    <div ref={rootRef} className="stack gap-1" style={{ minWidth: 0, width: '100%' }}>
       <div className="small" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
         <span className="muted">Estado:</span>
         {linked ? (
           <>
-            <strong>{orden.biesseOrderName || `#${orden.biesseOrderId}`}</strong>
+            <strong style={{ wordBreak: 'break-word' }}>{orden.biesseOrderName || `#${orden.biesseOrderId}`}</strong>
             {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
             <button
               type="button"
@@ -88,7 +98,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
             </button>
           </>
         ) : (
-          <span className="muted">Sin asignar — busque abajo</span>
+          <span className="muted">Sin asignar</span>
         )}
       </div>
       {!disabled ? (
@@ -96,7 +106,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
           <input
             type="search"
             className="input"
-            placeholder="Buscar obra (nombre, booking, id)…"
+            placeholder="Escriba para buscar XML / obra…"
             value={q}
             disabled={busy}
             onChange={(e) => {
@@ -105,27 +115,31 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
             }}
             onFocus={() => setOpen(true)}
             aria-label="Buscar obra Biesse"
+            autoComplete="off"
           />
           {open ? (
             <ul
               className="card pad"
               style={{
                 position: 'absolute',
-                zIndex: 20,
+                zIndex: 30,
                 left: 0,
                 right: 0,
                 margin: '4px 0 0',
                 padding: '0.35rem',
                 listStyle: 'none',
-                maxHeight: 220,
+                maxHeight: 260,
                 overflow: 'auto',
               }}
             >
               {loading ? <li className="muted small pad">Buscando…</li> : null}
-              {!loading && items.length === 0 ? (
-                <li className="muted small pad">{q.trim() ? 'Sin resultados' : 'Escribe para buscar obras'}</li>
+              {!loading && !q.trim() ? (
+                <li className="muted small pad">Empiece a escribir el nombre, booking o id del XML</li>
               ) : null}
-              {!loading
+              {!loading && q.trim() && items.length === 0 ? (
+                <li className="muted small pad">Sin resultados</li>
+              ) : null}
+              {!loading && q.trim()
                 ? items.map((item) => (
                     <li key={item.orderId}>
                       <button

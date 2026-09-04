@@ -108,18 +108,17 @@ export function ResumenPage() {
     }
   }, [showPage, showVentas, activeTab])
 
-  const loadSeguimiento = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setSeguimientoLoading(true)
+  const loadSeguimiento = useCallback(async () => {
+    // Solo se usa si el stream falla al arrancar; el tablero opera en vivo por SSE.
+    setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
       const list = await systemApi.listObrasSeguimiento({ since: seguimientoSince })
       setSeguimiento(Array.isArray(list) ? list : [])
     } catch (e) {
-      if (!silent) {
-        setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
-      }
+      setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
     } finally {
-      if (!silent) setSeguimientoLoading(false)
+      setSeguimientoLoading(false)
     }
   }, [seguimientoSince])
 
@@ -131,6 +130,8 @@ export function ResumenPage() {
 
     let cancelled = false
     let reconnectTimer = null
+    let attempt = 0
+    let didFallbackSnapshot = false
     const abort = new AbortController()
 
     const applyObras = (payload) => {
@@ -153,48 +154,50 @@ export function ResumenPage() {
           onEvent: ({ event, data }) => {
             if (cancelled) return
             if (event === 'connected') {
+              attempt = 0
               setSeguimientoLive(true)
               setSeguimientoLoading(false)
+              setSeguimientoErr(null)
               return
             }
             if (event === 'snapshot' || event === 'update') {
+              attempt = 0
               applyObras(data)
               setSeguimientoLive(true)
               setSeguimientoLoading(false)
+              setSeguimientoErr(null)
             }
           },
         })
       } catch (e) {
         if (cancelled || abort.signal.aborted) return
         setSeguimientoLive(false)
-        // Fallback REST + reintento del canal en vivo
-        void loadSeguimiento({ silent: true })
+        attempt += 1
+        if (!didFallbackSnapshot) {
+          didFallbackSnapshot = true
+          void loadSeguimiento()
+        }
+        const wait = Math.min(12_000, 2_000 * attempt)
         reconnectTimer = window.setTimeout(() => {
           void connect()
-        }, 5_000)
+        }, wait)
         return
       }
       if (!cancelled && !abort.signal.aborted) {
         setSeguimientoLive(false)
         reconnectTimer = window.setTimeout(() => {
           void connect()
-        }, 3_000)
+        }, 2_000)
       }
     }
 
     void connect()
-
-    // Respaldo lento por si el proxy corta el stream
-    const fallbackPoll = window.setInterval(() => {
-      if (!cancelled) void loadSeguimiento({ silent: true })
-    }, 45_000)
 
     return () => {
       cancelled = true
       setSeguimientoLive(false)
       abort.abort()
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
-      window.clearInterval(fallbackPoll)
     }
   }, [showPage, activeTab, seguimientoSince, loadSeguimiento])
 
@@ -268,7 +271,7 @@ export function ResumenPage() {
 
       {activeTab === 'seguimiento' ? (
         <>
-          {seguimientoErr ? (
+          {seguimientoErr && !seguimientoLive ? (
             <p className="form-error pad" role="alert">
               {seguimientoErr}
             </p>
@@ -279,7 +282,6 @@ export function ResumenPage() {
             live={seguimientoLive}
             since={seguimientoSince}
             onSinceChange={setSeguimientoSince}
-            onRefresh={() => loadSeguimiento()}
           />
         </>
       ) : null}

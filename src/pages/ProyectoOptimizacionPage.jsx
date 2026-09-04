@@ -146,66 +146,90 @@ function ProyectoTreeSummary({
           <ul className="stack gap-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {orders.map((o) => (
               <li key={o.id} className="card pad" style={{ margin: 0 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                    <strong>{o.codigo || `Orden ${o.id}`}</strong>
-                    {o.descripcion ? <span className="muted small"> — {o.descripcion}</span> : null}
-                    <p className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
-                      {(o.detalles ?? []).length} pieza(s)
-                    </p>
+                <div className="proyecto-orden-row">
+                  <div style={{ minWidth: 0 }}>
                     <div
-                      className="card pad"
                       style={{
-                        marginTop: 8,
-                        padding: '0.65rem 0.75rem',
-                        background: 'var(--surface-2, #f6f7f9)',
-                        border: '1px solid var(--border, #e2e5ea)',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 8,
                       }}
                     >
-                      <strong className="small" style={{ display: 'block', marginBottom: 4 }}>
-                        Obra / XML Biesse
-                      </strong>
-                      {canAssignBiesse || o.biesseOrderId ? (
-                        <OrdenBiesseObraAssign
-                          orden={o}
-                          disabled={!canAssignBiesse}
-                          onAssigned={(updated) => onOrdenBiesseAssigned?.(o.id, updated)}
-                        />
-                      ) : (
-                        <p className="muted small" style={{ margin: 0 }}>
-                          Sin permiso para asignar. Abra el detalle o use un rol con acceso a proyectos.
+                      <div style={{ minWidth: 0, flex: '1 1 140px' }}>
+                        <strong>{o.codigo || `Orden ${o.id}`}</strong>
+                        {o.descripcion ? <span className="muted small"> — {o.descripcion}</span> : null}
+                        <p className="small muted" style={{ marginTop: 4, marginBottom: 0 }}>
+                          {(o.detalles ?? []).length} pieza(s)
                         </p>
-                      )}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => setOrdenPiezas(o)}
+                        >
+                          Ver detalle
+                        </button>
+                        {(o.detalles ?? []).length ? (
+                          <>
+                            {onDownloadOrderExcel ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => onDownloadOrderExcel(o)}
+                              >
+                                Excel
+                              </button>
+                            ) : null}
+                            {onDownloadOrderText ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => onDownloadOrderText(o)}
+                              >
+                                TXT
+                              </button>
+                            ) : null}
+                            {onDownloadOrderCsv ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => onDownloadOrderCsv(o)}
+                              >
+                                CSV
+                              </button>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--sm"
-                        onClick={() => setOrdenPiezas(o)}
-                      >
-                        Ver detalle
-                      </button>
-                      {(o.detalles ?? []).length ? (
-                        <>
-                          {onDownloadOrderExcel ? (
-                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderExcel(o)}>
-                              Excel
-                            </button>
-                          ) : null}
-                          {onDownloadOrderText ? (
-                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderText(o)}>
-                              TXT
-                            </button>
-                          ) : null}
-                          {onDownloadOrderCsv ? (
-                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => onDownloadOrderCsv(o)}>
-                              CSV
-                            </button>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </div>
+                  <div
+                    className="card pad proyecto-orden-biesse-panel"
+                    style={{
+                      margin: 0,
+                      padding: '0.65rem 0.75rem',
+                      background: 'var(--surface-2, #f6f7f9)',
+                      border: '1px solid var(--border, #e2e5ea)',
+                    }}
+                  >
+                    <strong className="small" style={{ display: 'block', marginBottom: 4 }}>
+                      Obra / XML Biesse
+                    </strong>
+                    {canAssignBiesse || o.biesseOrderId ? (
+                      <OrdenBiesseObraAssign
+                        orden={o}
+                        disabled={!canAssignBiesse}
+                        onAssigned={(updated) => onOrdenBiesseAssigned?.(o.id, updated)}
+                      />
+                    ) : (
+                      <p className="muted small" style={{ margin: 0 }}>
+                        Sin permiso para asignar. Abra el detalle o use un rol con acceso a proyectos.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
