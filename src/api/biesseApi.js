@@ -72,13 +72,13 @@ export async function listOrdersPage(params) {
   const suffix = q.toString() ? `?${q}` : ''
   const raw = await biesseJson(`/api/biesse/scan/orders${suffix}`)
   const payload = normalizeOrderListPayload(raw)
+  // Refina en cliente: aunque el API aún devuelva toda la OP, solo deja las que
+  // contienen TODOS los tokens (así "…K5_IZQ…(1)4" no mezcla K1 ni (1)3).
   if (params?.q != null && String(params.q).trim() !== '') {
-    const q = params.q
-    let filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, q))
-    const qTokens = tokenSet(q)
-    const exact = filtered.filter((row) => tokenSetsEqual(tokenSet(row.orderName), qTokens))
-    if (exact.length) filtered = exact
-    return { items: filtered, totalCount: filtered.length }
+    const filtered = payload.items.filter((row) => orderMatchesSearchTokens(row, params.q))
+    if (filtered.length !== payload.items.length) {
+      return { items: filtered, totalCount: filtered.length }
+    }
   }
   return payload
 }
@@ -100,32 +100,18 @@ function searchTokens(value) {
   return norm.split(/\s+/).filter(Boolean)
 }
 
-function tokenSet(value) {
-  return new Set(searchTokens(value).map((t) => t.toLowerCase()))
-}
-
-function tokenSetsEqual(a, b) {
-  if (a.size !== b.size) return false
-  for (const t of a) {
-    if (!b.has(t)) return false
-  }
-  return true
-}
-
-/**
- * Cada token de la búsqueda debe existir como palabra entera.
- * Si alguna obra coincide en el conjunto exacto de palabras, se descartan
- * supersets (p.ej. «…BLANCO 18MM» no arrastra «…BLANCO RH 18MM»).
- */
+/** Match por palabra completa (el "4" de (1)4 no cuenta dentro de S14783). */
 function orderMatchesSearchTokens(row, query) {
-  const tokens = searchTokens(query).map((t) => t.toLowerCase())
+  const tokens = searchTokens(query)
   if (!tokens.length) return true
-  const nameTokens = tokenSet(
-    [row.orderName, row.bookingCode, row.orderId]
-      .filter((v) => v != null && String(v).trim() !== '')
-      .join(' '),
-  )
-  return tokens.every((token) => nameTokens.has(token) || String(row.orderId) === token)
+  const hay = normalizeOrderSearchQuery(
+    [row.orderName, row.bookingCode, row.orderId].filter((v) => v != null && String(v).trim() !== '').join(' '),
+  ).toLowerCase()
+  const padded = ` ${hay} `
+  return tokens.every((token) => {
+    const t = token.toLowerCase()
+    return padded.includes(` ${t} `) || String(row.orderId) === token
+  })
 }
 
 function toDimNumber(value) {
