@@ -532,24 +532,9 @@
     background: color-mix(in srgb, #ccfbf1 80%, white);
     border: 1px solid color-mix(in srgb, #14b8a6 40%, transparent);
   }
-  .seguimiento-live--off {
-    color: #991b1b;
-    background: color-mix(in srgb, #fecaca 80%, white);
-    border-color: color-mix(in srgb, #ef4444 45%, transparent);
-  }
-  .seguimiento-live--off .seguimiento-live__dot {
-    background: #ef4444;
-    animation: none;
-    box-shadow: none;
-  }
   .dark .seguimiento-live {
     color: #99f6e4;
     background: color-mix(in srgb, #134e4a 80%, black);
-  }
-  .dark .seguimiento-live--off {
-    color: #fecaca;
-    background: color-mix(in srgb, #7f1d1d 75%, black);
-    border-color: color-mix(in srgb, #f87171 45%, transparent);
   }
   .seguimiento-live__dot {
     width: 0.45rem;
@@ -558,6 +543,38 @@
     background: #14b8a6;
     box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 55%, transparent);
     animation: seguimiento-live-pulse 1.4s ease-out infinite;
+  }
+  .seguimiento-live-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, #dc2626 55%, transparent);
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 8px color-mix(in srgb, #dc2626 35%, transparent);
+  }
+  .seguimiento-live-btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+  .seguimiento-live-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
+  .seguimiento-live-btn__dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 0 0 0 color-mix(in srgb, #fff 45%, transparent);
+    animation: seguimiento-live-btn-pulse 1.1s ease-out infinite;
   }
   @keyframes seguimiento-live-pulse {
     0% {
@@ -568,6 +585,20 @@
     }
     100% {
       box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 0%, transparent);
+    }
+  }
+  @keyframes seguimiento-live-btn-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, #fff 50%, transparent);
+      opacity: 1;
+    }
+    70% {
+      box-shadow: 0 0 0 0.4rem color-mix(in srgb, #fff 0%, transparent);
+      opacity: 0.85;
+    }
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, #fff 0%, transparent);
+      opacity: 1;
     }
   }
 

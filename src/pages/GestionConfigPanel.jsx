@@ -33,6 +33,7 @@ export function GestionConfigPanel() {
   const [telegramEnabled, setTelegramEnabled] = useState(false)
   const [telegramBotToken, setTelegramBotToken] = useState('')
   const [telegramBotTokenConfigured, setTelegramBotTokenConfigured] = useState(false)
+  const [telegramBotUsername, setTelegramBotUsername] = useState('')
   const [testTelegramChatId, setTestTelegramChatId] = useState('')
   const [savingTelegram, setSavingTelegram] = useState(false)
   const [plantillaInfo, setPlantillaInfo] = useState(null)
@@ -62,6 +63,7 @@ export function GestionConfigPanel() {
     setTelegramEnabled(Boolean(cfg.telegramEnabled))
     setTelegramBotTokenConfigured(Boolean(cfg.telegramBotTokenConfigured))
     setTelegramBotToken('')
+    setTelegramBotUsername(cfg.telegramBotUsername ?? '')
     setAiVisionEnabled(Boolean(cfg.aiVisionEnabled))
     setAiProvider(cfg.aiProvider === 'openai' ? 'openai' : 'claude')
     setAiModel(cfg.aiModel ?? '')
@@ -180,7 +182,10 @@ export function GestionConfigPanel() {
     setErr(null)
     setOk(null)
     try {
-      const body = { telegramEnabled }
+      const body = {
+        telegramEnabled,
+        telegramBotUsername: telegramBotUsername.trim(),
+      }
       if (telegramBotToken.trim()) {
         body.telegramBotToken = telegramBotToken.trim()
       }
@@ -188,7 +193,7 @@ export function GestionConfigPanel() {
       applyConfig(updated)
       setOk(
         telegramEnabled
-          ? 'Telegram activado. Asigne el Chat ID a cada cliente en Gestión → Clientes.'
+          ? 'Telegram activado. Indique el @usuario del bot para que los clientes sepan a quién escribir.'
           : 'Telegram desactivado. No se enviarán notificaciones de pedido listo.',
       )
     } catch (e2) {
@@ -635,7 +640,8 @@ export function GestionConfigPanel() {
         <p className="muted small" style={{ marginBottom: '0.75rem' }}>
           Notifica al cliente cuando su pedido pasa a <strong>listo para entregar</strong>. Cree un bot
           con <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>, pegue
-          el token aquí y registre el Chat ID de cada cliente en Gestión → Clientes.
+          el token y el usuario del bot. El cliente abre ese bot, obtiene su Chat ID y lo guarda en su
+          perfil o en Gestión → Clientes.
         </p>
         <form onSubmit={(e) => void submitTelegramConfig(e)}>
           <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
@@ -647,16 +653,39 @@ export function GestionConfigPanel() {
             <span>Telegram activo</span>
           </label>
 
-          <label className="field">
-            <span>Token del bot</span>
-            <input
-              type="password"
-              value={telegramBotToken}
-              onChange={(e) => setTelegramBotToken(e.target.value)}
-              placeholder={telegramBotTokenConfigured ? '•••••••• (sin cambiar)' : '123456:ABC-DEF…'}
-              autoComplete="new-password"
-            />
-          </label>
+          <div className="form-row-2">
+            <label className="field">
+              <span>Token del bot</span>
+              <input
+                type="password"
+                value={telegramBotToken}
+                onChange={(e) => setTelegramBotToken(e.target.value)}
+                placeholder={telegramBotTokenConfigured ? '•••••••• (sin cambiar)' : '123456:ABC-DEF…'}
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="field">
+              <span>Usuario del bot</span>
+              <input
+                value={telegramBotUsername}
+                onChange={(e) => setTelegramBotUsername(e.target.value)}
+                placeholder="@AllCenterBot"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          {telegramBotUsername.trim() ? (
+            <p className="muted small form-hint">
+              Enlace público:{' '}
+              <a
+                href={`https://t.me/${telegramBotUsername.trim().replace(/^@/, '')}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                t.me/{telegramBotUsername.trim().replace(/^@/, '')}
+              </a>
+            </p>
+          ) : null}
 
           <div className="form-actions">
             <button

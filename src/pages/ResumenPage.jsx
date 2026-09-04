@@ -46,6 +46,7 @@ export function ResumenPage() {
   const [seguimientoErr, setSeguimientoErr] = useState(null)
   const [seguimientoSince, setSeguimientoSince] = useState('2026-08-26')
   const [seguimientoLive, setSeguimientoLive] = useState(false)
+  const [liveNonce, setLiveNonce] = useState(0)
 
   const roleNames = useMemo(
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
@@ -199,7 +200,7 @@ export function ResumenPage() {
       abort.abort()
       if (reconnectTimer) window.clearTimeout(reconnectTimer)
     }
-  }, [showPage, activeTab, seguimientoSince, loadSeguimiento])
+  }, [showPage, activeTab, seguimientoSince, loadSeguimiento, liveNonce])
 
   if (!showPage) {
     return (
@@ -282,6 +283,7 @@ export function ResumenPage() {
             live={seguimientoLive}
             since={seguimientoSince}
             onSinceChange={setSeguimientoSince}
+            onReconnectLive={() => setLiveNonce((n) => n + 1)}
           />
         </>
       ) : null}

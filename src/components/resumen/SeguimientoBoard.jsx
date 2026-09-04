@@ -73,6 +73,7 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
  *   live?: boolean,
  *   since?: string,
  *   onSinceChange?: (yyyyMmDd: string) => void,
+ *   onReconnectLive?: () => void,
  * }} props
  */
 export function SeguimientoBoard({
@@ -81,6 +82,7 @@ export function SeguimientoBoard({
   live = false,
   since = DEFAULT_SINCE,
   onSinceChange,
+  onReconnectLive,
 }) {
   const sinceValue = since || DEFAULT_SINCE
   const [sinceDraft, setSinceDraft] = useState(sinceValue)
@@ -176,13 +178,23 @@ export function SeguimientoBoard({
         <div className="seguimiento-top__main">
           <div className="seguimiento-top__title-row">
             <h1 className="seguimiento-top__title">Seguimiento</h1>
-            <span
-              className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}
-              title={live ? 'Canal en vivo conectado' : 'Reconectando canal en vivo…'}
-            >
-              <span className="seguimiento-live__dot" aria-hidden />
-              {live ? 'En vivo' : loading ? 'Conectando…' : 'Reconectando…'}
-            </span>
+            {live ? (
+              <span className="seguimiento-live" title="Canal en vivo conectado">
+                <span className="seguimiento-live__dot" aria-hidden />
+                En vivo
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="seguimiento-live-btn"
+                title="Sin conexión en vivo. Clic para reconectar"
+                onClick={() => onReconnectLive?.()}
+                disabled={loading && !onReconnectLive}
+              >
+                <span className="seguimiento-live-btn__dot" aria-hidden />
+                LIVE
+              </button>
+            )}
             <span className="seguimiento-top__count muted small">{totalObras} obras</span>
           </div>
           <p className="seguimiento-top__lead muted small">
