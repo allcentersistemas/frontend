@@ -14,6 +14,7 @@ import {
 function stateTag(state) {
   const s = String(state ?? '').toUpperCase()
   if (s === 'RUN') return 'tag tag--ok'
+  if (s === 'PAUSE') return 'tag tag--warn'
   if (s === 'IDLE') return 'tag'
   if (s === 'EMERGENCY') return 'tag tag--danger'
   return 'tag'
@@ -24,10 +25,41 @@ function formatMachineState(state, online) {
   const upper = raw.toUpperCase()
   if (!online) {
     if (!raw || upper === 'UNKNOWN' || upper === '—') return 'Sin señal'
-    return `${upper} (último)`
+    return `${upper === 'PAUSE' ? 'PAUSA' : upper} (último)`
   }
   if (!raw || upper === 'UNKNOWN') return 'Sin estado OSI'
+  if (upper === 'PAUSE') return 'PAUSA'
   return upper
+}
+
+/** Salud efectiva: no se queda pegada en DEGRADED si ya está online y sin cola. */
+function effectiveHealth(machine, online) {
+  const queue = Number(machine?.pending_queue_size ?? machine?.pendingQueueSize ?? 0)
+  const raw = String(machine?.health_status ?? machine?.healthStatus ?? 'OK').toUpperCase()
+  if (!online) {
+    if (queue > 0 || raw === 'OFFLINE_QUEUE') return 'OFFLINE_QUEUE'
+    return 'OFFLINE'
+  }
+  if (queue > 0) return queue >= 50 ? 'OFFLINE_QUEUE' : 'DEGRADED'
+  if (raw === 'DEGRADED' || raw === 'OFFLINE_QUEUE') {
+    // Heartbeat vivo + cola 0 → mostrar saludable aunque BD no se haya limpiado.
+    return 'OK'
+  }
+  return raw || 'OK'
+}
+
+function progressLabel(done, total) {
+  const d = Number(done ?? 0) || 0
+  const t = Number(total ?? 0) || 0
+  if (t > 0) return `${d} / ${t}`
+  return String(d)
+}
+
+function progressPct(done, total) {
+  const d = Number(done ?? 0) || 0
+  const t = Number(total ?? 0) || 0
+  if (t <= 0) return null
+  return Math.min(100, Math.round((d / t) * 100))
 }
 
 function onlineLabel(online, heartbeatAt) {
@@ -61,12 +93,6 @@ function toLocalISODate(d = new Date()) {
   return `${y}-${m}-${day}`
 }
 
-function daysAgoLocalISO(days) {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return toLocalISODate(d)
-}
-
 const MACHINES_POLL_MS = 2000
 const EVENTS_POLL_MS = 10000
 
@@ -78,7 +104,7 @@ export function BiesseMonitorPanel() {
   const [boardsLive, setBoardsLive] = useState(null)
   const [boardsHistory, setBoardsHistory] = useState([])
   const [boardsSummary, setBoardsSummary] = useState(null)
-  const [boardsFrom, setBoardsFrom] = useState(() => daysAgoLocalISO(7))
+  const [boardsFrom, setBoardsFrom] = useState(() => toLocalISODate())
   const [boardsTo, setBoardsTo] = useState(() => toLocalISODate())
   const [boardsMachineId, setBoardsMachineId] = useState('')
   const [boardsHistoryTotal, setBoardsHistoryTotal] = useState(null)
@@ -419,21 +445,41 @@ export function BiesseMonitorPanel() {
               : String(stateRaw).toUpperCase() === 'RUN' && online
                 ? durationLive(started)
                 : null
-          const health = m.health_status ?? m.healthStatus ?? 'OK'
+          const health = effectiveHealth(m, online)
           const queue = m.pending_queue_size ?? m.pendingQueueSize ?? 0
           const agentVer = m.agent_version ?? m.agentVersion
           const lastErr = m.last_error ?? m.lastError
           const errShort = shortAgentError(lastErr)
           const lastPart = m.last_part ?? m.lastPart
+          const boardsDone = m.boards_done ?? m.boardsDone ?? 0
+          const piecesDone = m.pieces_produced ?? m.piecesProduced ?? 0
+          const piecesTotal = m.pieces_total ?? m.piecesTotal ?? 0
+          const piecesPct = progressPct(piecesDone, piecesTotal)
+          const liveRow = Array.isArray(boardsLive?.machines)
+            ? boardsLive.machines.find(
+                (r) => Number(r.machine_id ?? r.machineId) === Number(id),
+              )
+            : null
+          const boardsToday = liveRow?.boards_today ?? liveRow?.boardsToday ?? null
           return (
-            <article key={id} className="card pad biesse-machine-card">
+            <article
+              key={id}
+              className={`card pad biesse-machine-card${online ? '' : ' biesse-machine-card--offline'}${String(stateRaw).toUpperCase() === 'PAUSE' ? ' biesse-machine-card--pause' : ''}`}
+            >
               <header className="biesse-machine-card__head">
                 <strong className="biesse-machine-card__title">
                   {m.machine_name ?? m.machineName ?? `Seccionador #${id}`}
                 </strong>
-                <span className={online ? 'tag tag--ok' : 'tag'}>
-                  {onlineLabel(online, hbAt)}
-                </span>
+                <div className="biesse-machine-card__badges">
+                  <span className={online ? 'tag tag--ok' : 'tag'}>
+                    {onlineLabel(online, hbAt)}
+                  </span>
+                  {liveConnected ? (
+                    <span className="tag tag--ok" title="Canal SSE en vivo">
+                      Live
+                    </span>
+                  ) : null}
+                </div>
               </header>
               <dl className="biesse-machine-dl">
                 <div>
@@ -484,9 +530,29 @@ export function BiesseMonitorPanel() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Planchas / piezas</dt>
+                  <dt>Piezas</dt>
                   <dd>
-                    {m.boards_done ?? m.boardsDone ?? 0} / {m.pieces_produced ?? m.piecesProduced ?? 0}
+                    <strong>{progressLabel(piecesDone, piecesTotal)}</strong>
+                    {piecesTotal > 0 ? (
+                      <span className="muted small"> del total ERP</span>
+                    ) : (
+                      <span className="muted small"> en sesión</span>
+                    )}
+                    {piecesPct != null ? (
+                      <div className="biesse-progress" title={`${piecesPct}%`}>
+                        <div className="biesse-progress__bar" style={{ width: `${piecesPct}%` }} />
+                      </div>
+                    ) : null}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Planchas</dt>
+                  <dd>
+                    <strong>{boardsDone}</strong>
+                    <span className="muted small"> en sesión</span>
+                    {boardsToday != null ? (
+                      <span className="muted small"> · hoy {boardsToday}</span>
+                    ) : null}
                   </dd>
                 </div>
                 {dur ? (
@@ -494,6 +560,9 @@ export function BiesseMonitorPanel() {
                     <dt>Tiempo cortando</dt>
                     <dd>
                       <strong>{dur}</strong>
+                      {String(stateRaw).toUpperCase() === 'PAUSE' ? (
+                        <span className="muted small"> (en pausa)</span>
+                      ) : null}
                     </dd>
                   </div>
                 ) : null}

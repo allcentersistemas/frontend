@@ -48,21 +48,21 @@ export function isEffectivelyOnline(machine, staleMs = 90_000) {
   return Date.now() - t <= staleMs
 }
 
-export function healthTag(health) {
-  const h = String(health ?? 'OK').toUpperCase()
-  if (h === 'OK') return 'tag tag--ok'
-  if (h === 'DEGRADED') return 'tag tag--warn'
-  if (h === 'OFFLINE_QUEUE') return 'tag tag--warn'
-  return 'tag'
-}
-
-/** Etiqueta de salud. Si hay heartbeat reciente, no decir "Offline". */
 export function healthLabel(health, { online = true } = {}) {
   const h = String(health ?? 'OK').toUpperCase()
   if (h === 'OK') return 'Saludable'
+  if (h === 'OFFLINE') return online ? 'Sin señal' : 'Offline'
   if (h === 'DEGRADED') return 'Degradado'
   if (h === 'OFFLINE_QUEUE') return online ? 'Cola pendiente' : 'Offline + cola'
   return h
+}
+
+export function healthTag(health) {
+  const h = String(health ?? 'OK').toUpperCase()
+  if (h === 'OK') return 'tag tag--ok'
+  if (h === 'DEGRADED' || h === 'OFFLINE_QUEUE') return 'tag tag--warn'
+  if (h === 'OFFLINE') return 'tag'
+  return 'tag'
 }
 
 /** Resume errores técnicos del agente para la tarjeta (sin JSON crudo). */

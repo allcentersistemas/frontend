@@ -945,10 +945,19 @@
 
   /* Monitor seccionadoras: filas apiladas (evita solape con obras largas / errores). */
   .biesse-machine-card {
-    @apply min-w-0 overflow-hidden;
+    @apply min-w-0 overflow-hidden transition-shadow;
+  }
+  .biesse-machine-card--offline {
+    @apply opacity-80;
+  }
+  .biesse-machine-card--pause {
+    box-shadow: inset 3px 0 0 0 rgb(245 158 11);
   }
   .biesse-machine-card__head {
     @apply flex items-start justify-between gap-2;
+  }
+  .biesse-machine-card__badges {
+    @apply flex shrink-0 flex-wrap items-center justify-end gap-1;
   }
   .biesse-machine-card__title {
     @apply min-w-0 break-words;
@@ -975,6 +984,12 @@
   }
   .biesse-machine-dl__err {
     @apply break-words text-amber-900 dark:text-amber-200;
+  }
+  .biesse-progress {
+    @apply mt-1 h-1.5 w-full overflow-hidden rounded bg-slate-200 dark:bg-slate-700;
+  }
+  .biesse-progress__bar {
+    @apply h-full rounded bg-emerald-500 transition-[width] duration-300;
   }
   .biesse-alerts__list {
     @apply m-0 mt-2 list-disc space-y-1 pl-5 text-sm;
