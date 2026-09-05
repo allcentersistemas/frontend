@@ -55,7 +55,7 @@ function EstadoTiemposList({ tiempos }) {
 }
 
 export function GestionProyectosPanel() {
-  const { canDelete } = useFeatureActions(FEATURE.GESTION_PROYECTOS)
+  const { canDelete, canCancel: canCancelPermission } = useFeatureActions(FEATURE.GESTION_PROYECTOS)
   const [filters, setFilters] = useState(emptyProyectoFilters())
   const [applied, setApplied] = useState(emptyProyectoFilters())
   const [rows, setRows] = useState([])
@@ -241,11 +241,13 @@ export function GestionProyectosPanel() {
 
   async function handleCancel(row) {
     const nombre = row.nombre || `proyecto ${row.id}`
-    if (
-      !window.confirm(
-        `¿Cancelar el proyecto «${nombre}»? El cliente verá el estado Cancelado y no podrá continuar el flujo.`,
-      )
-    ) {
+    const postVenta = ['VENDIDO', 'OPTIMIZADO', 'PRODUCCION', 'DESPACHO', 'LISTO_PARA_ENTREGAR'].includes(
+      row.estado,
+    )
+    const msg = postVenta
+      ? `El proyecto «${nombre}» está en «${formatEstadoProyecto(row.estado)}» (ya vendido o en seguimiento).\n\n¿Cancelarlo de todos modos? El cliente verá Cancelado.`
+      : `¿Cancelar el proyecto «${nombre}»? El cliente verá el estado Cancelado y no podrá continuar el flujo.`
+    if (!window.confirm(msg)) {
       return
     }
     setBusyId(row.id)
@@ -282,7 +284,9 @@ export function GestionProyectosPanel() {
   }
 
   function canCancel(row) {
-    return row.estado === 'ENVIADO' || row.estado === 'EN_ATENCION'
+    // Gestión/Ventas: cancelar salvo ya cancelado o entregado (requiere permiso CANCEL).
+    if (!canCancelPermission) return false
+    return row.estado !== 'CANCELADO' && row.estado !== 'ENTREGADO'
   }
 
   function canEdit(row) {
