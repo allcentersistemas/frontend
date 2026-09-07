@@ -284,6 +284,11 @@ export async function listProyectosSeguimiento() {
   return systemJson('/api/order/proyectos/seguimiento')
 }
 
+/** Tablero Seguimiento: proyectos con órdenes/XML (estado proyecto = cuello de botella). */
+export async function listSeguimientoProyectosBoard() {
+  return systemJson('/api/order/proyectos/seguimiento/board')
+}
+
 /** Tablero Seguimiento por XML/obra Biesse (`estado_escaneo`). @param {{ since?: string }} */
 export async function listObrasSeguimiento({ since } = {}) {
   const q = new URLSearchParams()

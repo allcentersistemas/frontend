@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ESTADOS_SEGUIMIENTO, estadoTagClass } from '../../utils/proyectoOptimizacion.js'
+import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
-const DEFAULT_SINCE = '2026-08-26'
 const FLIGHT_MS = 1600
 const ARRIVE_MS = 2200
 
-/** Etiquetas cortas para el tablero (evitan aplastar / scroll horizontal). */
+/** Incluye VENDIDO: proyectos esperando que todas las órdenes tengan XML. */
+const BOARD_ESTADOS = ['VENDIDO', ...ESTADOS_SEGUIMIENTO]
+
 const COL_LABEL = {
+  VENDIDO: 'Vendido',
   OPTIMIZADO: 'Optimizado',
   PRODUCCION: 'Producción',
   DESPACHO: 'Despacho',
@@ -14,28 +16,20 @@ const COL_LABEL = {
   ENTREGADO: 'Entregado',
 }
 
-const SEGUIMIENTO_COLUMNS = ESTADOS_SEGUIMIENTO.map((id) => ({
+const SEGUIMIENTO_COLUMNS = BOARD_ESTADOS.map((id) => ({
   id,
   label: COL_LABEL[id] ?? id,
 }))
 
-function normalizeObraEstado(raw) {
+function normalizeEstado(raw) {
   const e = String(raw ?? '')
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, '_')
   if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'LISTO_PARA_ENTREGAR'
   if (e === 'EN_PROCESO') return 'DESPACHO'
+  if (e === 'PENDIENTE' || e === '') return 'OPTIMIZADO'
   return e
-}
-
-function obraId(o) {
-  return o.orderId ?? o.orderid
-}
-
-function obraName(o) {
-  const id = obraId(o)
-  return o.orderName ?? o.ordername ?? (id != null ? `Obra #${id}` : 'Obra')
 }
 
 function clampPct(n) {
@@ -66,47 +60,77 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
   )
 }
 
+function OrdenRow({ orden }) {
+  const estado = orden.biesseOrderId == null ? null : normalizeEstado(orden.estadoEscaneo)
+  const name = orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'Orden')
+  return (
+    <li className="seguimiento-orden">
+      <div className="seguimiento-orden__head">
+        <strong className="seguimiento-orden__name" title={name}>
+          {name}
+        </strong>
+        {estado ? (
+          <span className={`${estadoTagClass(estado)} seguimiento-orden__tag`}>{formatEstadoProyecto(estado)}</span>
+        ) : (
+          <span className="tag seguimiento-orden__tag">Sin XML</span>
+        )}
+      </div>
+      <div className="seguimiento-orden__meta">
+        {orden.codigo ? <span className="muted small">{orden.codigo}</span> : null}
+        {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
+        {orden.seccionador ? <span className="muted small">Secc. {orden.seccionador}</span> : null}
+      </div>
+      {orden.biesseOrderId != null ? (
+        <>
+          <ProgressRow label="Escaneo" pct={orden.porcentaje} detail={orden.avanceLabel || null} tone="scan" />
+          <ProgressRow
+            label="Cortes"
+            pct={orden.porcentajeCorte}
+            detail={orden.avanceCorteLabel || null}
+            tone="cut"
+          />
+        </>
+      ) : (
+        <p className="muted small" style={{ margin: '0.35rem 0 0' }}>
+          Anidar XML en Mis proyectos para avanzar.
+        </p>
+      )}
+    </li>
+  )
+}
+
 /**
+ * Tablero Seguimiento: cards de proyecto (columna = estado cuello de botella),
+ * con cada orden/XML y su estado individual dentro.
+ *
  * @param {{
- *   obras?: Array<object>,
+ *   proyectos?: Array<object>,
  *   loading?: boolean,
  *   live?: boolean,
- *   since?: string,
- *   onSinceChange?: (yyyyMmDd: string) => void,
  *   onReconnectLive?: () => void,
  * }} props
  */
-export function SeguimientoBoard({
-  obras = [],
-  loading = false,
-  live = false,
-  since = DEFAULT_SINCE,
-  onSinceChange,
-  onReconnectLive,
-}) {
-  const sinceValue = since || DEFAULT_SINCE
-  const [sinceDraft, setSinceDraft] = useState(sinceValue)
-  const [sinceSynced, setSinceSynced] = useState(sinceValue)
-  if (sinceValue !== sinceSynced) {
-    setSinceSynced(sinceValue)
-    setSinceDraft(sinceValue)
-  }
-
+export function SeguimientoBoard({ proyectos = [], loading = false, live = false, onReconnectLive }) {
   const prevEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
   const [flights, setFlights] = useState([])
   const [arrived, setArrived] = useState(() => new Set())
 
   const byEstado = useMemo(() => {
-    const map = Object.fromEntries(ESTADOS_SEGUIMIENTO.map((e) => [e, []]))
-    for (const o of obras) {
-      const estado = normalizeObraEstado(o.estadoEscaneo ?? o.estado_escaneo ?? o.estado)
-      if (map[estado]) map[estado].push(o)
+    const map = Object.fromEntries(BOARD_ESTADOS.map((e) => [e, []]))
+    for (const p of proyectos) {
+      const estado = normalizeEstado(p.estado)
+      if (map[estado]) map[estado].push(p)
+      else if (map.VENDIDO) map.VENDIDO.push(p)
     }
     return map
-  }, [obras])
+  }, [proyectos])
 
-  const totalObras = obras.length
+  const totalProyectos = proyectos.length
+  const totalOrdenes = useMemo(
+    () => proyectos.reduce((acc, p) => acc + (Array.isArray(p.ordenes) ? p.ordenes.length : 0), 0),
+    [proyectos],
+  )
 
   useEffect(() => {
     const prev = prevEstadosRef.current
@@ -114,20 +138,20 @@ export function SeguimientoBoard({
     const newFlights = []
     const newlyArrived = []
 
-    for (const o of obras) {
-      const id = obraId(o)
+    for (const p of proyectos) {
+      const id = p.proyectoId
       if (id == null) continue
-      const estado = normalizeObraEstado(o.estadoEscaneo ?? o.estado_escaneo ?? o.estado)
+      const estado = normalizeEstado(p.estado)
       next.set(String(id), estado)
-      const old = prev.get(String(id))
-      if (primedRef.current && old && old !== estado) {
-        const fromIdx = ESTADOS_SEGUIMIENTO.indexOf(old)
-        const toIdx = ESTADOS_SEGUIMIENTO.indexOf(estado)
+      if (!primedRef.current) continue
+      const before = prev.get(String(id))
+      if (before && before !== estado) {
+        const fromIdx = BOARD_ESTADOS.indexOf(before)
+        const toIdx = BOARD_ESTADOS.indexOf(estado)
         if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
           newFlights.push({
-            key: `${id}-${old}-${estado}-${Date.now()}`,
-            id,
-            name: obraName(o),
+            key: `${id}-${before}-${estado}-${Date.now()}`,
+            name: p.nombre || `Proyecto #${id}`,
             fromIdx,
             toIdx,
           })
@@ -139,6 +163,7 @@ export function SeguimientoBoard({
     prevEstadosRef.current = next
     if (!primedRef.current) {
       primedRef.current = true
+      return
     }
 
     if (newFlights.length) {
@@ -148,85 +173,60 @@ export function SeguimientoBoard({
         for (const id of newlyArrived) s.add(id)
         return s
       })
-      const clearArrive = window.setTimeout(() => {
+      const t = window.setTimeout(() => {
         setArrived((prevSet) => {
           const s = new Set(prevSet)
           for (const id of newlyArrived) s.delete(id)
           return s
         })
       }, ARRIVE_MS)
-      return () => window.clearTimeout(clearArrive)
+      return () => window.clearTimeout(t)
     }
-  }, [obras])
+    return undefined
+  }, [proyectos])
 
   function dismissFlight(key) {
     setFlights((f) => f.filter((x) => x.key !== key))
   }
 
-  function applySince(e) {
-    e?.preventDefault?.()
-    const value = String(sinceDraft || '').trim()
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return
-    onSinceChange?.(value)
-  }
-
-  const steps = ESTADOS_SEGUIMIENTO.length
+  const steps = SEGUIMIENTO_COLUMNS.length
 
   return (
-    <div className="dash seguimiento-page">
+    <div className="seguimiento">
       <header className="seguimiento-top">
         <div className="seguimiento-top__main">
           <div className="seguimiento-top__title-row">
             <h1 className="seguimiento-top__title">Seguimiento</h1>
-            {live ? (
-              <span className="seguimiento-live" title="Canal en vivo conectado">
-                <span className="seguimiento-live__dot" aria-hidden />
-                En vivo
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="seguimiento-live-btn"
-                title="Sin conexión en vivo. Clic para reconectar"
-                onClick={() => onReconnectLive?.()}
-                disabled={loading && !onReconnectLive}
-              >
+            <span className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}>
+              <span className="seguimiento-live__dot" aria-hidden />
+              {live ? 'En vivo' : 'Reconectando…'}
+            </span>
+            {!live && typeof onReconnectLive === 'function' ? (
+              <button type="button" className="seguimiento-live-btn" onClick={onReconnectLive}>
                 <span className="seguimiento-live-btn__dot" aria-hidden />
-                LIVE
+                Reintentar
               </button>
-            )}
-            <span className="seguimiento-top__count muted small">{totalObras} obras</span>
+            ) : null}
           </div>
           <p className="seguimiento-top__lead muted small">
-            Optimizado → Producción → Despacho → Listo → Entregado
+            Proyectos agrupando sus órdenes/XML. El proyecto solo avanza cuando{' '}
+            <strong>todas</strong> las órdenes llegan a ese estado.
+          </p>
+          <p className="seguimiento-top__count muted small">
+            {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalOrdenes} orden
+            {totalOrdenes === 1 ? '' : 'es'}
           </p>
         </div>
-
-        <form className="seguimiento-filters" onSubmit={applySince}>
-          <label className="field">
-            <span className="field__label">Desde</span>
-            <input
-              type="date"
-              className="input"
-              value={sinceDraft}
-              onChange={(ev) => setSinceDraft(ev.target.value)}
-              disabled={loading && !obras.length}
-            />
-          </label>
-          <button type="submit" className="btn btn--primary btn--sm" disabled={loading && !obras.length}>
-            Filtrar
-          </button>
-        </form>
       </header>
 
-      {loading && !obras.length ? (
+      {loading && !proyectos.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
           <div className="app-loading__spinner" aria-hidden />
-          <p className="text-sm">Conectando seguimiento en vivo…</p>
+          <p className="text-sm">Cargando seguimiento…</p>
         </div>
       ) : null}
 
-      {!loading || obras.length ? (
+      {!loading || proyectos.length ? (
         <>
           <div className="seguimiento-rail" aria-hidden={flights.length === 0}>
             <div className="seguimiento-rail__line" />
@@ -267,43 +267,46 @@ export function SeguimientoBoard({
               return (
                 <section key={col.id} className={`seguimiento-col seguimiento-col--${col.id.toLowerCase()}`}>
                   <h2 className="seguimiento-col__title">
-                    <span className={`${estadoTagClass(col.id)} seguimiento-col__tag`} title={col.id === 'LISTO_PARA_ENTREGAR' ? 'Listo para entregar' : col.label}>
+                    <span
+                      className={`${estadoTagClass(col.id)} seguimiento-col__tag`}
+                      title={col.id === 'LISTO_PARA_ENTREGAR' ? 'Listo para entregar' : col.label}
+                    >
                       {col.label}
                     </span>
                     <span className="seguimiento-col__count">{count}</span>
                   </h2>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
-                      <li className="seguimiento-empty muted small">Sin obras</li>
+                      <li className="seguimiento-empty muted small">Sin proyectos</li>
                     ) : (
-                      (byEstado[col.id] ?? []).map((o) => {
-                        const id = obraId(o)
-                        const name = obraName(o)
-                        const op = o.opCodigo ?? o.op_codigo
-                        const booking = o.bookingCode ?? o.bookingcode
-                        const pct = o.porcentaje
-                        const avance = o.avanceLabel ?? o.avance_label
-                        const pctCorte = o.porcentajeCorte ?? o.porcentaje_corte
-                        const avanceCorte = o.avanceCorteLabel ?? o.avance_corte_label
-                        const seccionador = o.seccionador
+                      (byEstado[col.id] ?? []).map((p) => {
+                        const id = p.proyectoId
                         const isArrived = arrived.has(String(id))
+                        const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
                         return (
                           <li
                             key={id}
-                            className={`seguimiento-card${isArrived ? ' seguimiento-card--arrive' : ''}`}
+                            className={`seguimiento-card seguimiento-card--proyecto${isArrived ? ' seguimiento-card--arrive' : ''}`}
                           >
-                            <strong className="seguimiento-card__name" title={name}>
-                              {name}
+                            <strong className="seguimiento-card__name" title={p.nombre || ''}>
+                              {p.nombre || `Proyecto #${id}`}
                             </strong>
                             <div className="seguimiento-card__meta">
-                              {op ? <span className="muted small">OP {op}</span> : null}
-                              {booking ? <span className="muted small">{booking}</span> : null}
-                              {seccionador ? (
-                                <span className="muted small">Secc. {seccionador}</span>
-                              ) : null}
+                              {p.cliente ? <span className="muted small">{p.cliente}</span> : null}
+                              <span className="muted small">
+                                {p.ordenesConXml ?? ordenes.filter((o) => o.biesseOrderId != null).length}/
+                                {p.totalOrdenes ?? ordenes.length} con XML
+                              </span>
                             </div>
-                            <ProgressRow label="Escaneo" pct={pct} detail={avance || null} tone="scan" />
-                            <ProgressRow label="Cortes" pct={pctCorte} detail={avanceCorte || null} tone="cut" />
+                            {ordenes.length ? (
+                              <ul className="seguimiento-ordenes">
+                                {ordenes.map((o) => (
+                                  <OrdenRow key={o.ordenId ?? `${id}-${o.biesseOrderId}`} orden={o} />
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="muted small">Sin órdenes</p>
+                            )}
                           </li>
                         )
                       })

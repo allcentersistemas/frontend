@@ -763,7 +763,7 @@
 
   .seguimiento-board {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.65rem;
     align-items: stretch;
     width: 100%;
@@ -791,6 +791,9 @@
   /* Acento por columna (mismo color que su tag--estado-*) para escanear el flujo más rápido. */
   .seguimiento-col {
     border-top-width: 2px;
+  }
+  .seguimiento-col--vendido {
+    border-top-color: #a855f7;
   }
   .seguimiento-col--optimizado {
     border-top-color: #6366f1;
@@ -890,6 +893,63 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .seguimiento-card--proyecto {
+    gap: 0.4rem;
+  }
+  .seguimiento-ordenes {
+    list-style: none;
+    margin: 0.15rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .seguimiento-orden {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.4rem 0.45rem;
+    border-radius: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: color-mix(in srgb, var(--bg, #0f172a) 4%, transparent);
+  }
+  .dark .seguimiento-orden {
+    background: color-mix(in srgb, #000 22%, transparent);
+  }
+  .seguimiento-orden__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .seguimiento-orden__name {
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    min-width: 0;
+  }
+  .seguimiento-orden__tag {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    padding-inline: 0.35rem;
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .seguimiento-orden__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.45rem;
+    min-width: 0;
+  }
+  .seguimiento-orden .seguimiento-progress {
+    margin-top: 0.1rem;
+  }
   .seguimiento-progress {
     display: grid;
     gap: 0.15rem;
@@ -936,9 +996,9 @@
     white-space: nowrap;
   }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1280px) {
     .seguimiento-board {
-      grid-template-columns: repeat(5, minmax(11.5rem, 1fr));
+      grid-template-columns: repeat(6, minmax(11rem, 1fr));
       overflow-x: auto;
       overscroll-behavior-x: contain;
       scroll-snap-type: x proximity;
@@ -947,7 +1007,7 @@
     }
     .seguimiento-col {
       scroll-snap-align: start;
-      min-width: 11.5rem;
+      min-width: 11rem;
     }
   }
 
