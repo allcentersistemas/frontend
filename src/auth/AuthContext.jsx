@@ -78,40 +78,31 @@ export function AuthProvider({ children }) {
       }
       if (isAccessTokenExpired(p.accessToken) && p.refreshToken) {
         const refreshed = await refreshSession()
-        if (refreshed) {
-          const next = {
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken,
+        if (!refreshed) {
+          setStoredTokens(null)
+          saveAuthTokens(null)
+          if (!cancelled) {
+            setEmployee(null)
+            setReady(true)
           }
-          setStoredTokens(next)
-          saveAuthTokens(next)
+          return
         }
+        const next = {
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+        }
+        setStoredTokens(next)
+        saveAuthTokens(next)
       }
+      // Si esto falla, `backendJson` ya intentó renovar por dentro antes de
+      // propagar el error: reintentar aquí solo repetiría el mismo refresh fallido.
       try {
         const me = await systemApi.fetchMe()
         if (!cancelled) setEmployee(me)
       } catch {
-        const refreshed = await refreshSession()
-        if (refreshed) {
-          const next = {
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken,
-          }
-          setStoredTokens(next)
-          saveAuthTokens(next)
-          try {
-            const me = await systemApi.fetchMe()
-            if (!cancelled) setEmployee(me)
-          } catch {
-            setStoredTokens(null)
-            saveAuthTokens(null)
-            if (!cancelled) setEmployee(null)
-          }
-        } else {
-          setStoredTokens(null)
-          saveAuthTokens(null)
-          if (!cancelled) setEmployee(null)
-        }
+        setStoredTokens(null)
+        saveAuthTokens(null)
+        if (!cancelled) setEmployee(null)
       } finally {
         if (!cancelled) setReady(true)
       }
@@ -182,9 +173,10 @@ export function AuthProvider({ children }) {
         return
       }
 
-      if (t.accessToken && isAccessTokenExpired(t.accessToken, 0)) {
-        await logout()
-      }
+      // El backend rechazó el refresh token (400): no hay nada que esperar, la
+      // sesión ya está muerta. Antes se esperaba a que el access token también
+      // expirara (hasta ~90s), dejando cada pantalla fallando en silencio mientras tanto.
+      await logout()
     }
 
     const id = window.setInterval(() => void tick(), REFRESH_POLL_MS)
