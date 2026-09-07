@@ -6,7 +6,8 @@ import { canViewProduccionHub, canViewAlmacenHub } from '../access/permissions'
 import { OrderAuditPage } from '../pages/OrderAuditPage'
 import { PaleAuditPage } from '../pages/PaleAuditPage'
 import { PaleEditPage } from '../pages/PaleEditPage'
-import { InventoryPage } from '../pages/InventoryPage.jsx'
+import { ProduccionPage } from '../pages/ProduccionPage.jsx'
+import { AlmacenPage } from '../pages/AlmacenPage.jsx'
 import { ResumenPage } from '../pages/ResumenPage.jsx'
 import { ProfilePage } from '../pages/ProfilePage'
 import { gestionRoutes } from './gestionRoutes.jsx'
@@ -28,7 +29,7 @@ export function dashboardRoutes() {
         path="produccion"
         element={
           <RequireFeature check={canViewProduccionHub}>
-            <InventoryPage group="produccion" />
+            <ProduccionPage />
           </RequireFeature>
         }
       />
@@ -36,7 +37,7 @@ export function dashboardRoutes() {
         path="almacen"
         element={
           <RequireFeature check={canViewAlmacenHub}>
-            <InventoryPage group="almacen" />
+            <AlmacenPage />
           </RequireFeature>
         }
       />

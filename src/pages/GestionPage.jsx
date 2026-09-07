@@ -80,7 +80,7 @@ export function GestionPage({ initialSection } = {}) {
         },
         { id: 'employees', label: 'Empleados', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: CLIENTE_PORTAL_TAB, label: 'Cliente portal', feature: FEATURE.GESTION_CLIENTES_PORTAL },
-        { id: 'proyectos', label: 'Proyectos', feature: FEATURE.GESTION_PROYECTOS },
+        { id: 'proyectos', label: 'Proyectos (todos)', feature: FEATURE.GESTION_PROYECTOS },
         { id: 'roles', label: 'Roles', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'ubicaciones', label: 'Sucursales / ubicaciones', feature: FEATURE.EMPLOYEE_ADMIN },
         { id: 'backups', label: 'Backups', masterOnly: true },
