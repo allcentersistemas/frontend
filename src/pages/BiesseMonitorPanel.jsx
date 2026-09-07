@@ -323,21 +323,22 @@ export function BiesseMonitorPanel() {
           <h1 className="card__title" style={{ margin: 0 }}>
             Seccionadores
           </h1>
-          <button
-            type="button"
-            className={`seguimiento-live biesse-monitor-live-btn${liveConnected ? '' : ' seguimiento-live--off'}`}
-            title={
-              liveConnected
-                ? 'Canal en vivo conectado'
-                : 'Canal en vivo desconectado — clic para reintentar'
-            }
-            onClick={() => {
-              if (!liveConnected) setLiveKey((n) => n + 1)
-            }}
-          >
-            <span className="seguimiento-live__dot" aria-hidden />
-            Live
-          </button>
+          {liveConnected ? (
+            <span className="seguimiento-live" title="Canal en vivo conectado">
+              <span className="seguimiento-live__dot" aria-hidden />
+              En vivo
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="seguimiento-live-btn"
+              title="Canal en vivo desconectado — clic para reconectar"
+              onClick={() => setLiveKey((n) => n + 1)}
+            >
+              <span className="seguimiento-live-btn__dot" aria-hidden />
+              LIVE
+            </button>
+          )}
         </div>
         {err ? (
           <div className="form-error" style={{ marginTop: '0.75rem' }} role="alert">
@@ -449,7 +450,7 @@ export function BiesseMonitorPanel() {
           return (
             <article
               key={id}
-              className={`card pad biesse-machine-card${live ? '' : ' biesse-machine-card--offline'}${String(stateRaw).toUpperCase() === 'PAUSE' ? ' biesse-machine-card--pause' : ''}`}
+              className={`card pad biesse-machine-card${live ? '' : ' biesse-machine-card--offline'}${live ? ` biesse-machine-card--${String(stateRaw).toLowerCase()}` : ''}`}
             >
               <header className="biesse-machine-card__head">
                 <strong className="biesse-machine-card__title">

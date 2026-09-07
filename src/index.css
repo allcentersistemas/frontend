@@ -544,6 +544,22 @@
     box-shadow: 0 0 0 0 color-mix(in srgb, #14b8a6 55%, transparent);
     animation: seguimiento-live-pulse 1.4s ease-out infinite;
   }
+  /* Sin esto, .seguimiento-live--off no cambiaba nada y todo se veía "en vivo" (verde). */
+  .seguimiento-live--off {
+    color: #64748b;
+    background: color-mix(in srgb, #e2e8f0 75%, white);
+    border-color: color-mix(in srgb, #94a3b8 40%, transparent);
+  }
+  .dark .seguimiento-live--off {
+    color: #94a3b8;
+    background: color-mix(in srgb, #1e293b 80%, black);
+    border-color: color-mix(in srgb, #475569 55%, transparent);
+  }
+  .seguimiento-live--off .seguimiento-live__dot {
+    background: #94a3b8;
+    animation: none;
+    box-shadow: none;
+  }
   .seguimiento-live-btn {
     display: inline-flex;
     align-items: center;
@@ -772,6 +788,25 @@
         color-mix(in srgb, var(--card) 88%, transparent)
       );
   }
+  /* Acento por columna (mismo color que su tag--estado-*) para escanear el flujo más rápido. */
+  .seguimiento-col {
+    border-top-width: 2px;
+  }
+  .seguimiento-col--optimizado {
+    border-top-color: #6366f1;
+  }
+  .seguimiento-col--produccion {
+    border-top-color: #f97316;
+  }
+  .seguimiento-col--despacho {
+    border-top-color: #06b6d4;
+  }
+  .seguimiento-col--listo_para_entregar {
+    border-top-color: #84cc16;
+  }
+  .seguimiento-col--entregado {
+    border-top-color: #14b8a6;
+  }
   .seguimiento-col__title {
     display: flex;
     align-items: center;
@@ -992,6 +1027,12 @@
   .biesse-machine-card--pause {
     box-shadow: inset 3px 0 0 0 rgb(245 158 11);
   }
+  .biesse-machine-card--run {
+    box-shadow: inset 3px 0 0 0 rgb(16 185 129);
+  }
+  .biesse-machine-card--emergency {
+    box-shadow: inset 3px 0 0 0 rgb(220 38 38);
+  }
   .biesse-machine-card__head {
     @apply flex items-start justify-between gap-2;
   }
@@ -1039,15 +1080,6 @@
   .biesse-alerts__item--danger {
     @apply text-red-700 dark:text-red-300;
   }
-  .biesse-monitor-live-btn {
-    cursor: default;
-    border: none;
-    font: inherit;
-  }
-  .biesse-monitor-live-btn:not(:disabled) {
-    cursor: pointer;
-  }
-
   tr.inv-row-selected {
     @apply bg-amber-400/12 dark:bg-amber-400/10;
   }
