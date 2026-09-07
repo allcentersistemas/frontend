@@ -1,13 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ESTADOS_SEGUIMIENTO, estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
+import { estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 const FLIGHT_MS = 1600
 const ARRIVE_MS = 2200
 
-/** Incluye VENDIDO: proyectos esperando que todas las órdenes tengan XML. */
-const BOARD_ESTADOS = ['VENDIDO', ...ESTADOS_SEGUIMIENTO]
+/** Pipeline completo: comercial + producción. */
+const BOARD_ESTADOS = [
+  'ENVIADO',
+  'EN_ATENCION',
+  'COTIZADO',
+  'VENDIDO',
+  'OPTIMIZADO',
+  'PRODUCCION',
+  'DESPACHO',
+  'LISTO_PARA_ENTREGAR',
+  'ENTREGADO',
+]
 
 const COL_LABEL = {
+  ENVIADO: 'Enviado',
+  EN_ATENCION: 'Atención',
+  COTIZADO: 'Cotizado',
   VENDIDO: 'Vendido',
   OPTIMIZADO: 'Optimizado',
   PRODUCCION: 'Producción',
@@ -16,9 +29,22 @@ const COL_LABEL = {
   ENTREGADO: 'Entregado',
 }
 
+const COL_PHASE = {
+  ENVIADO: 'comercial',
+  EN_ATENCION: 'comercial',
+  COTIZADO: 'comercial',
+  VENDIDO: 'comercial',
+  OPTIMIZADO: 'obra',
+  PRODUCCION: 'obra',
+  DESPACHO: 'obra',
+  LISTO_PARA_ENTREGAR: 'obra',
+  ENTREGADO: 'obra',
+}
+
 const SEGUIMIENTO_COLUMNS = BOARD_ESTADOS.map((id) => ({
   id,
   label: COL_LABEL[id] ?? id,
+  phase: COL_PHASE[id] ?? 'obra',
 }))
 
 function normalizeEstado(raw) {
@@ -26,6 +52,7 @@ function normalizeEstado(raw) {
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, '_')
+  if (e === 'ENVIANDO') return 'ENVIADO'
   if (e === 'COMPLETADA' || e === 'COMPLETADO') return 'LISTO_PARA_ENTREGAR'
   if (e === 'EN_PROCESO') return 'DESPACHO'
   if (e === 'PENDIENTE' || e === '') return 'OPTIMIZADO'
@@ -60,9 +87,14 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
   )
 }
 
-function OrdenRow({ orden }) {
-  const estado = orden.biesseOrderId == null ? null : normalizeEstado(orden.estadoEscaneo)
-  const name = orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'Orden')
+function OrdenRow({ orden, proyectoEstado }) {
+  const hasXml = orden.biesseOrderId != null
+  const estado = hasXml ? normalizeEstado(orden.estadoEscaneo) : null
+  const name =
+    orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'Orden')
+  const proj = normalizeEstado(proyectoEstado)
+  const showProgress = hasXml && BOARD_ESTADOS.indexOf(proj) >= BOARD_ESTADOS.indexOf('VENDIDO')
+
   return (
     <li className="seguimiento-orden">
       <div className="seguimiento-orden__head">
@@ -70,9 +102,11 @@ function OrdenRow({ orden }) {
           {name}
         </strong>
         {estado ? (
-          <span className={`${estadoTagClass(estado)} seguimiento-orden__tag`}>{formatEstadoProyecto(estado)}</span>
+          <span className={`${estadoTagClass(estado)} seguimiento-orden__tag`}>
+            {formatEstadoProyecto(estado)}
+          </span>
         ) : (
-          <span className="tag seguimiento-orden__tag">Sin XML</span>
+          <span className="tag seguimiento-orden__tag">Pendiente</span>
         )}
       </div>
       <div className="seguimiento-orden__meta">
@@ -80,7 +114,7 @@ function OrdenRow({ orden }) {
         {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
         {orden.seccionador ? <span className="muted small">Secc. {orden.seccionador}</span> : null}
       </div>
-      {orden.biesseOrderId != null ? (
+      {showProgress ? (
         <>
           <ProgressRow label="Escaneo" pct={orden.porcentaje} detail={orden.avanceLabel || null} tone="scan" />
           <ProgressRow
@@ -90,25 +124,14 @@ function OrdenRow({ orden }) {
             tone="cut"
           />
         </>
-      ) : (
-        <p className="muted small" style={{ margin: '0.35rem 0 0' }}>
-          Anidar XML en Mis proyectos para avanzar.
-        </p>
-      )}
+      ) : null}
     </li>
   )
 }
 
 /**
- * Tablero Seguimiento: cards de proyecto (columna = estado cuello de botella),
- * con cada orden/XML y su estado individual dentro.
- *
- * @param {{
- *   proyectos?: Array<object>,
- *   loading?: boolean,
- *   live?: boolean,
- *   onReconnectLive?: () => void,
- * }} props
+ * Tablero Seguimiento: ENVIADO → ENTREGADO.
+ * Columna = estado del proyecto (cuello de botella); dentro, estado por orden/XML.
  */
 export function SeguimientoBoard({ proyectos = [], loading = false, live = false, onReconnectLive }) {
   const prevEstadosRef = useRef(new Map())
@@ -121,7 +144,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
     for (const p of proyectos) {
       const estado = normalizeEstado(p.estado)
       if (map[estado]) map[estado].push(p)
-      else if (map.VENDIDO) map.VENDIDO.push(p)
+      else if (map.ENVIADO) map.ENVIADO.push(p)
     }
     return map
   }, [proyectos])
@@ -209,13 +232,17 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
             ) : null}
           </div>
           <p className="seguimiento-top__lead muted small">
-            Proyectos agrupando sus órdenes/XML. El proyecto solo avanza cuando{' '}
-            <strong>todas</strong> las órdenes llegan a ese estado.
+            De <strong>Enviado</strong> a <strong>Entregado</strong>. El proyecto avanza cuando{' '}
+            <strong>todas</strong> las órdenes llegan; cada orden muestra su avance de obra/XML.
           </p>
           <p className="seguimiento-top__count muted small">
             {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalOrdenes} orden
             {totalOrdenes === 1 ? '' : 'es'}
           </p>
+        </div>
+        <div className="seguimiento-legend" aria-hidden>
+          <span className="seguimiento-legend__item seguimiento-legend__item--comercial">Comercial</span>
+          <span className="seguimiento-legend__item seguimiento-legend__item--obra">Obra / XML</span>
         </div>
       </header>
 
@@ -232,7 +259,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
             <div className="seguimiento-rail__line" />
             <div className="seguimiento-rail__stops">
               {SEGUIMIENTO_COLUMNS.map((col) => (
-                <div key={col.id} className="seguimiento-rail__stop">
+                <div key={col.id} className={`seguimiento-rail__stop seguimiento-rail__stop--${col.phase}`}>
                   <span className="seguimiento-rail__dot" />
                   <span className="seguimiento-rail__label">{col.label}</span>
                 </div>
@@ -261,11 +288,14 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
             })}
           </div>
 
-          <div className="seguimiento-board">
+          <div className="seguimiento-board seguimiento-board--full">
             {SEGUIMIENTO_COLUMNS.map((col) => {
               const count = byEstado[col.id]?.length ?? 0
               return (
-                <section key={col.id} className={`seguimiento-col seguimiento-col--${col.id.toLowerCase()}`}>
+                <section
+                  key={col.id}
+                  className={`seguimiento-col seguimiento-col--${col.id.toLowerCase()} seguimiento-col--phase-${col.phase}`}
+                >
                   <h2 className="seguimiento-col__title">
                     <span
                       className={`${estadoTagClass(col.id)} seguimiento-col__tag`}
@@ -275,9 +305,12 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                     </span>
                     <span className="seguimiento-col__count">{count}</span>
                   </h2>
+                  <p className="seguimiento-col__phase muted">
+                    {col.phase === 'comercial' ? 'Proyecto' : 'Órdenes / XML'}
+                  </p>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
-                      <li className="seguimiento-empty muted small">Sin proyectos</li>
+                      <li className="seguimiento-empty muted small">Vacío</li>
                     ) : (
                       (byEstado[col.id] ?? []).map((p) => {
                         const id = p.proyectoId
@@ -288,20 +321,31 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                             key={id}
                             className={`seguimiento-card seguimiento-card--proyecto${isArrived ? ' seguimiento-card--arrive' : ''}`}
                           >
-                            <strong className="seguimiento-card__name" title={p.nombre || ''}>
-                              {p.nombre || `Proyecto #${id}`}
-                            </strong>
+                            <div className="seguimiento-card__head">
+                              <strong className="seguimiento-card__name" title={p.nombre || ''}>
+                                {p.nombre || `Proyecto #${id}`}
+                              </strong>
+                              <span className={`${estadoTagClass(normalizeEstado(p.estado))} seguimiento-card__estado`}>
+                                {formatEstadoProyecto(normalizeEstado(p.estado))}
+                              </span>
+                            </div>
                             <div className="seguimiento-card__meta">
                               {p.cliente ? <span className="muted small">{p.cliente}</span> : null}
                               <span className="muted small">
-                                {p.ordenesConXml ?? ordenes.filter((o) => o.biesseOrderId != null).length}/
-                                {p.totalOrdenes ?? ordenes.length} con XML
+                                {ordenes.length} orden{ordenes.length === 1 ? '' : 'es'}
+                                {p.ordenesConXml != null
+                                  ? ` · ${p.ordenesConXml} con XML`
+                                  : ''}
                               </span>
                             </div>
                             {ordenes.length ? (
                               <ul className="seguimiento-ordenes">
                                 {ordenes.map((o) => (
-                                  <OrdenRow key={o.ordenId ?? `${id}-${o.biesseOrderId}`} orden={o} />
+                                  <OrdenRow
+                                    key={o.ordenId ?? `${id}-${o.biesseOrderId}`}
+                                    orden={o}
+                                    proyectoEstado={p.estado}
+                                  />
                                 ))}
                               </ul>
                             ) : (
