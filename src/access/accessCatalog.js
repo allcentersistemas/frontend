@@ -15,6 +15,7 @@ import {
   ROLE_SISTEMAS,
   ROLE_VENTAS,
   ROLE_ADMIN_VENTAS,
+  canViewResumenMenu,
 } from '../auth/roles'
 
 /**
@@ -246,10 +247,9 @@ export const ACCESS_TEMPLATES = [
   },
 ]
 
-const ADMIN_ROLE_NAMES = new Set([ROLE_MASTER, ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_SISTEMAS])
-
+/** Mismo set de roles admin que `canViewResumenMenu`/`canViewGestionMenu` (roles.js). */
 export function isAdminRoleName(name) {
-  return ADMIN_ROLE_NAMES.has(String(name ?? '').trim().toUpperCase().replace(/-/g, '_'))
+  return canViewResumenMenu([name])
 }
 
 /** Roles sugeridos para un conjunto de módulos marcados */

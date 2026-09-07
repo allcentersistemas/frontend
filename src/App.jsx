@@ -4,6 +4,9 @@ import { LegacySegmentRedirect } from './components/LegacySegmentRedirect'
 import { AuthProvider } from './auth/AuthContext'
 import { EmployeeNotificationProvider } from './notifications/EmployeeNotificationProvider'
 import { RequireAuth } from './auth/RequireAuth'
+import { RequireFeature } from './access/RequireFeature.jsx'
+import { canAccessFeature, canViewInventoryHub } from './access/permissions'
+import { FEATURE } from './access/permissionCatalog'
 import { AppShell } from './components/AppShell'
 import { ApiCatalogPage } from './pages/ApiCatalogPage'
 
@@ -18,6 +21,8 @@ import { ResumenPage } from './pages/ResumenPage.jsx'
 import { DashboardHomeRedirect } from './pages/DashboardHomeRedirect.jsx'
 import { proyectoOptimizacionRoutes } from './routes/proyectoOptimizacionRoutes.jsx'
 import { gestionRoutes } from './routes/gestionRoutes.jsx'
+
+const canViewApiCatalog = (employee) => canAccessFeature(employee, FEATURE.API_CATALOG)
 
 export default function App() {
   return (
@@ -39,7 +44,14 @@ export default function App() {
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
-              <Route path="inventario" element={<InventoryPage />} />
+              <Route
+                path="inventario"
+                element={
+                  <RequireFeature check={canViewInventoryHub}>
+                    <InventoryPage />
+                  </RequireFeature>
+                }
+              />
               {proyectoOptimizacionRoutes()}
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
@@ -56,7 +68,14 @@ export default function App() {
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
-              <Route path="api" element={<ApiCatalogPage />} />
+              <Route
+                path="api"
+                element={
+                  <RequireFeature check={canViewApiCatalog}>
+                    <ApiCatalogPage />
+                  </RequireFeature>
+                }
+              />
               <Route
                 path="administracion"
                 element={
@@ -64,7 +83,14 @@ export default function App() {
                 }
               />
               <Route path="perfil" element={<ProfilePage />} />
-              <Route path="inventario" element={<InventoryPage />} />
+              <Route
+                path="inventario"
+                element={
+                  <RequireFeature check={canViewInventoryHub}>
+                    <InventoryPage />
+                  </RequireFeature>
+                }
+              />
               {proyectoOptimizacionRoutes()}
             </Route>
           </Route>
@@ -80,7 +106,14 @@ export default function App() {
               <Route path="pales/:paleId/editar" element={<PaleEditPage />} />
               {gestionRoutes()}
               <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
-              <Route path="inventario" element={<InventoryPage />} />
+              <Route
+                path="inventario"
+                element={
+                  <RequireFeature check={canViewInventoryHub}>
+                    <InventoryPage />
+                  </RequireFeature>
+                }
+              />
               {proyectoOptimizacionRoutes()}
               <Route path="perfil" element={<ProfilePage />} />
             </Route>

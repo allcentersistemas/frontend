@@ -19,6 +19,17 @@ Leyenda acciones: **V** view · **C** create · **U** update · **D** delete · 
 
 \* Gestión visible si el rol tiene **view** en vehículos **o** en administración de empleados.
 
+## Roles adicionales (faltaban en esta tabla; ver `rolePermissions.js`)
+
+Estos roles no tienen columna propia arriba porque encajan en un tier ya documentado o son de ventas/gerencia (fuera del flujo operativo Biesse/palés/transporte):
+
+| Rol | Tier equivalente | Detalle |
+|-----|-------------------|---------|
+| `GERENCIA` | Igual que ADMIN_PROD en "Acciones por módulo" (`MANAGER_OPS` + `AUDIT_RULES`) | + `dashboard.ventas` (V). Sin `employee.admin` ni menú Gestión (`GESTION_ADMIN` no incluido). |
+| `SEGURIDAD`, `PROCESOS`, `LOGISTICA`, `CALIDAD` | Igual que DESPACHO/PRODUCCION (`READ_CREATE_OPS`: V C X en todas las `OPS_FEATURES`) | Sin diferencias entre sí; los cuatro comparten exactamente las mismas reglas. |
+| `VENTAS` | — (no operativo) | V C X en `project.list` + V en `dashboard.ventas`. Sin acceso a Gestión. |
+| `ADMIN_VENTAS` | — (no operativo) | Igual que VENTAS + V C U (cancelar incluido) en `gestion.clientes` y `gestion.proyectos` — accede al hub Gestión solo para esas dos secciones. |
+
 ## Acciones por módulo (botones / pantallas)
 
 | Módulo | Feature | MASTER / ADMIN | ADMIN_PROD | DESPACHO | PRODUCCION |

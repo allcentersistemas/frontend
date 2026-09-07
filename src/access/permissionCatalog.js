@@ -17,8 +17,6 @@ export const FEATURE = {
   TRANSPORT_LOADS: 'transport.loads',
   TRANSPORT_AUDIT: 'transport.audit',
   API_CATALOG: 'api.catalog',
-  /** @deprecated Usar INVENTORY_GUIAS | INVENTORY_STOCK | INVENTORY_RM */
-  INVENTORY: 'inventory',
   INVENTORY_GUIAS: 'inventory.guias',
   INVENTORY_STOCK: 'inventory.stock',
   INVENTORY_TABLEROS: 'inventory.tableros',
