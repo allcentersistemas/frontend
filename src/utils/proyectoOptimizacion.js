@@ -2,7 +2,7 @@ import { formatAppDateTime, parseAppDateTime } from './appDateTime.js'
 
 export const ESTADOS_PROYECTO = [
   { value: '', label: 'Todos los estados' },
-  { value: 'ENVIADO', label: 'Enviando' },
+  { value: 'ENVIADO', label: 'Enviado' },
   { value: 'EN_ATENCION', label: 'En atención' },
   { value: 'COTIZADO', label: 'Cotizado' },
   { value: 'VENDIDO', label: 'Vendido' },
@@ -24,7 +24,7 @@ export const ESTADOS_SEGUIMIENTO = [
 
 export function formatEstadoProyecto(value) {
   const map = {
-    ENVIADO: 'Enviando',
+    ENVIADO: 'Enviado',
     EN_ATENCION: 'En atención',
     COTIZADO: 'Cotizado',
     VENDIDO: 'Vendido',
@@ -35,23 +35,42 @@ export function formatEstadoProyecto(value) {
     ENTREGADO: 'Entregado',
     CANCELADO: 'Cancelado',
   }
-  return map[value] || value || '—'
+  const key = String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_')
+  return map[key] || value || '—'
 }
 
 export function estadoTagClass(estado) {
-  const map = {
-    ENVIADO: 'tag tag--estado-enviado',
-    EN_ATENCION: 'tag tag--estado-atencion',
-    COTIZADO: 'tag tag--estado-cotizado',
-    VENDIDO: 'tag tag--estado-vendido',
-    OPTIMIZADO: 'tag tag--estado-optimizado',
-    PRODUCCION: 'tag tag--estado-produccion',
-    DESPACHO: 'tag tag--estado-despacho',
-    LISTO_PARA_ENTREGAR: 'tag tag--estado-listo',
-    ENTREGADO: 'tag tag--estado-entregado',
-    CANCELADO: 'tag tag--estado-cancelado',
+  const key = String(estado ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_')
+  switch (key) {
+    case 'ENVIADO':
+      return 'tag tag--estado-enviado'
+    case 'EN_ATENCION':
+      return 'tag tag--estado-atencion'
+    case 'COTIZADO':
+      return 'tag tag--estado-cotizado'
+    case 'VENDIDO':
+      return 'tag tag--estado-vendido'
+    case 'OPTIMIZADO':
+      return 'tag tag--estado-optimizado'
+    case 'PRODUCCION':
+      return 'tag tag--estado-produccion'
+    case 'DESPACHO':
+      return 'tag tag--estado-despacho'
+    case 'LISTO_PARA_ENTREGAR':
+      return 'tag tag--estado-listo'
+    case 'ENTREGADO':
+      return 'tag tag--estado-entregado'
+    case 'CANCELADO':
+      return 'tag tag--estado-cancelado'
+    default:
+      return 'tag'
   }
-  return map[estado] || 'tag'
 }
 
 export function canCapturarProyectoOptimizacion(row) {

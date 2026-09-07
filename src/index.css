@@ -497,6 +497,31 @@
     gap: 0.85rem 1.25rem;
     margin: 0 0 1rem;
   }
+  .seguimiento-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .seguimiento-legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 650;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  }
+  .seguimiento-legend__item--comercial {
+    color: #7c3aed;
+    background: color-mix(in srgb, #a855f7 12%, transparent);
+    border-color: color-mix(in srgb, #a855f7 35%, transparent);
+  }
+  .seguimiento-legend__item--obra {
+    color: #4338ca;
+    background: color-mix(in srgb, #6366f1 12%, transparent);
+    border-color: color-mix(in srgb, #6366f1 35%, transparent);
+  }
   .seguimiento-top__main {
     min-width: min(100%, 16rem);
   }
@@ -769,13 +794,25 @@
     width: 100%;
     min-width: 0;
   }
+  .seguimiento-board--full {
+    grid-template-columns: repeat(9, minmax(11.25rem, 1fr));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0.45rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .seguimiento-board--full .seguimiento-col {
+    scroll-snap-align: start;
+    min-width: 11.25rem;
+  }
   .seguimiento-col {
     min-width: 0;
     padding: 0.65rem 0.55rem;
     max-height: min(72vh, 52rem);
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.4rem;
     isolation: isolate;
     position: relative;
     z-index: 0;
@@ -790,7 +827,32 @@
   }
   /* Acento por columna (mismo color que su tag--estado-*) para escanear el flujo más rápido. */
   .seguimiento-col {
-    border-top-width: 2px;
+    border-top-width: 3px;
+  }
+  .seguimiento-col--phase-comercial {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #a855f7 6%, var(--card)),
+        color-mix(in srgb, var(--card) 92%, transparent)
+      );
+  }
+  .seguimiento-col--phase-obra {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #6366f1 7%, var(--card)),
+        color-mix(in srgb, var(--card) 92%, transparent)
+      );
+  }
+  .seguimiento-col--enviado {
+    border-top-color: #0ea5e9;
+  }
+  .seguimiento-col--en_atencion {
+    border-top-color: #f59e0b;
+  }
+  .seguimiento-col--cotizado {
+    border-top-color: #10b981;
   }
   .seguimiento-col--vendido {
     border-top-color: #a855f7;
@@ -809,6 +871,13 @@
   }
   .seguimiento-col--entregado {
     border-top-color: #14b8a6;
+  }
+  .seguimiento-col__phase {
+    margin: -0.15rem 0 0.15rem;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .seguimiento-col__title {
     display: flex;
@@ -880,6 +949,22 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     word-break: break-word;
+  }
+  .seguimiento-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .seguimiento-card__estado {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    padding-inline: 0.35rem;
+    max-width: 48%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .seguimiento-card__meta {
     display: flex;
@@ -997,7 +1082,7 @@
   }
 
   @media (max-width: 1280px) {
-    .seguimiento-board {
+    .seguimiento-board:not(.seguimiento-board--full) {
       grid-template-columns: repeat(6, minmax(11rem, 1fr));
       overflow-x: auto;
       overscroll-behavior-x: contain;
@@ -1005,7 +1090,7 @@
       padding-bottom: 0.35rem;
       -webkit-overflow-scrolling: touch;
     }
-    .seguimiento-col {
+    .seguimiento-board:not(.seguimiento-board--full) .seguimiento-col {
       scroll-snap-align: start;
       min-width: 11rem;
     }
