@@ -422,6 +422,15 @@ export async function uploadProyectoPlanos(id, file) {
   })
 }
 
+export async function uploadProyectoXmlCorte(id, file) {
+  const form = new FormData()
+  form.append('file', file)
+  return systemJson(`/api/order/proyectos/${id}/xml-corte`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
 export function planosProyectoUrl(id) {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
   const apiPath = systemApiBase.startsWith('http') ? systemApiBase : `${base}${systemApiBase}`

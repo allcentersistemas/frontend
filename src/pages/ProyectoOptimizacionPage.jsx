@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Save } from 'lucide-react'
 import * as systemApi from '../api/systemApi'
 import { DetailModal } from '../components/DetailModal.jsx'
 import {
@@ -300,6 +301,8 @@ export function ProyectoOptimizacionPage() {
   const [cotizacionTargetId, setCotizacionTargetId] = useState(null)
   const planosInputRef = useRef(null)
   const [planosTargetId, setPlanosTargetId] = useState(null)
+  const xmlInputRef = useRef(null)
+  const [xmlTargetId, setXmlTargetId] = useState(null)
 
   const setTab = useCallback(
     (id) => {
@@ -604,6 +607,39 @@ export function ProyectoOptimizacionPage() {
     }
   }
 
+  function canUploadXmlCorte(row) {
+    return row?.estado === 'VENDIDO'
+  }
+
+  function promptUploadXml(rowId) {
+    setXmlTargetId(rowId)
+    xmlInputRef.current?.click()
+  }
+
+  async function handleXmlSelected(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    const rowId = xmlTargetId
+    setXmlTargetId(null)
+    if (!file || !rowId) return
+    setBusyId(rowId)
+    setActionMsg('')
+    try {
+      await systemApi.uploadProyectoXmlCorte(rowId, file)
+      setActionMsg('XML de corte subido. El proyecto pasó a estado Optimizado.')
+      await load()
+      if (detailRow?.id === rowId) {
+        const tree = await systemApi.getProyectoOptimizacion(rowId)
+        setDetailTree(tree)
+        setDetailRow((prev) => (prev ? { ...prev, estado: 'OPTIMIZADO' } : prev))
+      }
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo subir el XML de corte.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handleAddMaquina(e) {
     e.preventDefault()
     if (!maquinaForm.codigo.trim() || !maquinaForm.nombre.trim()) return
@@ -646,6 +682,13 @@ export function ProyectoOptimizacionPage() {
         accept=".pdf,application/pdf"
         hidden
         onChange={(e) => void handlePlanosSelected(e)}
+      />
+      <input
+        ref={xmlInputRef}
+        type="file"
+        accept=".xml,application/xml,text/xml"
+        hidden
+        onChange={(e) => void handleXmlSelected(e)}
       />
       <ModuleHeader
         title="Proyecto optimización"
@@ -928,6 +971,18 @@ export function ProyectoOptimizacionPage() {
                       onClick={() => void handleVendido(detailRow)}
                     >
                       Vendido
+                    </button>
+                  ) : null}
+                  {canUploadXmlCorte(detailRow) ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => promptUploadXml(detailRow.id)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Save size={14} aria-hidden />
+                      Subir XML de corte
                     </button>
                   ) : null}
                 </>
