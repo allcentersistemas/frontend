@@ -10,25 +10,33 @@ import { cn } from '../lib/cn'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import logo from '../assets/allcenter1.png'
-/** @typedef {{ to: string, label: string, end?: boolean }} NavItem */
-/** @typedef {{ id: string, title: string | null, items: NavItem[] }} NavSection */
+
+const SIDEBAR_COLLAPSED_KEY = 'allcenter.sidebarCollapsed'
+
+function readSidebarCollapsed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export function AppShell({ role }) {
   const { employee, logout } = useAuth()
   const ability = useAppAbility()
   const { unreadCount } = useEmployeeNotifications()
   const [menuOpen, setMenuOpen] = useState(false)
-  const sections = sidebarSectionsForDashboard(role, ability, employee).filter((section) => section.items.length > 0)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
+  const sections = sidebarSectionsForDashboard(role, ability, employee).filter(
+    (section) => section.items.length > 0,
+  )
 
   const displayName =
     [employee?.firstName, employee?.lastName].filter(Boolean).join(' ') ||
     employee?.email ||
     'Usuario'
 
-  const subtitle = shellSubtitle(
-    employee?.roles.map((r) => r.name) ?? [],
-    role,
-  )
+  const subtitle = shellSubtitle(employee?.roles.map((r) => r.name) ?? [], role)
 
   const profileHref = `/dashboard/${role}/perfil`
   const email = employee?.email?.trim() || null
@@ -43,10 +51,23 @@ export function AppShell({ role }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [menuOpen])
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed])
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((v) => !v)
+  }
+
   return (
     <div
       className={cn(
-        'relative min-h-svh lg:grid lg:min-h-screen lg:grid-cols-[280px_1fr]',
+        'relative min-h-svh lg:grid lg:min-h-screen',
+        sidebarCollapsed ? 'lg:grid-cols-[0px_1fr]' : 'lg:grid-cols-[280px_1fr]',
         menuOpen && 'max-lg:overflow-hidden',
       )}
     >
@@ -97,30 +118,37 @@ export function AppShell({ role }) {
       <aside
         id="app-sidebar"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[min(88vw,300px)] flex-col border-r border-slate-200/80 bg-white/90 px-4 py-6 shadow-xl backdrop-blur-2xl transition-transform duration-200 ease-out max-lg:pt-[4.5rem] dark:border-white/[0.08] dark:bg-slate-950/70 dark:shadow-depth lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-auto lg:max-w-none lg:translate-x-0 lg:px-5',
+          'fixed inset-y-0 left-0 z-50 flex w-[min(88vw,300px)] flex-col border-r border-slate-200/80 bg-white/90 px-4 py-6 shadow-xl backdrop-blur-2xl transition-all duration-200 ease-out max-lg:pt-[4.5rem] dark:border-white/[0.08] dark:bg-slate-950/70 dark:shadow-depth lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-auto lg:max-w-none lg:px-5',
           menuOpen ? 'translate-x-0' : 'max-lg:-translate-x-full',
+          sidebarCollapsed && 'lg:pointer-events-none lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-0 lg:p-0 lg:opacity-0',
         )}
         aria-label="Barra lateral"
+        aria-hidden={sidebarCollapsed ? true : undefined}
       >
-        <div className="mb-8 flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br  bg-yellow-300"
-            aria-hidden
-          >
-            {/*from-amber-300 to-amber-600 text-lg font-bold text-slate-950 shadow-glow-sm*/}
-           <img
-               src={logo}
-               alt="Logo"
-               className="
-                  w-36
-                  object-contain
-                  drop-shadow-2xl
-                "
-           />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-semibold tracking-tight text-slate-900 dark:text-white">AllCenter</p>
-            <p className="truncate text-xs text-slate-500">{subtitle}</p>
+        <div className="mb-6 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br bg-yellow-300"
+              aria-hidden
+            >
+              <img src={logo} alt="Logo" className="w-36 object-contain drop-shadow-2xl" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-semibold tracking-tight text-slate-900 dark:text-white">
+                AllCenter
+              </p>
+              <p className="truncate text-xs text-slate-500">{subtitle}</p>
+            </div>
           </div>
+          <button
+            type="button"
+            className="hidden shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-amber-400/40 hover:bg-amber-50 dark:border-white/10 dark:text-slate-300 dark:hover:border-amber-400/25 dark:hover:bg-amber-400/5 lg:inline-flex"
+            onClick={toggleSidebarCollapsed}
+            title="Ocultar menú"
+            aria-label="Ocultar barra lateral"
+          >
+            «
+          </button>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Secciones de la aplicación">
@@ -183,11 +211,15 @@ export function AppShell({ role }) {
               onClick={() => setMenuOpen(false)}
             >
               <span className="block truncate text-slate-900 dark:text-white">{displayName}</span>
-              {email ? <span className="block truncate text-xs font-normal text-slate-500">{email}</span> : null}
+              {email ? (
+                <span className="block truncate text-xs font-normal text-slate-500">{email}</span>
+              ) : null}
             </Link>
           ) : (
             <div className="mb-1 px-1">
-              <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">{displayName}</span>
+              <span className="block truncate text-sm font-medium text-slate-900 dark:text-white">
+                {displayName}
+              </span>
               {email ? <span className="block truncate text-xs text-slate-500">{email}</span> : null}
             </div>
           )}
@@ -214,10 +246,22 @@ export function AppShell({ role }) {
         id="main-content"
         className="min-w-0 pt-[3.75rem] max-lg:px-0 lg:col-start-2 lg:row-start-1 lg:pt-0"
       >
-        <div className="sticky top-0 z-30 hidden items-center justify-end gap-2 border-b border-slate-200/70 bg-white/80 px-4 py-2 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/70 lg:flex">
-          {employee ? (
-            <NotificationBell role={role} align="right" panelPlacement="bottom" />
-          ) : null}
+        <div className="sticky top-0 z-30 hidden items-center justify-between gap-2 border-b border-slate-200/70 bg-white/80 px-4 py-2 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/70 lg:flex">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-amber-400/40 hover:bg-amber-50 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200 dark:hover:border-amber-400/25 dark:hover:bg-amber-400/5"
+            onClick={toggleSidebarCollapsed}
+            aria-pressed={sidebarCollapsed}
+            title={sidebarCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
+          >
+            <span aria-hidden>{sidebarCollapsed ? '»' : '«'}</span>
+            {sidebarCollapsed ? 'Mostrar menú' : 'Ocultar menú'}
+          </button>
+          <div className="flex items-center gap-2">
+            {employee ? (
+              <NotificationBell role={role} align="right" panelPlacement="bottom" />
+            ) : null}
+          </div>
         </div>
         <Outlet />
       </main>

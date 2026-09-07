@@ -26,7 +26,7 @@ const COL_LABEL = {
   PRODUCCION: 'Producción',
   DESPACHO: 'Despacho',
   LISTO_PARA_ENTREGAR: 'Listo',
-  ENTREGADO: 'Entregado',
+  ENTREGADO: 'Hoy',
 }
 
 const COL_PHASE = {
@@ -234,6 +234,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
           <p className="seguimiento-top__lead muted small">
             De <strong>Enviado</strong> a <strong>Entregado</strong>. El proyecto avanza cuando{' '}
             <strong>todas</strong> las órdenes llegan; cada orden muestra su avance de obra/XML.
+            En <strong>Hoy</strong> solo aparecen entregas del día.
           </p>
           <p className="seguimiento-top__count muted small">
             {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalOrdenes} orden
@@ -254,12 +255,15 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
       ) : null}
 
       {!loading || proyectos.length ? (
-        <>
+        <div className="seguimiento-track">
           <div className="seguimiento-rail" aria-hidden={flights.length === 0}>
             <div className="seguimiento-rail__line" />
             <div className="seguimiento-rail__stops">
               {SEGUIMIENTO_COLUMNS.map((col) => (
-                <div key={col.id} className={`seguimiento-rail__stop seguimiento-rail__stop--${col.phase}`}>
+                <div
+                  key={col.id}
+                  className={`seguimiento-rail__stop seguimiento-rail__stop--${col.phase}`}
+                >
                   <span className="seguimiento-rail__dot" />
                   <span className="seguimiento-rail__label">{col.label}</span>
                 </div>
@@ -299,14 +303,24 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                   <h2 className="seguimiento-col__title">
                     <span
                       className={`${estadoTagClass(col.id)} seguimiento-col__tag`}
-                      title={col.id === 'LISTO_PARA_ENTREGAR' ? 'Listo para entregar' : col.label}
+                      title={
+                        col.id === 'ENTREGADO'
+                          ? 'Entregados solo del día de hoy'
+                          : col.id === 'LISTO_PARA_ENTREGAR'
+                            ? 'Listo para entregar'
+                            : col.label
+                      }
                     >
-                      {col.label}
+                      {col.id === 'ENTREGADO' ? 'Entregado' : col.label}
                     </span>
                     <span className="seguimiento-col__count">{count}</span>
                   </h2>
                   <p className="seguimiento-col__phase muted">
-                    {col.phase === 'comercial' ? 'Proyecto' : 'Órdenes / XML'}
+                    {col.id === 'ENTREGADO'
+                      ? 'Solo hoy'
+                      : col.phase === 'comercial'
+                        ? 'Proyecto'
+                        : 'Órdenes / XML'}
                   </p>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
@@ -325,7 +339,9 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                               <strong className="seguimiento-card__name" title={p.nombre || ''}>
                                 {p.nombre || `Proyecto #${id}`}
                               </strong>
-                              <span className={`${estadoTagClass(normalizeEstado(p.estado))} seguimiento-card__estado`}>
+                              <span
+                                className={`${estadoTagClass(normalizeEstado(p.estado))} seguimiento-card__estado`}
+                              >
                                 {formatEstadoProyecto(normalizeEstado(p.estado))}
                               </span>
                             </div>
@@ -333,9 +349,6 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                               {p.cliente ? <span className="muted small">{p.cliente}</span> : null}
                               <span className="muted small">
                                 {ordenes.length} orden{ordenes.length === 1 ? '' : 'es'}
-                                {p.ordenesConXml != null
-                                  ? ` · ${p.ordenesConXml} con XML`
-                                  : ''}
                               </span>
                             </div>
                             {ordenes.length ? (
@@ -360,7 +373,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
               )
             })}
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   )
