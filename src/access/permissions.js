@@ -1,4 +1,4 @@
-import { canViewGestionMenu, dashboardPath, roleNamesFromEmployee } from '../auth/roles'
+import { dashboardPath } from '../auth/roles'
 import { buildAbilityFor } from './ability'
 import { FEATURE } from './permissionCatalog'
 import { ACTION } from './rolePermissions'
@@ -27,28 +27,42 @@ export function canViewResumenPage(employee) {
   return canViewResumen(employee) || canViewVentasResumen(employee)
 }
 
-export function canViewGestion(employee) {
-  return canViewGestionMenu(roleNamesFromEmployee(employee))
-}
+/** Toda feature que desbloquea al menos una pestaña de GestionPage (ver tabs en GestionPage.jsx). */
+const GESTION_HUB_FEATURES = [
+  FEATURE.TRANSPORT_VEHICLES,
+  FEATURE.EMPLOYEE_ADMIN,
+  FEATURE.GESTION_CLIENTES_PORTAL,
+  FEATURE.GESTION_PROYECTOS,
+  FEATURE.BIESSE_AUDIT,
+  FEATURE.PALES_AUDIT,
+  FEATURE.TRANSPORT_AUDIT,
+  FEATURE.BIESSE_STICKER_AUDIT,
+]
 
-/** Acceso al hub Gestión (admin completo o solo clientes/proyectos ventas). */
+/**
+ * Acceso al hub Gestión: basta con poder ver al menos una de sus pestañas.
+ * Antes se decidía con una whitelist de roles aparte (canViewGestionMenu) que no
+ * cubría a Gerencia/Admin_Producción pese a que sí tienen permiso de auditoría y
+ * flota — quedaban con el permiso pero sin poder entrar al hub.
+ */
 export function canAccessGestionHub(employee) {
-  return (
-    canViewGestion(employee) ||
-    canAccessFeature(employee, FEATURE.GESTION_CLIENTES_PORTAL) ||
-    canAccessFeature(employee, FEATURE.GESTION_PROYECTOS)
-  )
+  return GESTION_HUB_FEATURES.some((f) => canAccessFeature(employee, f))
 }
 
 export function canManageEmployees(employee) {
   return canAccessFeature(employee, FEATURE.EMPLOYEE_ADMIN, ACTION.VIEW)
 }
 
-/** Al menos una pestaña del hub Inventario. */
-export function canViewInventoryHub(employee) {
+/** Hub Producción: órdenes Biesse y palés. */
+export function canViewProduccionHub(employee) {
   return (
-    canAccessFeature(employee, FEATURE.BIESSE_ORDERS) ||
-    canAccessFeature(employee, FEATURE.PALES_LIST) ||
+    canAccessFeature(employee, FEATURE.BIESSE_ORDERS) || canAccessFeature(employee, FEATURE.PALES_LIST)
+  )
+}
+
+/** Hub Almacén: guías, stock, catálogos y recepción de mercadería. */
+export function canViewAlmacenHub(employee) {
+  return (
     canAccessFeature(employee, FEATURE.INVENTORY_GUIAS) ||
     canAccessFeature(employee, FEATURE.INVENTORY_STOCK) ||
     canAccessFeature(employee, FEATURE.INVENTORY_TABLEROS) ||
@@ -57,14 +71,19 @@ export function canViewInventoryHub(employee) {
   )
 }
 
+/** Al menos un área de Producción o Almacén (antiguo hub único "Inventario"). */
+export function canViewInventoryHub(employee) {
+  return canViewProduccionHub(employee) || canViewAlmacenHub(employee)
+}
+
 export function defaultInventoryPath(base, employee) {
-  if (canAccessFeature(employee, FEATURE.INVENTORY_RM)) return `${base}/inventario?area=rm`
-  if (canAccessFeature(employee, FEATURE.BIESSE_ORDERS)) return `${base}/inventario?area=ordenes`
-  if (canAccessFeature(employee, FEATURE.PALES_LIST)) return `${base}/inventario?area=pales`
-  if (canAccessFeature(employee, FEATURE.INVENTORY_GUIAS)) return `${base}/inventario?area=guias`
-  if (canAccessFeature(employee, FEATURE.INVENTORY_STOCK)) return `${base}/inventario?area=stock`
-  if (canAccessFeature(employee, FEATURE.INVENTORY_TABLEROS)) return `${base}/inventario?area=tableros`
-  if (canAccessFeature(employee, FEATURE.INVENTORY_CANTOS)) return `${base}/inventario?area=cantos`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_RM)) return `${base}/almacen?area=rm`
+  if (canAccessFeature(employee, FEATURE.BIESSE_ORDERS)) return `${base}/produccion?area=ordenes`
+  if (canAccessFeature(employee, FEATURE.PALES_LIST)) return `${base}/produccion?area=pales`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_GUIAS)) return `${base}/almacen?area=guias`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_STOCK)) return `${base}/almacen?area=stock`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_TABLEROS)) return `${base}/almacen?area=tableros`
+  if (canAccessFeature(employee, FEATURE.INVENTORY_CANTOS)) return `${base}/almacen?area=cantos`
   return null
 }
 

@@ -26,6 +26,7 @@ import { InventoryGuiasPanel } from './InventoryGuiasPanel.jsx'
 import { StockAlmacenPanel } from './StockAlmacenPanel.jsx'
 import { TablerosCatalogPanel } from './TablerosCatalogPanel.jsx'
 import { CantosCatalogPanel } from './CantosCatalogPanel.jsx'
+import { INVENTORY_AREAS } from './inventoryAreas.js'
 
 function formatDateTime(value) {
   if (!value) return '—'
@@ -315,16 +316,7 @@ const TABS = [
   { id: 'actas', label: 'Actas NC' },
 ]
 
-const INVENTORY_AREAS = [
-  { id: 'ordenes', label: 'Órdenes Biesse', feature: FEATURE.BIESSE_ORDERS },
-  { id: 'monitor', label: 'Seccionadores (monitor)', feature: FEATURE.BIESSE_ORDERS },
-  { id: 'pales', label: 'Palés', feature: FEATURE.PALES_LIST },
-  { id: 'guias', label: 'Guías de despacho', feature: FEATURE.INVENTORY_GUIAS },
-  { id: 'stock', label: 'Almacén (stock)', feature: FEATURE.INVENTORY_STOCK },
-  { id: 'tableros', label: 'Tableros', feature: FEATURE.INVENTORY_TABLEROS },
-  { id: 'cantos', label: 'Cantos', feature: FEATURE.INVENTORY_CANTOS },
-  { id: 'rm', label: 'Recepción mercadería', feature: FEATURE.INVENTORY_RM },
-]
+const GROUP_TITLE = { produccion: 'Producción', almacen: 'Almacén' }
 
 function resolveAreaTab(raw, allowedIds) {
   if (raw && allowedIds.includes(raw)) return raw
@@ -335,12 +327,13 @@ function canViewArea(ability, feature) {
   return ability.can(ACTION.VIEW, feature) || ability.can(ACTION.MANAGE, 'all')
 }
 
-export function InventoryPage() {
+export function InventoryPage({ group } = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const ability = useAppAbility()
   const allowedAreas = useMemo(
-    () => INVENTORY_AREAS.filter((a) => canViewArea(ability, a.feature)),
-    [ability],
+    () =>
+      INVENTORY_AREAS.filter((a) => (!group || a.group === group) && canViewArea(ability, a.feature)),
+    [ability, group],
   )
   const canView = allowedAreas.length > 0
   const canViewRm = canViewArea(ability, FEATURE.INVENTORY_RM)
@@ -627,11 +620,13 @@ export function InventoryPage() {
     return `Acta NC — ${esc(detail.data.razonSocialNombre)}`
   }, [detail])
 
+  const groupTitle = GROUP_TITLE[group] ?? 'Inventario'
+
   if (!canView) {
     return (
       <div className="card pad">
-        <h1 className="card__title">Inventario</h1>
-        <p className="muted">No tienes permiso para ver ninguna sección de inventario.</p>
+        <h1 className="card__title">{groupTitle}</h1>
+        <p className="muted">No tienes permiso para ver ninguna sección de {groupTitle.toLowerCase()}.</p>
       </div>
     )
   }
@@ -639,7 +634,7 @@ export function InventoryPage() {
   return (
     <div>
       <div className="card pad" style={{ marginBottom: '1rem' }}>
-        <h1 className="card__title">Inventario</h1>
+        <h1 className="card__title">{groupTitle}</h1>
         <p className="muted small" style={{ marginTop: '0.35rem' }}>
           Guías de despacho, palés, stock de almacén y recepción de mercadería según tu rol.
         </p>

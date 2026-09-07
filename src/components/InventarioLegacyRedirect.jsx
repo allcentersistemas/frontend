@@ -1,4 +1,30 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import { INVENTORY_AREAS } from '../pages/inventoryAreas.js'
+import { useAuth } from '../auth/AuthContext'
+import { defaultInventoryPath } from '../access/permissions'
+
+const AREA_GROUP = new Map(INVENTORY_AREAS.map((a) => [a.id, a.group]))
+
+/**
+ * El hub único "Inventario" se dividió en Producción y Almacén. Todo link viejo
+ * (…/inventario?area=pales, favoritos, etc.) sigue funcionando: se reenvía al hub
+ * correcto según el área pedida, preservando el resto de la query.
+ */
+export function InventarioGroupRedirect() {
+  const location = useLocation()
+  const { employee, allowedDashboard } = useAuth()
+  const params = new URLSearchParams(location.search)
+  const area = params.get('area')
+  const group = area ? AREA_GROUP.get(area) : null
+
+  if (group) {
+    return <Navigate to={`../${group}${location.search}`} replace relative="path" />
+  }
+
+  const base = `/dashboard/${allowedDashboard}`
+  const fallback = defaultInventoryPath(base, employee) ?? `${base}/produccion`
+  return <Navigate to={fallback} replace />
+}
 
 /**
  * Redirige rutas antiguas …/ordenes y …/pales al hub Inventario.

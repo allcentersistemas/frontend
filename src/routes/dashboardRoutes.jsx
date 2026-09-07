@@ -1,8 +1,8 @@
 import { Route } from 'react-router-dom'
-import { InventarioLegacyRedirect } from '../components/InventarioLegacyRedirect'
+import { InventarioLegacyRedirect, InventarioGroupRedirect } from '../components/InventarioLegacyRedirect'
 import { LegacySegmentRedirect } from '../components/LegacySegmentRedirect'
 import { RequireFeature } from '../access/RequireFeature.jsx'
-import { canViewInventoryHub } from '../access/permissions'
+import { canViewProduccionHub, canViewAlmacenHub } from '../access/permissions'
 import { OrderAuditPage } from '../pages/OrderAuditPage'
 import { PaleAuditPage } from '../pages/PaleAuditPage'
 import { PaleEditPage } from '../pages/PaleEditPage'
@@ -25,13 +25,23 @@ export function dashboardRoutes() {
       {gestionRoutes()}
       <Route path="transporte" element={<LegacySegmentRedirect fromSegment="transporte" toSegment="gestion" />} />
       <Route
-        path="inventario"
+        path="produccion"
         element={
-          <RequireFeature check={canViewInventoryHub}>
-            <InventoryPage />
+          <RequireFeature check={canViewProduccionHub}>
+            <InventoryPage group="produccion" />
           </RequireFeature>
         }
       />
+      <Route
+        path="almacen"
+        element={
+          <RequireFeature check={canViewAlmacenHub}>
+            <InventoryPage group="almacen" />
+          </RequireFeature>
+        }
+      />
+      {/* Hub único "Inventario" (legado): reenvía a Producción o Almacén según ?area= */}
+      <Route path="inventario" element={<InventarioGroupRedirect />} />
       {proyectoOptimizacionRoutes()}
       <Route path="perfil" element={<ProfilePage />} />
     </>

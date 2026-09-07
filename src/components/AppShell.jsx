@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { sidebarSectionsForDashboard } from '../access/navigationConfig'
+import { FEATURE } from '../access/permissionCatalog'
 import { useAppAbility } from '../access/useAppAbility'
 import { useAuth } from '../auth/AuthContext'
 import { useEmployeeNotifications } from '../notifications/useEmployeeNotifications'
@@ -31,6 +32,7 @@ export function AppShell({ role }) {
 
   const profileHref = `/dashboard/${role}/perfil`
   const email = employee?.email?.trim() || null
+  const canViewApiCatalog = ability.can('view', FEATURE.API_CATALOG) || ability.can('manage', 'all')
 
   useEffect(() => {
     if (!menuOpen) return undefined
@@ -189,6 +191,15 @@ export function AppShell({ role }) {
               {email ? <span className="block truncate text-xs text-slate-500">{email}</span> : null}
             </div>
           )}
+          {canViewApiCatalog ? (
+            <Link
+              to={`/dashboard/${role}/api`}
+              className="mb-1 block truncate px-1 text-xs font-medium text-slate-500 transition hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-200"
+              onClick={() => setMenuOpen(false)}
+            >
+              Catálogo API
+            </Link>
+          ) : null}
           <button
             type="button"
             className="w-full rounded-xl border border-slate-200 bg-transparent py-2.5 text-sm font-medium text-slate-600 transition hover:border-amber-400/40 hover:bg-amber-50 hover:text-slate-900 dark:border-white/10 dark:text-slate-300 dark:hover:border-amber-400/30 dark:hover:bg-amber-400/5 dark:hover:text-white"
