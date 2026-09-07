@@ -65,6 +65,11 @@ function ProyectoTreeSummary({
     ['En atención', tiempos?.enAtencion],
     ['Cotizado', tiempos?.cotizado],
     ['Vendido', tiempos?.vendido],
+    ['Optimizado', tiempos?.optimizado],
+    ['Producción', tiempos?.produccion],
+    ['Despacho', tiempos?.despacho],
+    ['Listo para entregar', tiempos?.listoParaEntregar],
+    ['Entregado', tiempos?.entregado],
     ['Cancelado', tiempos?.cancelado],
   ].filter(([, value]) => value)
 
@@ -894,22 +899,46 @@ export function ProyectoOptimizacionPage() {
               onDownloadOrderText={handleDownloadOrderText}
               onDownloadOrderCsv={handleDownloadOrderCsv}
               onOrdenBiesseAssigned={(ordenId, updated) => {
-                setDetailTree((prev) => {
-                  if (!prev) return prev
-                  return {
-                    ...prev,
-                    orders: (prev.orders ?? []).map((o) =>
-                      o.id === ordenId
-                        ? {
-                            ...o,
-                            biesseOrderId: updated?.biesseOrderId ?? null,
-                            biesseOrderName: updated?.biesseOrderName ?? null,
-                            opCodigo: updated?.opCodigo ?? null,
-                          }
-                        : o,
-                    ),
+                void (async () => {
+                  setDetailTree((prev) => {
+                    if (!prev) return prev
+                    return {
+                      ...prev,
+                      orders: (prev.orders ?? []).map((o) =>
+                        o.id === ordenId
+                          ? {
+                              ...o,
+                              biesseOrderId: updated?.biesseOrderId ?? null,
+                              biesseOrderName: updated?.biesseOrderName ?? null,
+                              opCodigo: updated?.opCodigo ?? null,
+                            }
+                          : o,
+                      ),
+                    }
+                  })
+                  // El backend avanza el proyecto (OPTIMIZADO o el estado_escaneo de la obra).
+                  // Recargar detalle + listado para reflejar el nuevo estado.
+                  const proyectoId = detailRow?.id
+                  if (!proyectoId) return
+                  try {
+                    const tree = await systemApi.getProyectoOptimizacion(proyectoId)
+                    setDetailTree(tree)
+                    const nextEstado = tree?.project?.estado
+                    if (nextEstado) {
+                      setDetailRow((prev) => (prev ? { ...prev, estado: nextEstado } : prev))
+                      setRows((prev) =>
+                        prev.map((r) => (r.id === proyectoId ? { ...r, estado: nextEstado } : r)),
+                      )
+                      setActionMsg(
+                        updated?.biesseOrderId == null
+                          ? 'Obra Biesse desvinculada.'
+                          : `XML/obra anidada. Proyecto en estado ${formatEstadoProyecto(nextEstado)}.`,
+                      )
+                    }
+                  } catch {
+                    /* el vínculo local ya quedó; el listado se actualizará al recargar */
                   }
-                })
+                })()
               }}
             />
 

@@ -157,6 +157,11 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
                           {item.opCodigo ? (
                             <span className="muted small"> · OP {item.opCodigo}</span>
                           ) : null}
+                          {item.estadoEscaneo ? (
+                            <span className="muted small"> · {item.estadoEscaneo}</span>
+                          ) : (
+                            <span className="muted small"> · sin estado</span>
+                          )}
                         </span>
                       </button>
                     </li>
