@@ -136,8 +136,10 @@ function OrdenRow({ orden, proyectoEstado }) {
 export function SeguimientoBoard({ proyectos = [], loading = false, live = false, onReconnectLive }) {
   const prevEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
+  const rootRef = useRef(null)
   const [flights, setFlights] = useState([])
   const [arrived, setArrived] = useState(() => new Set())
+  const [fullscreen, setFullscreen] = useState(false)
 
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(BOARD_ESTADOS.map((e) => [e, []]))
@@ -208,14 +210,57 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
     return undefined
   }, [proyectos])
 
+  useEffect(() => {
+    if (!fullscreen) return undefined
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function onKeyDown(event) {
+      if (event.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [fullscreen])
+
+  useEffect(() => {
+    if (!fullscreen) return undefined
+    const el = rootRef.current
+    if (!el || typeof el.requestFullscreen !== 'function') return undefined
+    let cancelled = false
+    void el.requestFullscreen().catch(() => {
+      /* CSS fullscreen sigue activo si el navegador bloquea la API nativa */
+    })
+    function onFsChange() {
+      if (cancelled) return
+      if (!document.fullscreenElement) setFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => {
+      cancelled = true
+      document.removeEventListener('fullscreenchange', onFsChange)
+      if (document.fullscreenElement && document.exitFullscreen) {
+        void document.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [fullscreen])
+
   function dismissFlight(key) {
     setFlights((f) => f.filter((x) => x.key !== key))
+  }
+
+  function toggleFullscreen() {
+    setFullscreen((v) => !v)
   }
 
   const steps = SEGUIMIENTO_COLUMNS.length
 
   return (
-    <div className="seguimiento">
+    <div
+      ref={rootRef}
+      className={`seguimiento${fullscreen ? ' seguimiento--fullscreen' : ''}`}
+    >
       <header className="seguimiento-top">
         <div className="seguimiento-top__main">
           <div className="seguimiento-top__title-row">
@@ -230,20 +275,37 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                 Reintentar
               </button>
             ) : null}
+            <button
+              type="button"
+              className="seguimiento-fs-btn"
+              onClick={toggleFullscreen}
+              aria-pressed={fullscreen}
+              title={fullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
+            >
+              {fullscreen ? 'Salir' : 'Pantalla completa'}
+            </button>
           </div>
           <p className="seguimiento-top__lead muted small">
             De <strong>Enviado</strong> a <strong>Entregado</strong>. El proyecto avanza cuando{' '}
             <strong>todas</strong> las órdenes llegan; cada orden muestra su avance de obra/XML.
             En <strong>Hoy</strong> solo aparecen entregas del día.
+            {fullscreen ? (
+              <>
+                {' '}
+                <span className="seguimiento-fs-hint">Esc para salir.</span>
+              </>
+            ) : null}
           </p>
           <p className="seguimiento-top__count muted small">
             {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalOrdenes} orden
             {totalOrdenes === 1 ? '' : 'es'}
           </p>
         </div>
-        <div className="seguimiento-legend" aria-hidden>
-          <span className="seguimiento-legend__item seguimiento-legend__item--comercial">Comercial</span>
-          <span className="seguimiento-legend__item seguimiento-legend__item--obra">Obra / XML</span>
+        <div className="seguimiento-top__aside">
+          <div className="seguimiento-legend" aria-hidden>
+            <span className="seguimiento-legend__item seguimiento-legend__item--comercial">Comercial</span>
+            <span className="seguimiento-legend__item seguimiento-legend__item--obra">Obra / XML</span>
+          </div>
         </div>
       </header>
 
