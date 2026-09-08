@@ -107,7 +107,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
           <input
             type="search"
             className="input"
-            placeholder="Escriba para buscar XML / obra…"
+            placeholder="Buscar XML sin optimizar / sin estado…"
             value={q}
             disabled={busy}
             onChange={(e) => {
@@ -115,7 +115,7 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
-            aria-label="Buscar obra Biesse"
+            aria-label="Buscar obra Biesse pendiente de optimizar"
             autoComplete="off"
           />
           {open ? (
@@ -135,10 +135,12 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
             >
               {loading ? <li className="muted small pad">Buscando…</li> : null}
               {!loading && !q.trim() ? (
-                <li className="muted small pad">Empiece a escribir el nombre, booking o id del XML</li>
+                <li className="muted small pad">
+                  Solo se listan XMLs sin estado o pendientes (no optimizados).
+                </li>
               ) : null}
               {!loading && q.trim() && items.length === 0 ? (
-                <li className="muted small pad">Sin resultados</li>
+                <li className="muted small pad">Sin resultados pendientes / sin estado</li>
               ) : null}
               {!loading && q.trim()
                 ? items.map((item) => (

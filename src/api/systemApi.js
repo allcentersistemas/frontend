@@ -320,6 +320,8 @@ export async function listBiesseObrasForAssign({ q = '', limit = 30, offset = 0 
   if (q != null && String(q).trim() !== '') params.set('q', String(q).trim())
   params.set('limit', String(limit))
   params.set('offset', String(offset))
+  // Solo XMLs sin estado / pendientes (no OPTIMIZADO ni posteriores).
+  params.set('soloAsignables', 'true')
   const raw = await systemJson(`/api/order/biesse/obras?${params}`)
   const itemsRaw = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : []
   const items = itemsRaw.map((row) => ({
