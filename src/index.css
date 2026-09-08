@@ -1057,8 +1057,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .seguimiento-card--proyecto {
-    gap: 0.4rem;
+  .seguimiento-card--xml {
+    border-left: 3px solid color-mix(in srgb, #6366f1 55%, var(--border));
   }
   .seguimiento-ordenes {
     list-style: none;
@@ -1110,6 +1110,16 @@
     flex-wrap: wrap;
     gap: 0.2rem 0.45rem;
     min-width: 0;
+  }
+  .seguimiento-orden__tiempo {
+    margin: 0.1rem 0 0;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    color: color-mix(in srgb, var(--muted, #64748b) 100%, transparent);
+  }
+  .seguimiento-orden__tiempo strong {
+    font-variant-numeric: tabular-nums;
+    color: inherit;
   }
   .seguimiento-orden .seguimiento-progress {
     margin-top: 0.1rem;

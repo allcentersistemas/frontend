@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { formatAppDateTime, formatDurationInEstado } from '../../utils/appDateTime.js'
+import { formatAppDateTime, formatDurationInEstado, parseAppDateTime } from '../../utils/appDateTime.js'
 import { estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 const FLIGHT_MS = 1600
@@ -48,6 +48,8 @@ const SEGUIMIENTO_COLUMNS = BOARD_ESTADOS.map((id) => ({
   phase: COL_PHASE[id] ?? 'obra',
 }))
 
+const OBRA_ESTADOS = new Set(['OPTIMIZADO', 'PRODUCCION', 'DESPACHO', 'LISTO_PARA_ENTREGAR', 'ENTREGADO'])
+
 function normalizeEstado(raw) {
   const e = String(raw ?? '')
     .trim()
@@ -58,6 +60,36 @@ function normalizeEstado(raw) {
   if (e === 'EN_PROCESO') return 'DESPACHO'
   if (e === 'PENDIENTE' || e === '') return 'OPTIMIZADO'
   return e
+}
+
+function limaTodayKey() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+  } catch {
+    return null
+  }
+}
+
+function isSameLimaDay(value, dayKey) {
+  if (!dayKey) return true
+  const d = parseAppDateTime(value)
+  if (!d) return false
+  try {
+    const key = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d)
+    return key === dayKey
+  } catch {
+    return false
+  }
 }
 
 function clampPct(n) {
@@ -88,13 +120,18 @@ function ProgressRow({ label, pct, detail, tone = 'scan' }) {
   )
 }
 
-function OrdenRow({ orden, proyectoEstado }) {
+/** Orden anidada dentro de card de proyecto (fase comercial). */
+function OrdenRow({ orden, nowTick }) {
   const hasXml = orden.biesseOrderId != null
   const estado = hasXml ? normalizeEstado(orden.estadoEscaneo) : null
   const name =
     orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'Orden')
-  const proj = normalizeEstado(proyectoEstado)
-  const showProgress = hasXml && BOARD_ESTADOS.indexOf(proj) >= BOARD_ESTADOS.indexOf('VENDIDO')
+  const estadoDesde = orden.estadoDesde ?? orden.estado_desde ?? null
+  const enEstado = hasXml ? formatDurationInEstado(estadoDesde, new Date(nowTick)) : ''
+  const desdeLabel = formatAppDateTime(estadoDesde, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  })
 
   return (
     <li className="seguimiento-orden">
@@ -107,35 +144,141 @@ function OrdenRow({ orden, proyectoEstado }) {
             {formatEstadoProyecto(estado)}
           </span>
         ) : (
-          <span className="tag seguimiento-orden__tag">Pendiente</span>
+          <span className="tag seguimiento-orden__tag">Sin XML</span>
         )}
       </div>
       <div className="seguimiento-orden__meta">
         {orden.codigo ? <span className="muted small">{orden.codigo}</span> : null}
         {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
-        {orden.seccionador ? <span className="muted small">Secc. {orden.seccionador}</span> : null}
       </div>
-      {showProgress ? (
-        <>
-          <ProgressRow label="Escaneo" pct={orden.porcentaje} detail={orden.avanceLabel || null} tone="scan" />
-          <ProgressRow
-            label="Cortes"
-            pct={orden.porcentajeCorte}
-            detail={orden.avanceCorteLabel || null}
-            tone="cut"
-          />
-        </>
+      {enEstado ? (
+        <p className="seguimiento-orden__tiempo">
+          En XML · <strong>{enEstado}</strong>
+          {desdeLabel && desdeLabel !== '—' ? <span className="muted"> · {desdeLabel}</span> : null}
+        </p>
+      ) : !hasXml ? (
+        <p className="seguimiento-orden__tiempo muted">Falta anidar XML</p>
       ) : null}
     </li>
   )
 }
 
+/** Card de XML en columnas de obra (Optimizado → Entregado). */
+function XmlCard({ item, nowTick, arrived }) {
+  const { proyecto, orden, estado } = item
+  const name =
+    orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'XML')
+  const estadoDesde = orden.estadoDesde ?? orden.estado_desde ?? null
+  const enEstado = formatDurationInEstado(estadoDesde, new Date(nowTick))
+  const desdeLabel = formatAppDateTime(estadoDesde, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  })
+  const flightKey = String(orden.ordenId ?? orden.biesseOrderId)
+  const isArrived = arrived.has(flightKey)
+
+  return (
+    <li
+      className={`seguimiento-card seguimiento-card--xml${isArrived ? ' seguimiento-card--arrive' : ''}`}
+    >
+      <div className="seguimiento-card__head">
+        <strong className="seguimiento-card__name" title={name}>
+          {name}
+        </strong>
+        <span className={`${estadoTagClass(estado)} seguimiento-card__estado`}>
+          {formatEstadoProyecto(estado)}
+        </span>
+      </div>
+      <div className="seguimiento-card__meta">
+        <span className="muted small" title={proyecto.nombre || ''}>
+          {proyecto.nombre || `Proyecto #${proyecto.proyectoId}`}
+        </span>
+        {proyecto.cliente ? <span className="muted small">{proyecto.cliente}</span> : null}
+        {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
+        {orden.seccionador ? <span className="muted small">Secc. {orden.seccionador}</span> : null}
+      </div>
+      {enEstado ? (
+        <p
+          className="seguimiento-card__tiempo"
+          title={desdeLabel && desdeLabel !== '—' ? `Desde ${desdeLabel}` : undefined}
+        >
+          En este estado · <strong>{enEstado}</strong>
+          {desdeLabel && desdeLabel !== '—' ? (
+            <span className="muted"> · desde {desdeLabel}</span>
+          ) : null}
+        </p>
+      ) : null}
+      <ProgressRow label="Escaneo" pct={orden.porcentaje} detail={orden.avanceLabel || null} tone="scan" />
+      <ProgressRow
+        label="Cortes"
+        pct={orden.porcentajeCorte}
+        detail={orden.avanceCorteLabel || null}
+        tone="cut"
+      />
+    </li>
+  )
+}
+
+function ProyectoCard({ proyecto, nowTick, arrived }) {
+  const id = proyecto.proyectoId
+  const isArrived = arrived.has(`p-${id}`)
+  const ordenes = Array.isArray(proyecto.ordenes) ? proyecto.ordenes : []
+  const estadoDesde = proyecto.estadoDesde ?? proyecto.estado_desde ?? null
+  const enEstado = formatDurationInEstado(estadoDesde, new Date(nowTick))
+  const desdeLabel = formatAppDateTime(estadoDesde, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  })
+  const estado = normalizeEstado(proyecto.estado)
+
+  return (
+    <li
+      className={`seguimiento-card seguimiento-card--proyecto${isArrived ? ' seguimiento-card--arrive' : ''}`}
+    >
+      <div className="seguimiento-card__head">
+        <strong className="seguimiento-card__name" title={proyecto.nombre || ''}>
+          {proyecto.nombre || `Proyecto #${id}`}
+        </strong>
+        <span className={`${estadoTagClass(estado)} seguimiento-card__estado`}>
+          {formatEstadoProyecto(estado)}
+        </span>
+      </div>
+      {enEstado ? (
+        <p className="seguimiento-card__tiempo" title={desdeLabel ? `Desde ${desdeLabel}` : undefined}>
+          En estado · <strong>{enEstado}</strong>
+          {desdeLabel ? <span className="muted"> · desde {desdeLabel}</span> : null}
+        </p>
+      ) : null}
+      <div className="seguimiento-card__meta">
+        {proyecto.cliente ? <span className="muted small">{proyecto.cliente}</span> : null}
+        <span className="muted small">
+          {ordenes.length} orden{ordenes.length === 1 ? '' : 'es'}
+        </span>
+      </div>
+      {ordenes.length ? (
+        <ul className="seguimiento-ordenes">
+          {ordenes.map((o) => (
+            <OrdenRow
+              key={o.ordenId ?? `${id}-${o.biesseOrderId}`}
+              orden={o}
+              nowTick={nowTick}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="muted small">Sin órdenes</p>
+      )}
+    </li>
+  )
+}
+
 /**
- * Tablero Seguimiento: ENVIADO → ENTREGADO.
- * Columna = estado del proyecto (cuello de botella); dentro, estado por orden/XML.
+ * Tablero híbrido:
+ * - Comercial (Enviado→Vendido): cards de **proyecto**
+ * - Obra (Optimizado→Entregado): cards de **XML** (el agente mueve el XML)
  */
 export function SeguimientoBoard({ proyectos = [], loading = false, live = false, onReconnectLive }) {
-  const prevEstadosRef = useRef(new Map())
+  const prevXmlEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
   const rootRef = useRef(null)
   const [flights, setFlights] = useState([])
@@ -148,51 +291,92 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
     return () => window.clearInterval(id)
   }, [])
 
-  const byEstado = useMemo(() => {
-    const map = Object.fromEntries(BOARD_ESTADOS.map((e) => [e, []]))
+  const todayKey = useMemo(() => limaTodayKey(), [nowTick])
+
+  /** Proyectos en columnas comerciales. */
+  const proyectosByEstado = useMemo(() => {
+    const map = Object.fromEntries(
+      BOARD_ESTADOS.filter((e) => COL_PHASE[e] === 'comercial').map((e) => [e, []]),
+    )
     for (const p of proyectos) {
       const estado = normalizeEstado(p.estado)
       if (map[estado]) map[estado].push(p)
-      else if (map.ENVIADO) map.ENVIADO.push(p)
     }
     return map
   }, [proyectos])
 
+  /** XMLs planos en columnas de obra (según estado_escaneo). */
+  const xmlByEstado = useMemo(() => {
+    const map = Object.fromEntries(
+      BOARD_ESTADOS.filter((e) => COL_PHASE[e] === 'obra').map((e) => [e, []]),
+    )
+    for (const p of proyectos) {
+      const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
+      for (const orden of ordenes) {
+        if (orden?.biesseOrderId == null) continue
+        let estado = normalizeEstado(orden.estadoEscaneo)
+        if (!OBRA_ESTADOS.has(estado)) {
+          // Estados raros / comerciales en XML: tratar como optimizado operativo.
+          estado = 'OPTIMIZADO'
+        }
+        if (estado === 'ENTREGADO') {
+          const desde = orden.estadoDesde ?? orden.estado_desde
+          if (desde && !isSameLimaDay(desde, todayKey)) {
+            continue
+          }
+        }
+        map[estado]?.push({
+          key: `${p.proyectoId}-${orden.ordenId ?? orden.biesseOrderId}`,
+          proyecto: p,
+          orden,
+          estado,
+        })
+      }
+    }
+    return map
+  }, [proyectos, todayKey])
+
   const totalProyectos = proyectos.length
-  const totalOrdenes = useMemo(
-    () => proyectos.reduce((acc, p) => acc + (Array.isArray(p.ordenes) ? p.ordenes.length : 0), 0),
-    [proyectos],
+  const totalXml = useMemo(
+    () =>
+      Object.values(xmlByEstado).reduce((acc, list) => acc + (Array.isArray(list) ? list.length : 0), 0),
+    [xmlByEstado],
   )
 
   useEffect(() => {
-    const prev = prevEstadosRef.current
+    const prev = prevXmlEstadosRef.current
     const next = new Map()
     const newFlights = []
     const newlyArrived = []
 
-    for (const p of proyectos) {
-      const id = p.proyectoId
-      if (id == null) continue
-      const estado = normalizeEstado(p.estado)
-      next.set(String(id), estado)
-      if (!primedRef.current) continue
-      const before = prev.get(String(id))
-      if (before && before !== estado) {
-        const fromIdx = BOARD_ESTADOS.indexOf(before)
-        const toIdx = BOARD_ESTADOS.indexOf(estado)
-        if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
-          newFlights.push({
-            key: `${id}-${before}-${estado}-${Date.now()}`,
-            name: p.nombre || `Proyecto #${id}`,
-            fromIdx,
-            toIdx,
-          })
-          newlyArrived.push(String(id))
+    for (const list of Object.values(xmlByEstado)) {
+      for (const item of list) {
+        const id = String(item.orden.ordenId ?? item.orden.biesseOrderId)
+        next.set(id, item.estado)
+        if (!primedRef.current) continue
+        const before = prev.get(id)
+        if (before && before !== item.estado) {
+          const fromIdx = BOARD_ESTADOS.indexOf(before)
+          const toIdx = BOARD_ESTADOS.indexOf(item.estado)
+          if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
+            const name =
+              item.orden.biesseOrderName ||
+              item.orden.codigo ||
+              item.proyecto.nombre ||
+              `XML #${id}`
+            newFlights.push({
+              key: `${id}-${before}-${item.estado}-${Date.now()}`,
+              name,
+              fromIdx,
+              toIdx,
+            })
+            newlyArrived.push(id)
+          }
         }
       }
     }
 
-    prevEstadosRef.current = next
+    prevXmlEstadosRef.current = next
     if (!primedRef.current) {
       primedRef.current = true
       return
@@ -215,7 +399,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
       return () => window.clearTimeout(t)
     }
     return undefined
-  }, [proyectos])
+  }, [xmlByEstado])
 
   useEffect(() => {
     if (!fullscreen) return undefined
@@ -236,9 +420,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
     const el = rootRef.current
     if (!el || typeof el.requestFullscreen !== 'function') return undefined
     let cancelled = false
-    void el.requestFullscreen().catch(() => {
-      /* CSS fullscreen sigue activo si el navegador bloquea la API nativa */
-    })
+    void el.requestFullscreen().catch(() => {})
     function onFsChange() {
       if (cancelled) return
       if (!document.fullscreenElement) setFullscreen(false)
@@ -293,10 +475,10 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
             </button>
           </div>
           <p className="seguimiento-top__lead muted small">
-            De <strong>Enviado</strong> a <strong>Entregado</strong>. El proyecto avanza cuando{' '}
-            <strong>todas</strong> las órdenes llegan; cada orden muestra su avance de obra/XML.
-            En <strong>Hoy</strong> solo entregas del día; en <strong>Cotizado</strong> solo los
-            últimos 5 días.
+            <strong>Comercial</strong> (hasta Vendido): cards de <strong>proyecto</strong>.{' '}
+            <strong>Obra</strong> (Optimizado→Entregado): cards de <strong>XML</strong> — el agente
+            mueve cada XML a Producción; el proyecto CRM avanza solo cuando{' '}
+            <em>todos</em> sus XML llegan.
             {fullscreen ? (
               <>
                 {' '}
@@ -305,14 +487,17 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
             ) : null}
           </p>
           <p className="seguimiento-top__count muted small">
-            {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalOrdenes} orden
-            {totalOrdenes === 1 ? '' : 'es'}
+            {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
           </p>
         </div>
         <div className="seguimiento-top__aside">
           <div className="seguimiento-legend" aria-hidden>
-            <span className="seguimiento-legend__item seguimiento-legend__item--comercial">Comercial</span>
-            <span className="seguimiento-legend__item seguimiento-legend__item--obra">Obra / XML</span>
+            <span className="seguimiento-legend__item seguimiento-legend__item--comercial">
+              Comercial = proyecto
+            </span>
+            <span className="seguimiento-legend__item seguimiento-legend__item--obra">
+              Obra = XML
+            </span>
           </div>
         </div>
       </header>
@@ -364,7 +549,9 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
 
           <div className="seguimiento-board seguimiento-board--full">
             {SEGUIMIENTO_COLUMNS.map((col) => {
-              const count = byEstado[col.id]?.length ?? 0
+              const isObra = col.phase === 'obra'
+              const list = isObra ? xmlByEstado[col.id] ?? [] : proyectosByEstado[col.id] ?? []
+              const count = list.length
               return (
                 <section
                   key={col.id}
@@ -375,7 +562,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                       className={`${estadoTagClass(col.id)} seguimiento-col__tag`}
                       title={
                         col.id === 'ENTREGADO'
-                          ? 'Entregados solo del día de hoy'
+                          ? 'XML entregados solo del día'
                           : col.id === 'LISTO_PARA_ENTREGAR'
                             ? 'Listo para entregar'
                             : col.label
@@ -387,75 +574,34 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                   </h2>
                   <p className="seguimiento-col__phase muted">
                     {col.id === 'ENTREGADO'
-                      ? 'Solo hoy'
+                      ? 'XML · solo hoy'
                       : col.id === 'COTIZADO'
-                        ? 'Últimos 5 días'
-                        : col.phase === 'comercial'
-                          ? 'Proyecto'
-                          : 'Órdenes / XML'}
+                        ? 'Proyectos · 5 días'
+                        : isObra
+                          ? 'Por XML'
+                          : 'Por proyecto'}
                   </p>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
                       <li className="seguimiento-empty muted small">Vacío</li>
+                    ) : isObra ? (
+                      list.map((item) => (
+                        <XmlCard
+                          key={item.key}
+                          item={item}
+                          nowTick={nowTick}
+                          arrived={arrived}
+                        />
+                      ))
                     ) : (
-                      (byEstado[col.id] ?? []).map((p) => {
-                        const id = p.proyectoId
-                        const isArrived = arrived.has(String(id))
-                        const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
-                        const estadoDesde = p.estadoDesde ?? p.estado_desde ?? null
-                        const enEstado = formatDurationInEstado(estadoDesde, new Date(nowTick))
-                        const desdeLabel = formatAppDateTime(estadoDesde, {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })
-                        return (
-                          <li
-                            key={id}
-                            className={`seguimiento-card seguimiento-card--proyecto${isArrived ? ' seguimiento-card--arrive' : ''}`}
-                          >
-                            <div className="seguimiento-card__head">
-                              <strong className="seguimiento-card__name" title={p.nombre || ''}>
-                                {p.nombre || `Proyecto #${id}`}
-                              </strong>
-                              <span
-                                className={`${estadoTagClass(normalizeEstado(p.estado))} seguimiento-card__estado`}
-                              >
-                                {formatEstadoProyecto(normalizeEstado(p.estado))}
-                              </span>
-                            </div>
-                            {enEstado ? (
-                              <p
-                                className="seguimiento-card__tiempo"
-                                title={desdeLabel ? `Desde ${desdeLabel}` : undefined}
-                              >
-                                En estado · <strong>{enEstado}</strong>
-                                {desdeLabel ? (
-                                  <span className="muted"> · desde {desdeLabel}</span>
-                                ) : null}
-                              </p>
-                            ) : null}
-                            <div className="seguimiento-card__meta">
-                              {p.cliente ? <span className="muted small">{p.cliente}</span> : null}
-                              <span className="muted small">
-                                {ordenes.length} orden{ordenes.length === 1 ? '' : 'es'}
-                              </span>
-                            </div>
-                            {ordenes.length ? (
-                              <ul className="seguimiento-ordenes">
-                                {ordenes.map((o) => (
-                                  <OrdenRow
-                                    key={o.ordenId ?? `${id}-${o.biesseOrderId}`}
-                                    orden={o}
-                                    proyectoEstado={p.estado}
-                                  />
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="muted small">Sin órdenes</p>
-                            )}
-                          </li>
-                        )
-                      })
+                      list.map((p) => (
+                        <ProyectoCard
+                          key={p.proyectoId}
+                          proyecto={p}
+                          nowTick={nowTick}
+                          arrived={arrived}
+                        />
+                      ))
                     )}
                   </ul>
                 </section>
