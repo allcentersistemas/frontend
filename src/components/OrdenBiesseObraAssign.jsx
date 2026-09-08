@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as systemApi from '../api/systemApi'
+import { estadoTagClass } from '../utils/proyectoOptimizacion.js'
 
 /**
  * Selector para vincular una orden de planilla con una obra Biesse.
@@ -158,7 +159,10 @@ export function OrdenBiesseObraAssign({ orden, onAssigned, disabled = false }) {
                             <span className="muted small"> · OP {item.opCodigo}</span>
                           ) : null}
                           {item.estadoEscaneo ? (
-                            <span className="muted small"> · {item.estadoEscaneo}</span>
+                            <span className={`${estadoTagClass(String(item.estadoEscaneo).toUpperCase())} small`}>
+                              {' '}
+                              · {item.estadoEscaneo}
+                            </span>
                           ) : (
                             <span className="muted small"> · sin estado</span>
                           )}

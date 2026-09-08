@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { formatAppDateTime, formatDurationInEstado } from '../../utils/appDateTime.js'
 import { estadoTagClass, formatEstadoProyecto } from '../../utils/proyectoOptimizacion.js'
 
 const FLIGHT_MS = 1600
@@ -140,6 +141,12 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
   const [flights, setFlights] = useState([])
   const [arrived, setArrived] = useState(() => new Set())
   const [fullscreen, setFullscreen] = useState(false)
+  const [nowTick, setNowTick] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const byEstado = useMemo(() => {
     const map = Object.fromEntries(BOARD_ESTADOS.map((e) => [e, []]))
@@ -288,7 +295,8 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
           <p className="seguimiento-top__lead muted small">
             De <strong>Enviado</strong> a <strong>Entregado</strong>. El proyecto avanza cuando{' '}
             <strong>todas</strong> las órdenes llegan; cada orden muestra su avance de obra/XML.
-            En <strong>Hoy</strong> solo aparecen entregas del día.
+            En <strong>Hoy</strong> solo entregas del día; en <strong>Cotizado</strong> solo los
+            últimos 5 días.
             {fullscreen ? (
               <>
                 {' '}
@@ -380,9 +388,11 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                   <p className="seguimiento-col__phase muted">
                     {col.id === 'ENTREGADO'
                       ? 'Solo hoy'
-                      : col.phase === 'comercial'
-                        ? 'Proyecto'
-                        : 'Órdenes / XML'}
+                      : col.id === 'COTIZADO'
+                        ? 'Últimos 5 días'
+                        : col.phase === 'comercial'
+                          ? 'Proyecto'
+                          : 'Órdenes / XML'}
                   </p>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
@@ -392,6 +402,12 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                         const id = p.proyectoId
                         const isArrived = arrived.has(String(id))
                         const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
+                        const estadoDesde = p.estadoDesde ?? p.estado_desde ?? null
+                        const enEstado = formatDurationInEstado(estadoDesde, new Date(nowTick))
+                        const desdeLabel = formatAppDateTime(estadoDesde, {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        })
                         return (
                           <li
                             key={id}
@@ -407,6 +423,17 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                                 {formatEstadoProyecto(normalizeEstado(p.estado))}
                               </span>
                             </div>
+                            {enEstado ? (
+                              <p
+                                className="seguimiento-card__tiempo"
+                                title={desdeLabel ? `Desde ${desdeLabel}` : undefined}
+                              >
+                                En estado · <strong>{enEstado}</strong>
+                                {desdeLabel ? (
+                                  <span className="muted"> · desde {desdeLabel}</span>
+                                ) : null}
+                              </p>
+                            ) : null}
                             <div className="seguimiento-card__meta">
                               {p.cliente ? <span className="muted small">{p.cliente}</span> : null}
                               <span className="muted small">

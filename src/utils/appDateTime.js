@@ -97,3 +97,25 @@ export function formatRelativeTimeEs(value, now = new Date()) {
   if (days < 7) return `hace ${days} días`
   return formatAppDateTime(value, { dateStyle: 'medium', timeStyle: undefined })
 }
+
+/**
+ * Duración en el estado actual: "12m", "3h 20m", "2d 4h".
+ * @param {string|number|Date|Array|null|undefined} since
+ * @param {Date} [now]
+ */
+export function formatDurationInEstado(since, now = new Date()) {
+  const date = parseAppDateTime(since)
+  if (!date) return ''
+  let ms = now.getTime() - date.getTime()
+  if (!Number.isFinite(ms) || ms < 0) ms = 0
+  const totalMin = Math.floor(ms / 60_000)
+  if (totalMin < 1) return '<1m'
+  if (totalMin < 60) return `${totalMin}m`
+  const days = Math.floor(totalMin / (60 * 24))
+  const hours = Math.floor((totalMin % (60 * 24)) / 60)
+  const mins = totalMin % 60
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`
+  }
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+}
