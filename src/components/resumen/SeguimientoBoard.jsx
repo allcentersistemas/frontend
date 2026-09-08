@@ -450,57 +450,62 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
       ref={rootRef}
       className={`seguimiento${fullscreen ? ' seguimiento--fullscreen' : ''}`}
     >
-      <header className="seguimiento-top">
-        <div className="seguimiento-top__main">
-          <div className="seguimiento-top__title-row">
-            <h1 className="seguimiento-top__title">Seguimiento</h1>
-            <span className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}>
-              <span className="seguimiento-live__dot" aria-hidden />
-              {live ? 'En vivo' : 'Reconectando…'}
-            </span>
-            {!live && typeof onReconnectLive === 'function' ? (
-              <button type="button" className="seguimiento-live-btn" onClick={onReconnectLive}>
-                <span className="seguimiento-live-btn__dot" aria-hidden />
-                Reintentar
+      {fullscreen ? (
+        <button
+          type="button"
+          className="seguimiento-fs-exit"
+          onClick={toggleFullscreen}
+          title="Salir de pantalla completa (Esc)"
+        >
+          Esc · Salir
+        </button>
+      ) : (
+        <header className="seguimiento-top">
+          <div className="seguimiento-top__main">
+            <div className="seguimiento-top__title-row">
+              <h1 className="seguimiento-top__title">Seguimiento</h1>
+              <span className={`seguimiento-live${live ? '' : ' seguimiento-live--off'}`}>
+                <span className="seguimiento-live__dot" aria-hidden />
+                {live ? 'En vivo' : 'Reconectando…'}
+              </span>
+              {!live && typeof onReconnectLive === 'function' ? (
+                <button type="button" className="seguimiento-live-btn" onClick={onReconnectLive}>
+                  <span className="seguimiento-live-btn__dot" aria-hidden />
+                  Reintentar
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="seguimiento-fs-btn"
+                onClick={toggleFullscreen}
+                aria-pressed={false}
+                title="Pantalla completa"
+              >
+                Pantalla completa
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="seguimiento-fs-btn"
-              onClick={toggleFullscreen}
-              aria-pressed={fullscreen}
-              title={fullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}
-            >
-              {fullscreen ? 'Salir' : 'Pantalla completa'}
-            </button>
+            </div>
+            <p className="seguimiento-top__lead muted small">
+              <strong>Comercial</strong> (hasta Vendido): cards de <strong>proyecto</strong>.{' '}
+              <strong>Obra</strong> (Optimizado→Entregado): cards de <strong>XML</strong> — el agente
+              mueve cada XML a Producción; el proyecto CRM avanza solo cuando{' '}
+              <em>todos</em> sus XML llegan.
+            </p>
+            <p className="seguimiento-top__count muted small">
+              {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
+            </p>
           </div>
-          <p className="seguimiento-top__lead muted small">
-            <strong>Comercial</strong> (hasta Vendido): cards de <strong>proyecto</strong>.{' '}
-            <strong>Obra</strong> (Optimizado→Entregado): cards de <strong>XML</strong> — el agente
-            mueve cada XML a Producción; el proyecto CRM avanza solo cuando{' '}
-            <em>todos</em> sus XML llegan.
-            {fullscreen ? (
-              <>
-                {' '}
-                <span className="seguimiento-fs-hint">Esc para salir.</span>
-              </>
-            ) : null}
-          </p>
-          <p className="seguimiento-top__count muted small">
-            {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
-          </p>
-        </div>
-        <div className="seguimiento-top__aside">
-          <div className="seguimiento-legend" aria-hidden>
-            <span className="seguimiento-legend__item seguimiento-legend__item--comercial">
-              Comercial = proyecto
-            </span>
-            <span className="seguimiento-legend__item seguimiento-legend__item--obra">
-              Obra = XML
-            </span>
+          <div className="seguimiento-top__aside">
+            <div className="seguimiento-legend" aria-hidden>
+              <span className="seguimiento-legend__item seguimiento-legend__item--comercial">
+                Comercial = proyecto
+              </span>
+              <span className="seguimiento-legend__item seguimiento-legend__item--obra">
+                Obra = XML
+              </span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {loading && !proyectos.length ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>

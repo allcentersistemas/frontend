@@ -42,6 +42,7 @@ export function ResumenPage() {
   const [scanStats, setScanStats] = useState(null)
   const [proyectos, setProyectos] = useState([])
   const [seguimiento, setSeguimiento] = useState([])
+  const [seguimientoObras, setSeguimientoObras] = useState([])
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
   const [seguimientoSince, setSeguimientoSince] = useState('2026-08-26')
@@ -113,14 +114,18 @@ export function ResumenPage() {
     setSeguimientoLoading(true)
     setSeguimientoErr(null)
     try {
-      const list = await systemApi.listSeguimientoProyectosBoard()
-      setSeguimiento(Array.isArray(list) ? list : [])
+      const [proyectosBoard, obrasBoard] = await Promise.all([
+        systemApi.listSeguimientoProyectosBoard(),
+        systemApi.listObrasSeguimiento({ since: seguimientoSince }),
+      ])
+      setSeguimiento(Array.isArray(proyectosBoard) ? proyectosBoard : [])
+      setSeguimientoObras(Array.isArray(obrasBoard) ? obrasBoard : [])
     } catch (e) {
       setSeguimientoErr(e instanceof Error ? e.message : 'No se pudo cargar el seguimiento')
     } finally {
       setSeguimientoLoading(false)
     }
-  }, [])
+  }, [seguimientoSince])
 
   useEffect(() => {
     if (!showPage || activeTab !== 'seguimiento') {
@@ -140,9 +145,13 @@ export function ResumenPage() {
       refreshTimer = window.setTimeout(() => {
         void (async () => {
           try {
-            const list = await systemApi.listSeguimientoProyectosBoard()
+            const [proyectosBoard, obrasBoard] = await Promise.all([
+              systemApi.listSeguimientoProyectosBoard(),
+              systemApi.listObrasSeguimiento({ since: seguimientoSince }),
+            ])
             if (!cancelled) {
-              setSeguimiento(Array.isArray(list) ? list : [])
+              setSeguimiento(Array.isArray(proyectosBoard) ? proyectosBoard : [])
+              setSeguimientoObras(Array.isArray(obrasBoard) ? obrasBoard : [])
               setSeguimientoErr(null)
             }
           } catch (e) {
@@ -164,7 +173,7 @@ export function ResumenPage() {
         await systemApi.streamObrasSeguimiento({
           since: seguimientoSince,
           signal: abort.signal,
-          onEvent: ({ event }) => {
+          onEvent: ({ event, data }) => {
             if (cancelled) return
             if (event === 'connected') {
               attempt = 0
@@ -177,6 +186,10 @@ export function ResumenPage() {
               attempt = 0
               setSeguimientoLive(true)
               setSeguimientoErr(null)
+              // El stream ya trae las obras Biesse; úsalas al instante.
+              if (Array.isArray(data)) {
+                setSeguimientoObras(data)
+              }
               refreshBoard()
             }
           },
@@ -291,6 +304,7 @@ export function ResumenPage() {
           ) : null}
           <SeguimientoBoard
             proyectos={seguimiento}
+            obras={seguimientoObras}
             loading={seguimientoLoading}
             live={seguimientoLive}
             onReconnectLive={() => setLiveNonce((n) => n + 1)}
