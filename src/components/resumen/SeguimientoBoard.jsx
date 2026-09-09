@@ -92,6 +92,14 @@ function isSameLimaDay(value, dayKey) {
   }
 }
 
+/** Vendido: máximo 48 horas desde que entró al estado. */
+function isWithinLastHours(value, hours, nowMs = Date.now()) {
+  const d = parseAppDateTime(value)
+  if (!d) return false
+  const maxAgeMs = Math.max(0, Number(hours) || 0) * 60 * 60 * 1000
+  return nowMs - d.getTime() <= maxAgeMs
+}
+
 function clampPct(n) {
   const v = Number(n)
   if (!Number.isFinite(v)) return 0
@@ -167,15 +175,26 @@ function OrdenRow({ orden, nowTick }) {
 function XmlCard({ item, nowTick, arrived }) {
   const { proyecto, orden, estado } = item
   const name =
-    orden.biesseOrderName || orden.codigo || (orden.ordenId != null ? `Orden #${orden.ordenId}` : 'XML')
+    orden.biesseOrderName ||
+    orden.orderName ||
+    orden.codigo ||
+    (orden.biesseOrderId != null
+      ? `XML #${orden.biesseOrderId}`
+      : orden.ordenId != null
+        ? `Orden #${orden.ordenId}`
+        : 'XML')
   const estadoDesde = orden.estadoDesde ?? orden.estado_desde ?? null
   const enEstado = formatDurationInEstado(estadoDesde, new Date(nowTick))
   const desdeLabel = formatAppDateTime(estadoDesde, {
     dateStyle: 'short',
     timeStyle: 'short',
   })
-  const flightKey = String(orden.ordenId ?? orden.biesseOrderId)
+  const flightKey = String(orden.biesseOrderId ?? orden.ordenId)
   const isArrived = arrived.has(flightKey)
+  const proyectoLabel =
+    proyecto?.nombre ||
+    (proyecto?.proyectoId != null ? `Proyecto #${proyecto.proyectoId}` : null) ||
+    'Sin proyecto'
 
   return (
     <li
@@ -190,11 +209,12 @@ function XmlCard({ item, nowTick, arrived }) {
         </span>
       </div>
       <div className="seguimiento-card__meta">
-        <span className="muted small" title={proyecto.nombre || ''}>
-          {proyecto.nombre || `Proyecto #${proyecto.proyectoId}`}
+        <span className="muted small" title={proyectoLabel}>
+          {proyectoLabel}
         </span>
-        {proyecto.cliente ? <span className="muted small">{proyecto.cliente}</span> : null}
+        {proyecto?.cliente ? <span className="muted small">{proyecto.cliente}</span> : null}
         {orden.opCodigo ? <span className="muted small">OP {orden.opCodigo}</span> : null}
+        {orden.bookingCode ? <span className="muted small">{orden.bookingCode}</span> : null}
         {orden.seccionador ? <span className="muted small">Secc. {orden.seccionador}</span> : null}
       </div>
       {enEstado ? (
@@ -275,9 +295,16 @@ function ProyectoCard({ proyecto, nowTick, arrived }) {
 /**
  * Tablero híbrido:
  * - Comercial (Enviado→Vendido): cards de **proyecto**
- * - Obra (Optimizado→Entregado): cards de **XML** (el agente mueve el XML)
+ * - Obra (Optimizado→Entregado): cards de **XML** desde obras Biesse (todas las que están en seguimiento),
+ *   enriquecidas con proyecto CRM cuando existe anidación.
  */
-export function SeguimientoBoard({ proyectos = [], loading = false, live = false, onReconnectLive }) {
+export function SeguimientoBoard({
+  proyectos = [],
+  obras = [],
+  loading = false,
+  live = false,
+  onReconnectLive,
+}) {
   const prevXmlEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
   const rootRef = useRef(null)
@@ -293,6 +320,22 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
 
   const todayKey = useMemo(() => limaTodayKey(), [nowTick])
 
+  /** biesseOrderId → { proyecto, orden CRM } para enriquecer cards de obra. */
+  const crmByBiesseId = useMemo(() => {
+    const map = new Map()
+    for (const p of proyectos) {
+      const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
+      for (const orden of ordenes) {
+        const bid = Number(orden?.biesseOrderId)
+        if (!Number.isFinite(bid) || bid <= 0) continue
+        if (!map.has(bid)) {
+          map.set(bid, { proyecto: p, orden })
+        }
+      }
+    }
+    return map
+  }, [proyectos])
+
   /** Proyectos en columnas comerciales. */
   const proyectosByEstado = useMemo(() => {
     const map = Object.fromEntries(
@@ -300,41 +343,91 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
     )
     for (const p of proyectos) {
       const estado = normalizeEstado(p.estado)
-      if (map[estado]) map[estado].push(p)
+      if (!map[estado]) continue
+      if (estado === 'COTIZADO') {
+        const desde = p.estadoDesde ?? p.estado_desde ?? p.fechacreacion
+        if (!isWithinLastHours(desde, 48, nowTick)) continue
+      }
+      map[estado].push(p)
     }
     return map
-  }, [proyectos])
+  }, [proyectos, nowTick])
 
-  /** XMLs planos en columnas de obra (según estado_escaneo). */
+  /**
+   * XMLs en columnas de obra (Optimizado→Entregado): un XML = un solo estado.
+   * Fuente Biesse + CRM; Entregado solo del día (Lima).
+   */
   const xmlByEstado = useMemo(() => {
     const map = Object.fromEntries(
       BOARD_ESTADOS.filter((e) => COL_PHASE[e] === 'obra').map((e) => [e, []]),
     )
+    const seen = new Set()
+
+    const pushItem = (item) => {
+      const bid = Number(item.orden?.biesseOrderId)
+      if (Number.isFinite(bid) && bid > 0) {
+        if (seen.has(bid)) return
+        seen.add(bid)
+      }
+      let estado = normalizeEstado(item.estado)
+      if (!OBRA_ESTADOS.has(estado)) estado = 'OPTIMIZADO'
+      if (estado === 'ENTREGADO') {
+        const desde = item.orden.estadoDesde ?? item.orden.estado_desde
+        // Sin fecha no se puede saber el día → no mostrar (tablero limpio al día siguiente).
+        if (!desde || !isSameLimaDay(desde, todayKey)) return
+      }
+      map[estado]?.push({ ...item, estado })
+    }
+
+    for (const o of obras ?? []) {
+      const biesseOrderId = Number(o.orderId ?? o.orderid)
+      if (!Number.isFinite(biesseOrderId) || biesseOrderId <= 0) continue
+      const linked = crmByBiesseId.get(biesseOrderId)
+      const orden = {
+        biesseOrderId,
+        biesseOrderName: o.orderName ?? o.ordername ?? linked?.orden?.biesseOrderName ?? null,
+        orderName: o.orderName ?? o.ordername ?? null,
+        codigo: linked?.orden?.codigo ?? null,
+        ordenId: linked?.orden?.ordenId ?? null,
+        opCodigo: o.opCodigo ?? o.op_codigo ?? linked?.orden?.opCodigo ?? null,
+        bookingCode: o.bookingCode ?? o.bookingcode ?? null,
+        seccionador: o.seccionador ?? linked?.orden?.seccionador ?? null,
+        porcentaje: o.porcentaje ?? linked?.orden?.porcentaje ?? null,
+        avanceLabel: o.avanceLabel ?? o.avance_label ?? linked?.orden?.avanceLabel ?? null,
+        porcentajeCorte: o.porcentajeCorte ?? o.porcentaje_corte ?? linked?.orden?.porcentajeCorte ?? null,
+        avanceCorteLabel:
+          o.avanceCorteLabel ?? o.avance_corte_label ?? linked?.orden?.avanceCorteLabel ?? null,
+        estadoEscaneo: o.estadoEscaneo ?? o.estado_escaneo ?? linked?.orden?.estadoEscaneo ?? null,
+        estadoDesde:
+          o.estadoDesde ??
+          o.estado_desde ??
+          linked?.orden?.estadoDesde ??
+          linked?.orden?.estado_desde ??
+          null,
+      }
+      pushItem({
+        key: `obra-${biesseOrderId}`,
+        proyecto: linked?.proyecto ?? { proyectoId: null, nombre: 'Sin proyecto', cliente: null },
+        orden,
+        estado: orden.estadoEscaneo,
+      })
+    }
+
+    // CRM anidados que no vinieron en el listado de obras (sin repetir).
     for (const p of proyectos) {
       const ordenes = Array.isArray(p.ordenes) ? p.ordenes : []
       for (const orden of ordenes) {
         if (orden?.biesseOrderId == null) continue
-        let estado = normalizeEstado(orden.estadoEscaneo)
-        if (!OBRA_ESTADOS.has(estado)) {
-          // Estados raros / comerciales en XML: tratar como optimizado operativo.
-          estado = 'OPTIMIZADO'
-        }
-        if (estado === 'ENTREGADO') {
-          const desde = orden.estadoDesde ?? orden.estado_desde
-          if (desde && !isSameLimaDay(desde, todayKey)) {
-            continue
-          }
-        }
-        map[estado]?.push({
+        pushItem({
           key: `${p.proyectoId}-${orden.ordenId ?? orden.biesseOrderId}`,
           proyecto: p,
           orden,
-          estado,
+          estado: orden.estadoEscaneo,
         })
       }
     }
     return map
-  }, [proyectos, todayKey])
+  }, [obras, proyectos, crmByBiesseId, todayKey])
 
   const totalProyectos = proyectos.length
   const totalXml = useMemo(
@@ -342,6 +435,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
       Object.values(xmlByEstado).reduce((acc, list) => acc + (Array.isArray(list) ? list.length : 0), 0),
     [xmlByEstado],
   )
+  const hasData = totalProyectos > 0 || totalXml > 0 || (Array.isArray(obras) && obras.length > 0)
 
   useEffect(() => {
     const prev = prevXmlEstadosRef.current
@@ -351,7 +445,7 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
 
     for (const list of Object.values(xmlByEstado)) {
       for (const item of list) {
-        const id = String(item.orden.ordenId ?? item.orden.biesseOrderId)
+        const id = String(item.orden.biesseOrderId ?? item.orden.ordenId)
         next.set(id, item.estado)
         if (!primedRef.current) continue
         const before = prev.get(id)
@@ -361,8 +455,9 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
           if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
             const name =
               item.orden.biesseOrderName ||
+              item.orden.orderName ||
               item.orden.codigo ||
-              item.proyecto.nombre ||
+              item.proyecto?.nombre ||
               `XML #${id}`
             newFlights.push({
               key: `${id}-${before}-${item.estado}-${Date.now()}`,
@@ -485,10 +580,9 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
               </button>
             </div>
             <p className="seguimiento-top__lead muted small">
-              <strong>Comercial</strong> (hasta Vendido): cards de <strong>proyecto</strong>.{' '}
-              <strong>Obra</strong> (Optimizado→Entregado): cards de <strong>XML</strong> — el agente
-              mueve cada XML a Producción; el proyecto CRM avanza solo cuando{' '}
-              <em>todos</em> sus XML llegan.
+              <strong>Comercial</strong>: proyectos (Cotizado máx. 48 h; Vendido todos).{' '}
+              <strong>Obra</strong>: cada XML en un solo estado. Entregado solo del día; al día
+              siguiente arranca limpio.
             </p>
             <p className="seguimiento-top__count muted small">
               {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
@@ -507,14 +601,14 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
         </header>
       )}
 
-      {loading && !proyectos.length ? (
+      {loading && !hasData ? (
         <div className="app-loading" style={{ minHeight: '30vh' }}>
           <div className="app-loading__spinner" aria-hidden />
           <p className="text-sm">Cargando seguimiento…</p>
         </div>
       ) : null}
 
-      {!loading || proyectos.length ? (
+      {!loading || hasData ? (
         <div className="seguimiento-track">
           <div className="seguimiento-rail" aria-hidden={flights.length === 0}>
             <div className="seguimiento-rail__line" />
@@ -581,10 +675,12 @@ export function SeguimientoBoard({ proyectos = [], loading = false, live = false
                     {col.id === 'ENTREGADO'
                       ? 'XML · solo hoy'
                       : col.id === 'COTIZADO'
-                        ? 'Proyectos · 5 días'
-                        : isObra
-                          ? 'Por XML'
-                          : 'Por proyecto'}
+                        ? 'Proyectos · máx. 48 h'
+                        : col.id === 'VENDIDO'
+                          ? 'Proyectos · todos'
+                          : isObra
+                            ? 'Por XML'
+                            : 'Por proyecto'}
                   </p>
                   <ul className="seguimiento-col__list">
                     {count === 0 ? (
