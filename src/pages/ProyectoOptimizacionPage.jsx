@@ -577,6 +577,27 @@ export function ProyectoOptimizacionPage() {
     planosInputRef.current?.click()
   }
 
+  async function handleDownloadPlanos(row) {
+    if (!row?.id) return
+    const hasPlano = row.tienePlano || detailTree?.project?.planoArchivo
+    if (!hasPlano) {
+      setActionMsg('Este proyecto aún no tiene planos subidos.')
+      return
+    }
+    setBusyId(row.id)
+    setActionMsg('')
+    try {
+      const safe = String(row.nombre || 'proyecto')
+        .replace(/[^\w\-]+/g, '_')
+        .slice(0, 80)
+      await systemApi.downloadProyectoPlanos(row.id, `planos_${safe}.pdf`)
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo descargar el plano.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handlePlanosSelected(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -960,6 +981,16 @@ export function ProyectoOptimizacionPage() {
                     </button>
                   ) : null}
                 </>
+              ) : null}
+              {detailRow && (detailRow.tienePlano || detailTree?.project?.planoArchivo) ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={busyId === detailRow.id}
+                  onClick={() => void handleDownloadPlanos(detailRow)}
+                >
+                  Descargar planos
+                </button>
               ) : null}
               <button type="button" className="btn btn--ghost" onClick={closeDetail}>
                 Cerrar
