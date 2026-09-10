@@ -15,6 +15,7 @@ function rowToEditForm(row) {
     displayName: row.displayName || '',
     phone: row.phone || '',
     telegramChatId: row.telegramChatId || '',
+    whatsappPhone: row.whatsappPhone || '',
     juridica: Boolean(row.juridica),
     tipoDocumento: row.tipoDocumento || 'DNI',
     numeroDocumento: row.numeroDocumento || '',
@@ -37,6 +38,7 @@ function emptyCreateForm() {
     displayName: '',
     phone: '',
     telegramChatId: '',
+    whatsappPhone: '',
     active: true,
   }
 }
@@ -185,6 +187,8 @@ export function GestionClientesPanel() {
       if (p) body.phone = p
       const tg = createForm.telegramChatId.trim()
       if (tg) body.telegramChatId = tg
+      const wa = createForm.whatsappPhone.trim()
+      if (wa) body.whatsappPhone = wa
       const created = await systemApi.createClient(body)
       setCreateOk(`Cliente creado: ${created.email}`)
       setCreateForm(emptyCreateForm())
@@ -210,6 +214,7 @@ export function GestionClientesPanel() {
         displayName: editForm.displayName.trim(),
         phone: editForm.phone.trim() || null,
         telegramChatId: editForm.telegramChatId.trim() || null,
+        whatsappPhone: editForm.whatsappPhone.trim() || null,
         juridica: editForm.juridica,
         tipoDocumento: editForm.tipoDocumento,
         numeroDocumento: editForm.numeroDocumento.trim() || null,
@@ -340,6 +345,14 @@ export function GestionClientesPanel() {
                   value={createForm.telegramChatId}
                   onChange={(e) => setCreateForm((f) => ({ ...f, telegramChatId: e.target.value }))}
                   placeholder="123456789"
+                />
+              </label>
+              <label className="field">
+                <span>WhatsApp</span>
+                <input
+                  value={createForm.whatsappPhone}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, whatsappPhone: e.target.value }))}
+                  placeholder="51987654321"
                 />
               </label>
             </div>
@@ -474,6 +487,14 @@ export function GestionClientesPanel() {
                   value={editForm.telegramChatId}
                   onChange={(e) => patchEdit('telegramChatId', e.target.value)}
                   placeholder="123456789"
+                />
+              </label>
+              <label className="field">
+                <span>WhatsApp</span>
+                <input
+                  value={editForm.whatsappPhone}
+                  onChange={(e) => patchEdit('whatsappPhone', e.target.value)}
+                  placeholder="51987654321"
                 />
               </label>
               <label className="field">

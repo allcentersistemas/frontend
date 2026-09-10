@@ -74,6 +74,7 @@ export function ClientDetailModal({ clientUserId, proyectoId, clientLabel, open,
             <Field label="Nombre para mostrar" value={client.displayName} />
             <Field label="Teléfono" value={client.phone} />
             <Field label="Telegram Chat ID" value={client.telegramChatId} />
+            <Field label="WhatsApp" value={client.whatsappPhone} />
             <Field label="Tipo" value={client.juridica ? 'Persona jurídica' : 'Persona natural'} />
             <Field label="Estado" value={client.active ? 'Activo' : 'Inactivo'} />
             {client.juridica ? (

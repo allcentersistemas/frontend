@@ -284,6 +284,11 @@ export async function listProyectosSeguimiento() {
   return systemJson('/api/order/proyectos/seguimiento')
 }
 
+/** Fecha de inicio del tablero Seguimiento (Configuración). */
+export async function fetchSeguimientoConfig() {
+  return systemJson('/api/order/seguimiento/config')
+}
+
 /** Tablero Seguimiento: proyectos con órdenes/XML (estado proyecto = cuello de botella). */
 export async function listSeguimientoProyectosBoard() {
   return systemJson('/api/order/proyectos/seguimiento/board')
@@ -1158,6 +1163,13 @@ export async function testAppMail(body) {
 
 export async function testAppTelegram(body) {
   await systemJson('/api/admin/config/telegram/test', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function testAppWhatsApp(body) {
+  await systemJson('/api/admin/config/whatsapp/test', {
     method: 'POST',
     body: JSON.stringify(body),
   })

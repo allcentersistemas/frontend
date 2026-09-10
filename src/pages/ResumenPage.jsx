@@ -45,7 +45,7 @@ export function ResumenPage() {
   const [seguimientoObras, setSeguimientoObras] = useState([])
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
   const [seguimientoErr, setSeguimientoErr] = useState(null)
-  const [seguimientoSince, setSeguimientoSince] = useState('2026-08-26')
+  const [seguimientoSince, setSeguimientoSince] = useState('2026-09-09')
   const [seguimientoLive, setSeguimientoLive] = useState(false)
   const [liveNonce, setLiveNonce] = useState(0)
 
@@ -53,6 +53,25 @@ export function ResumenPage() {
     () => (employee?.roles ?? []).map((r) => roleDisplayName(r.name)),
     [employee?.roles],
   )
+
+  useEffect(() => {
+    if (!showPage || activeTab !== 'seguimiento') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const cfg = await systemApi.fetchSeguimientoConfig()
+        const since = String(cfg?.seguimientoSince || '').trim()
+        if (!cancelled && /^\d{4}-\d{2}-\d{2}$/.test(since)) {
+          setSeguimientoSince(since)
+        }
+      } catch {
+        /* mantiene default / valor actual */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showPage, activeTab])
 
   useEffect(() => {
     if (!resumenTabs.some((t) => t.id === activeTab)) {
@@ -307,6 +326,7 @@ export function ResumenPage() {
             obras={seguimientoObras}
             loading={seguimientoLoading}
             live={seguimientoLive}
+            since={seguimientoSince}
             onReconnectLive={() => setLiveNonce((n) => n + 1)}
           />
         </>

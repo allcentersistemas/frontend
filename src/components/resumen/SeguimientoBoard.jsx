@@ -303,8 +303,10 @@ export function SeguimientoBoard({
   obras = [],
   loading = false,
   live = false,
+  since = '2026-09-09',
   onReconnectLive,
 }) {
+  const sinceValue = since || '2026-09-09'
   const prevXmlEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
   const rootRef = useRef(null)
@@ -580,9 +582,8 @@ export function SeguimientoBoard({
               </button>
             </div>
             <p className="seguimiento-top__lead muted small">
-              <strong>Comercial</strong>: proyectos (Cotizado máx. 48 h; Vendido todos).{' '}
-              <strong>Obra</strong>: cada XML en un solo estado. Entregado solo del día; al día
-              siguiente arranca limpio.
+              Tablero desde <strong>{sinceValue}</strong> (Gestión → Configuración). Cotizado máx. 48 h ·
+              Entregado solo hoy. Cada XML en un solo estado.
             </p>
             <p className="seguimiento-top__count muted small">
               {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
@@ -676,10 +677,10 @@ export function SeguimientoBoard({
                       ? 'XML · solo hoy'
                       : col.id === 'COTIZADO'
                         ? 'Proyectos · máx. 48 h'
-                        : col.id === 'VENDIDO'
-                          ? 'Proyectos · todos'
+                        : col.id === 'VENDIDO' || col.id === 'ENVIADO' || col.id === 'EN_ATENCION'
+                          ? `Desde ${sinceValue}`
                           : isObra
-                            ? 'Por XML'
+                            ? `XML · desde ${sinceValue}`
                             : 'Por proyecto'}
                   </p>
                   <ul className="seguimiento-col__list">

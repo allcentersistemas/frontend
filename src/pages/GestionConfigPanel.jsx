@@ -14,6 +14,7 @@ export function GestionConfigPanel() {
   const [saving, setSaving] = useState(false)
   const [testingMail, setTestingMail] = useState(false)
   const [testingTelegram, setTestingTelegram] = useState(false)
+  const [testingWhatsApp, setTestingWhatsApp] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [err, setErr] = useState(null)
   const [ok, setOk] = useState(null)
@@ -36,6 +37,12 @@ export function GestionConfigPanel() {
   const [telegramBotUsername, setTelegramBotUsername] = useState('')
   const [testTelegramChatId, setTestTelegramChatId] = useState('')
   const [savingTelegram, setSavingTelegram] = useState(false)
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false)
+  const [whatsappAccessToken, setWhatsappAccessToken] = useState('')
+  const [whatsappAccessTokenConfigured, setWhatsappAccessTokenConfigured] = useState(false)
+  const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState('')
+  const [testWhatsAppPhone, setTestWhatsAppPhone] = useState('')
+  const [savingWhatsApp, setSavingWhatsApp] = useState(false)
   const [plantillaInfo, setPlantillaInfo] = useState(null)
   const [plantillaFile, setPlantillaFile] = useState(null)
   const [uploadingPlantilla, setUploadingPlantilla] = useState(false)
@@ -47,6 +54,8 @@ export function GestionConfigPanel() {
   const [aiApiKeyConfigured, setAiApiKeyConfigured] = useState(false)
   const [aiDailyLimitPerClient, setAiDailyLimitPerClient] = useState(20)
   const [aiUsageSummary, setAiUsageSummary] = useState(null)
+  const [seguimientoSince, setSeguimientoSince] = useState('2026-09-09')
+  const [savingSeguimiento, setSavingSeguimiento] = useState(false)
 
   const applyConfig = useCallback((cfg) => {
     setKardexEnabled(Boolean(cfg.kardexEnabled))
@@ -64,6 +73,10 @@ export function GestionConfigPanel() {
     setTelegramBotTokenConfigured(Boolean(cfg.telegramBotTokenConfigured))
     setTelegramBotToken('')
     setTelegramBotUsername(cfg.telegramBotUsername ?? '')
+    setWhatsappEnabled(Boolean(cfg.whatsappEnabled))
+    setWhatsappAccessTokenConfigured(Boolean(cfg.whatsappAccessTokenConfigured))
+    setWhatsappAccessToken('')
+    setWhatsappPhoneNumberId(cfg.whatsappPhoneNumberId ?? '')
     setAiVisionEnabled(Boolean(cfg.aiVisionEnabled))
     setAiProvider(cfg.aiProvider === 'openai' ? 'openai' : 'claude')
     setAiModel(cfg.aiModel ?? '')
@@ -71,6 +84,11 @@ export function GestionConfigPanel() {
     setAiApiKey('')
     setAiDailyLimitPerClient(
       cfg.aiDailyLimitPerClient == null ? 20 : Math.max(0, Number(cfg.aiDailyLimitPerClient) || 0),
+    )
+    setSeguimientoSince(
+      /^\d{4}-\d{2}-\d{2}$/.test(String(cfg.seguimientoSince || ''))
+        ? String(cfg.seguimientoSince)
+        : '2026-09-09',
     )
   }, [])
 
@@ -128,6 +146,27 @@ export function GestionConfigPanel() {
       setErr(e2?.message ?? 'No se pudo guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function submitSeguimientoConfig(e) {
+    e.preventDefault()
+    const value = String(seguimientoSince || '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      setErr('Indique una fecha válida de inicio del Seguimiento (aaaa-mm-dd).')
+      return
+    }
+    setSavingSeguimiento(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const updated = await systemApi.updateAppConfig({ seguimientoSince: value })
+      applyConfig(updated)
+      setOk('Fecha de inicio del Seguimiento guardada. El tablero usa este corte de inmediato.')
+    } catch (e2) {
+      setErr(e2?.message ?? 'No se pudo guardar la fecha de Seguimiento')
+    } finally {
+      setSavingSeguimiento(false)
     }
   }
 
@@ -217,6 +256,47 @@ export function GestionConfigPanel() {
     }
   }
 
+  async function submitWhatsAppConfig(e) {
+    e.preventDefault()
+    setSavingWhatsApp(true)
+    setErr(null)
+    setOk(null)
+    try {
+      const body = {
+        whatsappEnabled,
+        whatsappPhoneNumberId: whatsappPhoneNumberId.trim(),
+      }
+      if (whatsappAccessToken.trim()) {
+        body.whatsappAccessToken = whatsappAccessToken.trim()
+      }
+      const updated = await systemApi.updateAppConfig(body)
+      applyConfig(updated)
+      setOk(
+        whatsappEnabled
+          ? 'WhatsApp activado. Asigne el número WhatsApp en cada cliente (o su teléfono).'
+          : 'WhatsApp desactivado. No se enviarán notificaciones por WhatsApp.',
+      )
+    } catch (e2) {
+      setErr(e2?.message ?? 'No se pudo guardar la configuración de WhatsApp')
+    } finally {
+      setSavingWhatsApp(false)
+    }
+  }
+
+  async function sendTestWhatsApp() {
+    setTestingWhatsApp(true)
+    setErr(null)
+    setOk(null)
+    try {
+      await systemApi.testAppWhatsApp({ phone: testWhatsAppPhone.trim() })
+      setOk('Mensaje de prueba enviado por WhatsApp')
+    } catch (e) {
+      setErr(e?.message ?? 'No se pudo enviar el mensaje de prueba de WhatsApp')
+    } finally {
+      setTestingWhatsApp(false)
+    }
+  }
+
   async function resetKardex() {
     const confirmed = window.confirm(
       '¿Reiniciar todo el kardex de inventario?\n\nSe eliminarán todos los artículos y movimientos de stock (inv_item e inv_stock_movement). Esta acción no se puede deshacer.',
@@ -297,7 +377,7 @@ export function GestionConfigPanel() {
   return (
     <>
       <p className="muted small" style={{ marginBottom: '1rem' }}>
-        Ajustes globales del portal: seccionadoras, kardex, plantilla de planilla, importación por foto (IA) y correo SMTP.
+        Ajustes globales del portal: seccionadoras, seguimiento, kardex, plantilla de planilla, importación por foto (IA) y correo SMTP.
         Los cambios aplican de inmediato sin reiniciar el servidor.
       </p>
 
@@ -305,6 +385,38 @@ export function GestionConfigPanel() {
       {ok ? <p className="form-success" style={{ marginBottom: '0.75rem' }}>{ok}</p> : null}
 
       <SeccionadorasConfigPanel />
+
+      <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
+        <h2>Resumen → Seguimiento</h2>
+        <p className="muted small form-hint">
+          Fecha desde la que el tablero muestra pedidos. Enviado, Atención, Vendido y XMLs de obra
+          anteriores a esta fecha no aparecen. Cotizado sigue limitado a 48 h y Entregado solo al día
+          actual.
+        </p>
+        <form onSubmit={submitSeguimientoConfig}>
+          <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+            <label className="field">
+              <span>Fecha de inicio</span>
+              <input
+                type="date"
+                className="input"
+                value={seguimientoSince}
+                onChange={(e) => setSeguimientoSince(e.target.value)}
+                required
+              />
+            </label>
+            <div className="form-actions" style={{ marginTop: 0 }}>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={savingSeguimiento || saving}
+              >
+                {savingSeguimiento ? 'Guardando…' : 'Guardar fecha'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
 
       <div className="card pad form-section" style={{ marginBottom: '1rem' }}>
         <h2>Kardex de inventario</h2>
@@ -723,6 +835,95 @@ export function GestionConfigPanel() {
           <p className="muted small form-hint">
             El usuario debe haber iniciado conversación con el bot. Obtenga el Chat ID con
             @userinfobot o similar.
+          </p>
+        </div>
+      </div>
+
+      <div className="card pad form-section">
+        <h2>WhatsApp</h2>
+        <p className="muted small" style={{ marginBottom: '0.75rem' }}>
+          Notifica al cliente cuando su pedido pasa a <strong>listo para entregar</strong>, con el
+          mismo texto que Telegram (marca AllPanel). Use la{' '}
+          <a
+            href="https://developers.facebook.com/docs/whatsapp/cloud-api"
+            target="_blank"
+            rel="noreferrer"
+          >
+            WhatsApp Cloud API
+          </a>{' '}
+          de Meta: Access Token + Phone Number ID. El número del cliente se toma de su WhatsApp (o
+          teléfono) en Gestión → Clientes / Mi cuenta.
+        </p>
+        <form onSubmit={(e) => void submitWhatsAppConfig(e)}>
+          <label className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={whatsappEnabled}
+              onChange={(e) => setWhatsappEnabled(e.target.checked)}
+            />
+            <span>WhatsApp activo</span>
+          </label>
+
+          <div className="form-row-2">
+            <label className="field">
+              <span>Access Token (Meta)</span>
+              <input
+                type="password"
+                value={whatsappAccessToken}
+                onChange={(e) => setWhatsappAccessToken(e.target.value)}
+                placeholder={
+                  whatsappAccessTokenConfigured ? '•••••••• (sin cambiar)' : 'EAAG…'
+                }
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="field">
+              <span>Phone Number ID</span>
+              <input
+                value={whatsappPhoneNumberId}
+                onChange={(e) => setWhatsappPhoneNumberId(e.target.value)}
+                placeholder="123456789012345"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={savingWhatsApp || saving || resetting}
+            >
+              {savingWhatsApp ? 'Guardando…' : 'Guardar WhatsApp'}
+            </button>
+          </div>
+        </form>
+
+        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border, #ddd)' }}>
+          <h3 className="small" style={{ marginBottom: '0.35rem' }}>Probar envío</h3>
+          <div className="form-row-2" style={{ alignItems: 'flex-end' }}>
+            <label className="field">
+              <span>Número de prueba</span>
+              <input
+                value={testWhatsAppPhone}
+                onChange={(e) => setTestWhatsAppPhone(e.target.value)}
+                placeholder="51987654321"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={
+                testingWhatsApp || savingWhatsApp || saving || !testWhatsAppPhone.trim()
+              }
+              onClick={() => void sendTestWhatsApp()}
+            >
+              {testingWhatsApp ? 'Enviando…' : 'Enviar mensaje de prueba'}
+            </button>
+          </div>
+          <p className="muted small form-hint">
+            Use código de país sin +. Fuera de la ventana de 24 h Meta puede exigir una plantilla
+            aprobada.
           </p>
         </div>
       </div>
