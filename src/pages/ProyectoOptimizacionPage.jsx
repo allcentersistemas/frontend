@@ -836,6 +836,16 @@ export function ProyectoOptimizacionPage() {
                             ) : null}
                           </>
                         ) : null}
+                        {tab === TAB_TODOS && row.tienePlano ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            disabled={busyId === row.id}
+                            onClick={() => void handleDownloadPlanos(row)}
+                          >
+                            Descargar planos
+                          </button>
+                        ) : null}
                         {tab === TAB_TODOS && canCapturar(row) ? (
                           <button
                             type="button"
@@ -982,7 +992,9 @@ export function ProyectoOptimizacionPage() {
                   ) : null}
                 </>
               ) : null}
-              {detailRow && (detailRow.tienePlano || detailTree?.project?.planoArchivo) ? (
+              {detailRow &&
+              tab === TAB_TODOS &&
+              (detailRow.tienePlano || detailTree?.project?.planoArchivo) ? (
                 <button
                   type="button"
                   className="btn btn--ghost"
