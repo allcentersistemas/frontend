@@ -24,7 +24,7 @@ const COL_LABEL = {
   COTIZADO: 'Cotizado',
   VENDIDO: 'Vendido',
   OPTIMIZADO: 'Optimizado',
-  PRODUCCION: 'Producción',
+  PRODUCCION: 'Transmitido',
   DESPACHO: 'Despacho',
   LISTO_PARA_ENTREGAR: 'Listo',
   ENTREGADO: 'Hoy',
@@ -172,7 +172,7 @@ function OrdenRow({ orden, nowTick }) {
 }
 
 /** Card de XML en columnas de obra (Optimizado → Entregado). */
-function XmlCard({ item, nowTick, arrived }) {
+function XmlCard({ item, nowTick, arrived, onTransmitir, transmittingId }) {
   const { proyecto, orden, estado } = item
   const name =
     orden.biesseOrderName ||
@@ -195,6 +195,11 @@ function XmlCard({ item, nowTick, arrived }) {
     proyecto?.nombre ||
     (proyecto?.proyectoId != null ? `Proyecto #${proyecto.proyectoId}` : null) ||
     'Sin proyecto'
+  const canTransmit =
+    estado === 'OPTIMIZADO' &&
+    orden.biesseOrderId != null &&
+    typeof onTransmitir === 'function'
+  const transmitting = transmittingId != null && Number(transmittingId) === Number(orden.biesseOrderId)
 
   return (
     <li
@@ -235,6 +240,18 @@ function XmlCard({ item, nowTick, arrived }) {
         detail={orden.avanceCorteLabel || null}
         tone="cut"
       />
+      {canTransmit ? (
+        <div className="seguimiento-card__actions">
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={transmitting}
+            onClick={() => onTransmitir(orden.biesseOrderId, name)}
+          >
+            {transmitting ? 'Transmitiendo…' : 'Transmitir'}
+          </button>
+        </div>
+      ) : null}
     </li>
   )
 }
@@ -305,15 +322,34 @@ export function SeguimientoBoard({
   live = false,
   since = '2026-09-09',
   onReconnectLive,
+  onTransmitirObra,
+  transmittingObraId = null,
 }) {
   const sinceValue = since || '2026-09-09'
+  const [actionMsg, setActionMsg] = useState('')
   const prevXmlEstadosRef = useRef(new Map())
+  const prevProyectoEstadosRef = useRef(new Map())
   const primedRef = useRef(false)
   const rootRef = useRef(null)
   const [flights, setFlights] = useState([])
   const [arrived, setArrived] = useState(() => new Set())
   const [fullscreen, setFullscreen] = useState(false)
   const [nowTick, setNowTick] = useState(() => Date.now())
+
+  async function handleTransmitir(biesseOrderId, name) {
+    if (!biesseOrderId || typeof onTransmitirObra !== 'function') return
+    const ok = window.confirm(
+      `¿Transmitir «${name || biesseOrderId}»?\n\nPasará de Optimizado a Transmitido (producción).`,
+    )
+    if (!ok) return
+    setActionMsg('')
+    try {
+      await onTransmitirObra(biesseOrderId)
+      setActionMsg(`Transmitido: ${name || `#${biesseOrderId}`}`)
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo transmitir el XML.')
+    }
+  }
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 60_000)
@@ -440,17 +476,19 @@ export function SeguimientoBoard({
   const hasData = totalProyectos > 0 || totalXml > 0 || (Array.isArray(obras) && obras.length > 0)
 
   useEffect(() => {
-    const prev = prevXmlEstadosRef.current
-    const next = new Map()
+    const prevXml = prevXmlEstadosRef.current
+    const prevProy = prevProyectoEstadosRef.current
+    const nextXml = new Map()
+    const nextProy = new Map()
     const newFlights = []
     const newlyArrived = []
 
     for (const list of Object.values(xmlByEstado)) {
       for (const item of list) {
         const id = String(item.orden.biesseOrderId ?? item.orden.ordenId)
-        next.set(id, item.estado)
+        nextXml.set(id, item.estado)
         if (!primedRef.current) continue
-        const before = prev.get(id)
+        const before = prevXml.get(id)
         if (before && before !== item.estado) {
           const fromIdx = BOARD_ESTADOS.indexOf(before)
           const toIdx = BOARD_ESTADOS.indexOf(item.estado)
@@ -473,7 +511,31 @@ export function SeguimientoBoard({
       }
     }
 
-    prevXmlEstadosRef.current = next
+    for (const list of Object.values(proyectosByEstado)) {
+      for (const p of list) {
+        const id = String(p.proyectoId ?? p.id)
+        const estado = normalizeEstado(p.estado)
+        nextProy.set(id, estado)
+        if (!primedRef.current) continue
+        const before = prevProy.get(id)
+        if (before && before !== estado) {
+          const fromIdx = BOARD_ESTADOS.indexOf(before)
+          const toIdx = BOARD_ESTADOS.indexOf(estado)
+          if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
+            newFlights.push({
+              key: `p-${id}-${before}-${estado}-${Date.now()}`,
+              name: p.nombre || `Proyecto #${id}`,
+              fromIdx,
+              toIdx,
+            })
+            newlyArrived.push(`p-${id}`)
+          }
+        }
+      }
+    }
+
+    prevXmlEstadosRef.current = nextXml
+    prevProyectoEstadosRef.current = nextProy
     if (!primedRef.current) {
       primedRef.current = true
       return
@@ -496,7 +558,7 @@ export function SeguimientoBoard({
       return () => window.clearTimeout(t)
     }
     return undefined
-  }, [xmlByEstado])
+  }, [xmlByEstado, proyectosByEstado])
 
   useEffect(() => {
     if (!fullscreen) return undefined
@@ -583,11 +645,12 @@ export function SeguimientoBoard({
             </div>
             <p className="seguimiento-top__lead muted small">
               Tablero desde <strong>{sinceValue}</strong> (Gestión → Configuración). Cotizado máx. 48 h ·
-              Entregado solo hoy. Cada XML en un solo estado.
+              Entregado solo hoy. En Optimizado use <strong>Transmitir</strong> para pasar a Transmitido.
             </p>
             <p className="seguimiento-top__count muted small">
               {totalProyectos} proyecto{totalProyectos === 1 ? '' : 's'} · {totalXml} XML en obra
             </p>
+            {actionMsg ? <p className="seguimiento-top__action muted small">{actionMsg}</p> : null}
           </div>
           <div className="seguimiento-top__aside">
             <div className="seguimiento-legend" aria-hidden>
@@ -693,6 +756,8 @@ export function SeguimientoBoard({
                           item={item}
                           nowTick={nowTick}
                           arrived={arrived}
+                          onTransmitir={handleTransmitir}
+                          transmittingId={transmittingObraId}
                         />
                       ))
                     ) : (

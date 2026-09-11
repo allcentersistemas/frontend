@@ -503,6 +503,15 @@
     align-items: center;
     gap: 0.5rem;
   }
+  .seguimiento-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+  }
+  .seguimiento-top__action {
+    margin: 0.35rem 0 0;
+  }
   .seguimiento-fs-btn {
     display: inline-flex;
     align-items: center;

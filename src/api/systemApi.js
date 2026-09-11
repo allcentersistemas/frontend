@@ -357,6 +357,10 @@ export async function markProyectoEntregado(id) {
   return systemJson(`/api/order/proyectos/${id}/entregado`, { method: 'POST' })
 }
 
+export async function markObraTransmitido(biesseOrderId) {
+  return systemJson(`/api/order/obras/${biesseOrderId}/transmitir`, { method: 'POST' })
+}
+
 export async function fetchAiUsageRankings() {
   return systemJson('/api/admin/config/ai-usage/rankings')
 }
