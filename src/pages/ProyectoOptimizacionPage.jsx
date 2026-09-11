@@ -302,9 +302,9 @@ export function ProyectoOptimizacionPage() {
   const [maquinaDraftId, setMaquinaDraftId] = useState('')
   const [maquinaForm, setMaquinaForm] = useState({ codigo: '', nombre: '' })
   const cotizacionInputRef = useRef(null)
-  const [cotizacionTargetId, setCotizacionTargetId] = useState(null)
+  const cotizacionTargetIdRef = useRef(null)
   const planosInputRef = useRef(null)
-  const [planosTargetId, setPlanosTargetId] = useState(null)
+  const planosTargetIdRef = useRef(null)
 
   const setTab = useCallback(
     (id) => {
@@ -544,16 +544,20 @@ export function ProyectoOptimizacionPage() {
   }
 
   function promptUploadCotizacion(rowId) {
-    setCotizacionTargetId(rowId)
+    cotizacionTargetIdRef.current = rowId
     cotizacionInputRef.current?.click()
   }
 
   async function handleCotizacionSelected(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    const rowId = cotizacionTargetId
-    setCotizacionTargetId(null)
+    const rowId = cotizacionTargetIdRef.current
+    cotizacionTargetIdRef.current = null
     if (!file || !rowId) return
+    const ok = window.confirm(
+      `¿Subir «${file.name}» como COTIZACIÓN?\n\nEsto no reemplaza los planos. El proyecto pasará a estado Cotizado.`,
+    )
+    if (!ok) return
     setBusyId(rowId)
     setActionMsg('')
     try {
@@ -563,7 +567,16 @@ export function ProyectoOptimizacionPage() {
       if (detailRow?.id === rowId) {
         const tree = await systemApi.getProyectoOptimizacion(rowId)
         setDetailTree(tree)
-        setDetailRow((prev) => (prev ? { ...prev, estado: 'COTIZADO', tieneCotizacion: true } : prev))
+        setDetailRow((prev) =>
+          prev
+            ? {
+                ...prev,
+                estado: 'COTIZADO',
+                tieneCotizacion: true,
+                cotizacionArchivo: tree?.project?.cotizacionArchivo || prev.cotizacionArchivo,
+              }
+            : prev,
+        )
       }
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'No se pudo subir la cotización.')
@@ -573,13 +586,35 @@ export function ProyectoOptimizacionPage() {
   }
 
   function promptUploadPlanos(rowId) {
-    setPlanosTargetId(rowId)
+    planosTargetIdRef.current = rowId
     planosInputRef.current?.click()
+  }
+
+  async function handleDownloadCotizacion(row) {
+    if (!row?.id) return
+    if (!row.tieneCotizacion && !(detailRow?.id === row.id && detailTree?.project?.cotizacionArchivo)) {
+      setActionMsg('Este proyecto aún no tiene cotización subida.')
+      return
+    }
+    setBusyId(row.id)
+    setActionMsg('')
+    try {
+      const safe = String(row.nombre || 'proyecto')
+        .replace(/[^\w\-]+/g, '_')
+        .slice(0, 80)
+      await systemApi.downloadProyectoCotizacion(row.id, `cotizacion_${safe}.pdf`)
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'No se pudo descargar la cotización.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function handleDownloadPlanos(row) {
     if (!row?.id) return
-    const hasPlano = row.tienePlano || detailTree?.project?.planoArchivo
+    const hasPlano =
+      Boolean(row.tienePlano) ||
+      (detailRow?.id === row.id && Boolean(detailTree?.project?.planoArchivo))
     if (!hasPlano) {
       setActionMsg('Este proyecto aún no tiene planos subidos.')
       return
@@ -601,9 +636,13 @@ export function ProyectoOptimizacionPage() {
   async function handlePlanosSelected(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    const rowId = planosTargetId
-    setPlanosTargetId(null)
+    const rowId = planosTargetIdRef.current
+    planosTargetIdRef.current = null
     if (!file || !rowId) return
+    const ok = window.confirm(
+      `¿Subir «${file.name}» como PLANOS (PDF)?\n\nEsto no reemplaza la cotización. El cliente podrá verlos en el portal.`,
+    )
+    if (!ok) return
     setBusyId(rowId)
     setActionMsg('')
     try {
@@ -816,6 +855,16 @@ export function ProyectoOptimizacionPage() {
                             >
                               {row.tieneCotizacion ? 'Actualizar cotización' : 'Subir cotización'}
                             </button>
+                            {row.tieneCotizacion ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost"
+                                disabled={busyId === row.id}
+                                onClick={() => void handleDownloadCotizacion(row)}
+                              >
+                                Descargar cotización
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className="btn btn--ghost"
@@ -824,6 +873,16 @@ export function ProyectoOptimizacionPage() {
                             >
                               {row.tienePlano ? 'Actualizar planos' : 'Subir planos'}
                             </button>
+                            {row.tienePlano ? (
+                              <button
+                                type="button"
+                                className="btn btn--ghost"
+                                disabled={busyId === row.id}
+                                onClick={() => void handleDownloadPlanos(row)}
+                              >
+                                Descargar planos
+                              </button>
+                            ) : null}
                             {canMarcarVendido(row) ? (
                               <button
                                 type="button"
@@ -835,6 +894,16 @@ export function ProyectoOptimizacionPage() {
                               </button>
                             ) : null}
                           </>
+                        ) : null}
+                        {tab === TAB_TODOS && row.tieneCotizacion ? (
+                          <button
+                            type="button"
+                            className="btn btn--ghost"
+                            disabled={busyId === row.id}
+                            onClick={() => void handleDownloadCotizacion(row)}
+                          >
+                            Descargar cotización
+                          </button>
                         ) : null}
                         {tab === TAB_TODOS && row.tienePlano ? (
                           <button
@@ -969,8 +1038,20 @@ export function ProyectoOptimizacionPage() {
                     className="btn btn--ghost"
                     onClick={() => promptUploadCotizacion(detailRow.id)}
                   >
-                    Subir cotización
+                    {detailRow.tieneCotizacion || detailTree?.project?.cotizacionArchivo
+                      ? 'Actualizar cotización'
+                      : 'Subir cotización'}
                   </button>
+                  {detailRow.tieneCotizacion || detailTree?.project?.cotizacionArchivo ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => void handleDownloadCotizacion(detailRow)}
+                    >
+                      Descargar cotización
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="btn btn--ghost"
@@ -980,6 +1061,16 @@ export function ProyectoOptimizacionPage() {
                       ? 'Actualizar planos'
                       : 'Subir planos'}
                   </button>
+                  {detailRow.tienePlano || detailTree?.project?.planoArchivo ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => void handleDownloadPlanos(detailRow)}
+                    >
+                      Descargar planos
+                    </button>
+                  ) : null}
                   {canMarcarVendido(detailRow) ? (
                     <button
                       type="button"
@@ -992,17 +1083,29 @@ export function ProyectoOptimizacionPage() {
                   ) : null}
                 </>
               ) : null}
-              {detailRow &&
-              tab === TAB_TODOS &&
-              (detailRow.tienePlano || detailTree?.project?.planoArchivo) ? (
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  disabled={busyId === detailRow.id}
-                  onClick={() => void handleDownloadPlanos(detailRow)}
-                >
-                  Descargar planos
-                </button>
+              {detailRow && tab === TAB_TODOS ? (
+                <>
+                  {detailRow.tieneCotizacion || detailTree?.project?.cotizacionArchivo ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => void handleDownloadCotizacion(detailRow)}
+                    >
+                      Descargar cotización
+                    </button>
+                  ) : null}
+                  {detailRow.tienePlano || detailTree?.project?.planoArchivo ? (
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => void handleDownloadPlanos(detailRow)}
+                    >
+                      Descargar planos
+                    </button>
+                  ) : null}
+                </>
               ) : null}
               <button type="button" className="btn btn--ghost" onClick={closeDetail}>
                 Cerrar

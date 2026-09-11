@@ -449,6 +449,39 @@ export function planosProyectoUrl(id) {
   return `${apiPath.replace(/\/+$/, '')}/api/order/proyectos/${id}/planos`
 }
 
+/** Descarga el archivo de cotización del proyecto (requiere JWT). */
+export async function downloadProyectoCotizacion(id, fallbackName = 'cotizacion.pdf') {
+  const tokens = getStoredTokens()
+  const url = cotizacionProyectoUrl(id)
+  const res = await fetch(url, {
+    headers: tokens?.accessToken ? { Authorization: `Bearer ${tokens.accessToken}` } : {},
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    let message = `No se pudo descargar la cotización (${res.status})`
+    try {
+      const body = text ? JSON.parse(text) : null
+      if (body?.message) message = body.message
+      else if (text && text.length < 280) message = text
+    } catch {
+      if (text && text.length < 280) message = text
+    }
+    throw new Error(message)
+  }
+  const blob = await res.blob()
+  if (!blob || blob.size === 0) {
+    throw new Error('El archivo de cotización llegó vacío.')
+  }
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/i)
+  const filename = match?.[1]?.trim() || fallbackName
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 /** Descarga el PDF de planos del proyecto (requiere JWT). */
 export async function downloadProyectoPlanos(id, fallbackName = 'planos.pdf') {
   const tokens = getStoredTokens()
