@@ -305,6 +305,7 @@ export function ProyectoOptimizacionPage() {
   const cotizacionTargetIdRef = useRef(null)
   const planosInputRef = useRef(null)
   const planosTargetIdRef = useRef(null)
+  const [uploadProgress, setUploadProgress] = useState(null)
 
   const setTab = useCallback(
     (id) => {
@@ -559,9 +560,12 @@ export function ProyectoOptimizacionPage() {
     )
     if (!ok) return
     setBusyId(rowId)
+    setUploadProgress({ label: 'Subiendo cotización…', pct: 0 })
     setActionMsg('')
     try {
-      await systemApi.uploadProyectoCotizacion(rowId, file)
+      await systemApi.uploadProyectoCotizacion(rowId, file, {
+        onProgress: (pct) => setUploadProgress({ label: 'Subiendo cotización…', pct }),
+      })
       setActionMsg('Cotización subida. El proyecto pasó a estado Cotizado.')
       await load()
       if (detailRow?.id === rowId) {
@@ -582,6 +586,7 @@ export function ProyectoOptimizacionPage() {
       setActionMsg(err instanceof Error ? err.message : 'No se pudo subir la cotización.')
     } finally {
       setBusyId(null)
+      setUploadProgress(null)
     }
   }
 
@@ -644,9 +649,12 @@ export function ProyectoOptimizacionPage() {
     )
     if (!ok) return
     setBusyId(rowId)
+    setUploadProgress({ label: 'Subiendo planos…', pct: 0 })
     setActionMsg('')
     try {
-      await systemApi.uploadProyectoPlanos(rowId, file)
+      await systemApi.uploadProyectoPlanos(rowId, file, {
+        onProgress: (pct) => setUploadProgress({ label: 'Subiendo planos…', pct }),
+      })
       setActionMsg('Planos subidos. El cliente podrá verlos en el portal (sin descarga).')
       await load()
       if (detailRow?.id === rowId) {
@@ -666,6 +674,7 @@ export function ProyectoOptimizacionPage() {
       setActionMsg(err instanceof Error ? err.message : 'No se pudieron subir los planos.')
     } finally {
       setBusyId(null)
+      setUploadProgress(null)
     }
   }
 
@@ -698,6 +707,24 @@ export function ProyectoOptimizacionPage() {
 
   return (
     <ModulePage>
+      {uploadProgress ? (
+        <div className="upload-progress-overlay" role="status" aria-live="polite">
+          <div className="upload-progress-card">
+            <div className="upload-progress-spinner" aria-hidden />
+            <p className="upload-progress-label">{uploadProgress.label}</p>
+            <p className="upload-progress-pct">{uploadProgress.pct}%</p>
+            <div
+              className="upload-progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={uploadProgress.pct}
+            >
+              <span className="upload-progress-fill" style={{ width: `${uploadProgress.pct}%` }} />
+            </div>
+          </div>
+        </div>
+      ) : null}
       <input
         ref={cotizacionInputRef}
         type="file"

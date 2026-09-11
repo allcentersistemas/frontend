@@ -223,6 +223,99 @@ export async function systemJson(path, init) {
   return backendJson(systemApiBase, path, init, { mergeSystemHeaders: true })
 }
 
+/**
+ * Subida multipart con progreso (0–100). Usa XHR porque fetch no expone upload progress.
+ * @param {string} path
+ * @param {FormData} formData
+ * @param {{ onProgress?: (pct: number) => void, signal?: AbortSignal }} [opts]
+ */
+export function systemUploadWithProgress(path, formData, opts = {}) {
+  const { onProgress, signal } = opts
+  const url = `${systemApiBase}${path.startsWith('/') ? '' : '/'}${path}`
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const t = getStoredTokens()
+      if (t?.accessToken && isAccessTokenExpired(t.accessToken) && t.refreshToken) {
+        await tryRefresh()
+      }
+    } catch (err) {
+      reject(err)
+      return
+    }
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.responseType = 'text'
+    xhr.withCredentials = false
+
+    const headers = new Headers()
+    for (const [k, v] of Object.entries(collectSystemExtraHeaders())) {
+      headers.set(k, v)
+    }
+    for (const [k, v] of Object.entries(sessionClientHeaders())) {
+      headers.set(k, v)
+    }
+    const token = getStoredTokens()?.accessToken
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    headers.forEach((value, key) => {
+      xhr.setRequestHeader(key, value)
+    })
+
+    if (signal) {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'))
+        return
+      }
+      signal.addEventListener(
+        'abort',
+        () => {
+          xhr.abort()
+          reject(new DOMException('Aborted', 'AbortError'))
+        },
+        { once: true },
+      )
+    }
+
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable) {
+        onProgress?.(0)
+        return
+      }
+      const pct = Math.max(0, Math.min(100, Math.round((ev.loaded / ev.total) * 100)))
+      onProgress?.(pct)
+    }
+    xhr.upload.onload = () => onProgress?.(100)
+
+    xhr.onload = () => {
+      const text = xhr.responseText || ''
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (!text) {
+          resolve(null)
+          return
+        }
+        try {
+          resolve(JSON.parse(text))
+        } catch {
+          resolve(text)
+        }
+        return
+      }
+      let message = `HTTP ${xhr.status}`
+      try {
+        const payload = text ? JSON.parse(text) : null
+        message = formatErrorPayload(payload) || text || message
+      } catch {
+        if (text && text.length < 280) message = text
+      }
+      reject(new Error(message))
+    }
+    xhr.onerror = () => reject(new Error('Error de red al subir el archivo'))
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
+    xhr.send(formData)
+  })
+}
+
 /** module-biesse (escaneo OSI) */
 export async function biesseJson(path, init) {
   return backendJson(biesseApiBase, path, init)

@@ -1,6 +1,6 @@
 import { sessionClientHeaders } from '../auth/clientSession'
 import { systemApiBase } from '../config/env'
-import { getStoredTokens, systemEventStream, systemJson } from './http'
+import { getStoredTokens, systemEventStream, systemJson, systemUploadWithProgress } from './http'
 
 /* ——— Auth ——— */
 
@@ -410,13 +410,10 @@ export async function updateProyectoMaquina(id, maquinaId) {
   })
 }
 
-export async function uploadProyectoCotizacion(id, file) {
+export async function uploadProyectoCotizacion(id, file, { onProgress } = {}) {
   const form = new FormData()
   form.append('file', file)
-  return systemJson(`/api/order/proyectos/${id}/cotizacion`, {
-    method: 'POST',
-    body: form,
-  })
+  return systemUploadWithProgress(`/api/order/proyectos/${id}/cotizacion`, form, { onProgress })
 }
 
 export function cotizacionProyectoUrl(id) {
@@ -425,13 +422,10 @@ export function cotizacionProyectoUrl(id) {
   return `${apiPath.replace(/\/+$/, '')}/api/order/proyectos/${id}/cotizacion`
 }
 
-export async function uploadProyectoPlanos(id, file) {
+export async function uploadProyectoPlanos(id, file, { onProgress } = {}) {
   const form = new FormData()
   form.append('file', file)
-  return systemJson(`/api/order/proyectos/${id}/planos`, {
-    method: 'POST',
-    body: form,
-  })
+  return systemUploadWithProgress(`/api/order/proyectos/${id}/planos`, form, { onProgress })
 }
 
 export async function uploadProyectoXmlCorte(id, file) {
